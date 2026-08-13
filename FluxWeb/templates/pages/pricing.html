@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Pricing - Flux Server{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 60px 0;">
+    <div class="container" style="text-align: center;">
+        <h1 style="font-size: 48px; margin-bottom: 16px;">Transparent <span class="highlight">Pricing</span></h1>
+        <p style="margin: 0 auto; max-width: 600px;">Simple plans. Enterprise performance. No hidden fees.</p>
+    </div>
+</section>
+
+<section class="pricing-section">
+    <div class="container">
+        <div class="grid-3">
+            <div class="plan-card">
+                <h3>Minecraft</h3>
+                <p>Perfect for survival or creative servers.</p>
+                <div class="pricing-amount">$4.99<span>/mo</span></div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Unlimited Player Slots</li>
+                    <li><i class="fas fa-check"></i> 9950X Performance</li>
+                    <li><i class="fas fa-check"></i> Global Locations</li>
+                </ul>
+                <a href="/minecraft" class="button">
+                    <span>View Plans</span>
+                    <div class="hoverEffect">
+                        <div></div>
+                    </div>
+                </a>
+            </div>
+            <div class="plan-card featured">
+                <div class="featured-badge-corner">MOST POPULAR</div>
+                <div class="sparkle-stars">
+                    <div class="star-particle s1"></div>
+                    <div class="star-particle s2"></div>
+                    <div class="star-particle s3"></div>
+                    <div class="star-particle s4"></div>
+                    <div class="star-particle s5"></div>
+                </div>
+                <h3>Hytale</h3>
+                <p>Get ready for the next sandbox revolution.</p>
+                <div class="pricing-amount">$6.99<span>/mo</span></div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Early Access Spot</li>
+                    <li><i class="fas fa-check"></i> High Latency Defense</li>
+                    <li><i class="fas fa-check"></i> Premium Support</li>
+                </ul>
+                <a href="/hytale" class="button">
+                    <span>View Plans</span>
+                    <div class="hoverEffect">
+                        <div></div>
+                    </div>
+                </a>
+            </div>
+            <div class="plan-card">
+                <h3>Dedicated</h3>
+                <p>Maximum control and performance.</p>
+                <div class="pricing-amount">$89.99<span>/mo</span></div>
+                <ul class="pricing-features">
+                    <li><i class="fas fa-check"></i> Full Root Access</li>
+                    <li><i class="fas fa-check"></i> Dedicated Resources</li>
+                    <li><i class="fas fa-check"></i> Customizable Setup</li>
+                </ul>
+                <a href="/contact" class="cta">
+                    <span>Contact Sales &nbsp;</span>
+                    <svg viewBox="0 0 13 10" height="10px" width="15px">
+                        <path d="M1,5 L11,5"></path>
+                        <polyline points="8 1 12 5 8 9"></polyline>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

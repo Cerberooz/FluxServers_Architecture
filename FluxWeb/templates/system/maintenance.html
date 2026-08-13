@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Maintenance History - Flux Servers{% endblock %}
+
+{% block content %}
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 32px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--border);
+    }
+
+    .timeline-item {
+        position: relative;
+        margin-bottom: 48px;
+    }
+
+    .timeline-dot {
+        position: absolute;
+        left: -32px;
+        top: 0;
+        width: 12px;
+        height: 12px;
+        background: var(--bg);
+        border: 2px solid var(--primary);
+        border-radius: 50%;
+        transform: translateX(-50%);
+        z-index: 1;
+    }
+
+    .timeline-item.resolved .timeline-dot { border-color: var(--success); }
+    .timeline-item.progress .timeline-dot { border-color: var(--primary); }
+    .timeline-item.scheduled .timeline-dot { border-color: var(--warning); }
+
+    .timeline-date {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .timeline-content {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 24px;
+    }
+
+    .timeline-item-title {
+        font-family: 'Stack Sans Headline', sans-serif;
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .m-status {
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 8px;
+        text-transform: uppercase;
+    }
+
+    .m-status-scheduled { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+    .m-status-progress { background: rgba(59, 130, 246, 0.1); color: var(--primary); }
+    .m-status-resolved { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+
+    .timeline-item-body {
+        color: var(--text-muted);
+        font-size: 15px;
+        white-space: pre-wrap;
+    }
+</style>
+
+<section class="hero" style="padding: 100px 0 60px;">
+    <div class="container" style="text-align: center;">
+        <h1 class="animated-title" style="font-size: 48px;">Maintenance <span class="highlight">History</span></h1>
+        <p style="max-width: 600px; margin: 0 auto;">A chronological record of past and upcoming system maintenance.</p>
+        <div style="margin-top: 24px;">
+            <a href="/status" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to Status</a>
+        </div>
+    </div>
+</section>
+
+<section style="padding: 60px 0;">
+    <div class="container" style="max-width: 800px;">
+        <div class="timeline">
+            {% if updates %}
+                {% for update in updates %}
+                <div class="timeline-item {% if update.status == 'Resolved' %}resolved{% elif update.status == 'In Progress' %}progress{% else %}scheduled{% endif %}" data-aos="fade-up">
+                    <div class="timeline-dot"></div>
+                    <span class="timeline-date">{{ update.created_at.strftime('%B %d, %Y - %H:%M') }}</span>
+                    <div class="timeline-content">
+                        <div class="timeline-item-title">
+                            {{ update.title }}
+                            <span class="m-status 
+                                {% if update.status == 'Scheduled' %}m-status-scheduled
+                                {% elif update.status == 'In Progress' %}m-status-progress
+                                {% else %}m-status-resolved{% endif %}">
+                                {{ update.status }}
+                            </span>
+                        </div>
+                        <div class="timeline-item-body">
+                            {{ update.content }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align: center; padding: 100px 0; color: var(--text-muted);">
+                    <i class="fas fa-history" style="font-size: 48px; margin-bottom: 20px; opacity: 0.2;"></i>
+                    <p>No maintenance history records found.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

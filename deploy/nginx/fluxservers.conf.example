@@ -1,0 +1,46 @@
+# Host Nginx reverse proxy for the unified Docker stack.
+#
+# Copy the matching location block into each existing Certbot-managed server
+# block. Do not replace a live certificate block with this example.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name panel.fluxservers.cloud;
+
+    location / {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name status.fluxservers.cloud;
+
+    location / {
+        proxy_pass http://127.0.0.1:18081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name fluxservers.cloud www.fluxservers.cloud;
+
+    location / {
+        proxy_pass http://127.0.0.1:18082;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

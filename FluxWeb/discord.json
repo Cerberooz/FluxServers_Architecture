@@ -1,0 +1,102 @@
+[
+  {
+    "game": "discord_bot",
+    "name": "Bot Starter",
+    "price": 0.90,
+    "memory": 1024,
+    "cpu": 100,
+    "disk": 2048,
+    "nest_id": "General",
+    "egg_id": 314,
+    "features": [
+      "1 GB RAM",
+      "2 GB SSD",
+      "1 vCPU Core",
+      "Node.js / Python",
+      "24/7 Uptime"
+    ],
+    "is_featured": false,
+    "sub_type": "Discord Bot",
+    "serial_number": 1
+  },
+  {
+    "game": "discord_bot",
+    "name": "Bot Basic",
+    "price": 1.80,
+    "memory": 2048,
+    "cpu": 150,
+    "disk": 4096,
+    "nest_id": "General",
+    "egg_id": 314,
+    "features": [
+      "2 GB RAM",
+      "4 GB SSD",
+      "1.5 vCPU Cores",
+      "Node.js / Python",
+      "24/7 Uptime"
+    ],
+    "is_featured": false,
+    "sub_type": "Discord Bot",
+    "serial_number": 2
+  },
+  {
+    "game": "discord_bot",
+    "name": "Bot Standard",
+    "price": 2.70,
+    "memory": 3072,
+    "cpu": 200,
+    "disk": 6144,
+    "nest_id": "General",
+    "egg_id": 314,
+    "features": [
+      "3 GB RAM",
+      "6 GB SSD",
+      "2 vCPU Cores",
+      "Node.js / Python",
+      "24/7 Uptime"
+    ],
+    "is_featured": true,
+    "sub_type": "Discord Bot",
+    "serial_number": 3
+  },
+  {
+    "game": "discord_bot",
+    "name": "Bot Advanced",
+    "price": 3.60,
+    "memory": 4096,
+    "cpu": 250,
+    "disk": 8192,
+    "nest_id": "General",
+    "egg_id": 314,
+    "features": [
+      "4 GB RAM",
+      "8 GB SSD",
+      "2.5 vCPU Cores",
+      "Node.js / Python",
+      "24/7 Uptime"
+    ],
+    "is_featured": false,
+    "sub_type": "Discord Bot",
+    "serial_number": 4
+  },
+  {
+    "game": "discord_bot",
+    "name": "Bot Pro",
+    "price": 4.50,
+    "memory": 5120,
+    "cpu": 300,
+    "disk": 10240,
+    "nest_id": "General",
+    "egg_id": 314,
+    "features": [
+      "5 GB RAM",
+      "10 GB SSD",
+      "3 vCPU Cores",
+      "Node.js / Python",
+      "24/7 Uptime"
+    ],
+    "is_featured": false,
+    "sub_type": "Discord Bot",
+    "serial_number": 5
+  }
+]

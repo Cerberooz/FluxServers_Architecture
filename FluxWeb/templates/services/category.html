@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ plan_category.name if plan_category else "Game Plans" }} - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="hero" data-aos="fade-up" style="position: relative;">
+    <div class="mesh-bg"></div>
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="animated-title">{{ plan_category.name if plan_category else "Game" }} <span class="highlight">Hosting</span></h1>
+            <p>{{ plan_category.description if plan_category and plan_category.description else "Choose the tier that fits your server. Upgrade anytime as your community grows." }}</p>
+            <div class="hero-buttons">
+                <a href="#plans" class="button">
+                    <span>View Plans</span>
+                    <div class="hoverEffect"><div></div></div>
+                </a>
+                <a href="/contact" class="btn btn-secondary">Custom Plan</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="plans">
+    <div class="container">
+        <h2>{{ plan_category.name if plan_category else "Choose Your Plan" }}</h2>
+        {% include "services/_plan_tabs.html" %}
+        <div class="grid-3">
+            {% for plan in plans %}
+            <div class="plan-card glass-card {% if plan.is_featured %}featured{% endif %}" data-aos="fade-up" data-plan-subcategory="{% if plan.subcategory_id %}subcat-{{ plan.subcategory_id }}{% else %}default{% endif %}">
+                {% if plan.is_featured %}
+                <div class="featured-badge-corner">POPULAR</div>
+                {% endif %}
+                <div class="plan-header" style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+                    {% if plan.image_url %}
+                    <div class="plan-image-container" style="width:auto; height:auto; overflow:hidden; flex-shrink:0;">
+                        <img src="{{ plan.image_url }}" alt="{{ plan.name }}" style="max-width:64px; max-height:64px; width:auto; height:auto; object-fit:contain;">
+                    </div>
+                    {% endif %}
+                    <div class="plan-title-price">
+                        <h3 style="margin:0;">{{ plan.name }}</h3>
+                        <div class="pricing-amount" style="margin-top:4px;">${{ "%.2f"|format(plan.price) }}<span>/mo</span></div>
+                    </div>
+                </div>
+                <div class="plan-specs" style="display: flex; gap: 8px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 15px 0; font-size: 11px; font-weight: 700; color: var(--text-muted);">
+                    <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px;"><i class="fas fa-memory" style="color: var(--primary);"></i> {{ (plan.memory / 1024)|round(1)|replace('.0', '') if plan.memory >= 1024 else plan.memory }} {{ "GB" if plan.memory >= 1024 else "MB" }} RAM</span>
+                    <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px;"><i class="fas fa-microchip" style="color: #a855f7;"></i> {{ plan.cpu }}% CPU</span>
+                    <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px;"><i class="fas fa-hdd" style="color: #10b981;"></i> {{ (plan.disk / 1024)|round(1)|replace('.0', '') if plan.disk >= 1024 else plan.disk }} {{ "GB" if plan.disk >= 1024 else "MB" }} Disk</span>
+                </div>
+                <ul class="pricing-features">
+                    {% for feature in plan.feature_list %}
+                    <li><i class="fas fa-check"></i> {{ feature }}</li>
+                    {% endfor %}
+                </ul>
+                <div class="plan-cart-action" data-plan-id="{{ plan.id }}" data-plan-name="{{ plan.name }}" data-plan-price="{{ plan.price }}" data-plan-game="{{ plan.game }}">
+                    <a class="cart-button" href="{{ url_for('cart.customize_plan', plan_id=plan.id) }}">
+                        <span class="cart-icon"><i class="fas fa-shopping-cart"></i></span>
+                        Add to Cart
+                        <div class="progress-bar"></div>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

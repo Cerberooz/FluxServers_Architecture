@@ -1,0 +1,228 @@
+{# The plan edit form.
+
+   Shared by the full page (admin/edit_plan.html) and by the dashboard's edit
+   modal, which fetches this partial with ?fragment=1. One definition means the
+   modal can never drift from the real form.
+
+   `action` is set explicitly so the form works when injected into a page whose
+   own URL is /admin rather than /admin/plans/edit/<id>. #}
+        <form method="POST" action="/admin/plans/edit/{{ plan.id }}" data-plan-form data-plan-id="{{ plan.id }}" enctype="multipart/form-data" class="glass-card plan-edit-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Plan Name</label>
+                    <input type="text" name="name" value="{{ plan.name }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Price (USD)</label>
+                    <input type="number" step="0.01" name="price" value="{{ plan.price }}" required>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Category</label>
+                    <select name="category_id" id="edit-category-select" onchange="updateSubcategoryOptions('edit-category-select', 'edit-subcategory-select', document.getElementById('edit-subcategory-select').value)" required>
+                        <option value="">Select Category</option>
+                        {% for category in plan_categories %}
+                        <option value="{{ category.id }}" {% if plan.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Subcategory</label>
+                    <select name="subcategory_id" id="edit-subcategory-select" data-current-subcategory-id="{{ plan.subcategory_id or '' }}">
+                        <option value="">No subcategory</option>
+                        {% if plan.category_id and plan_subcategories_by_category.get(plan.category_id) %}
+                            {% for subcategory in plan_subcategories_by_category.get(plan.category_id) %}
+                            <option value="{{ subcategory.id }}" {% if plan.subcategory_id == subcategory.id %}selected{% endif %}>{{ subcategory.name }}</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Billing Type</label>
+                    <select name="sub_type" required>
+                        <option value="Monthly" {% if plan.sub_type == 'Monthly' %}selected{% endif %}>Monthly</option>
+                        <option value="Subscription" {% if plan.sub_type == 'Subscription' %}selected{% endif %}>Subscription</option>
+                        <option value="One-time" {% if plan.sub_type == 'One-time' %}selected{% endif %}>One-time</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Serial Number</label>
+                    <input type="number" name="serial_number" value="{{ plan.serial_number }}" required>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Resource Limits</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>RAM</label>
+                    <div class="unit-pair" data-unit-pair>
+                        <input type="number" step="0.01" min="0" data-unit-gb placeholder="RAM (GB)">
+                        <input type="number" min="0" name="memory" value="{{ plan.memory }}" data-unit-mb placeholder="RAM (MB)" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>CPU (%)</label>
+                    <input type="number" name="cpu" value="{{ plan.cpu }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Disk</label>
+                    <div class="unit-pair" data-unit-pair>
+                        <input type="number" step="0.01" min="0" data-unit-gb placeholder="Disk (GB)">
+                        <input type="number" min="0" name="disk" value="{{ plan.disk }}" data-unit-mb placeholder="Disk (MB)" required>
+                    </div>
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Feature Limits</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Backups Limit</label>
+                    <input type="number" name="backups" value="{{ plan.backups or 1 }}" required min="0">
+                </div>
+                <div class="form-group">
+                    <label>Allocations Limit</label>
+                    <input type="number" name="allocations" value="{{ plan.allocations or 1 }}" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Databases Limit</label>
+                    <input type="number" name="databases" value="{{ plan.databases or 1 }}" required min="0">
+                </div>
+            </div>
+
+            <h3 style="margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Fluid Panel Configuration</h3>
+            
+            <div style="display: grid; grid-template-columns: 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Nest</label>
+                    {% if nests %}
+                    <select name="nest_id" id="edit-nest-select" onchange="loadEggs(this.value, 'edit-egg-select', '')" required style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+                        <option value="">Select Nest</option>
+                        {% for nest in nests %}
+                        <option value="{{ nest.attributes.id }}" {% if nest.attributes.id|string == plan.nest_id|string %}selected{% endif %}>
+                            {{ nest.attributes.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <input type="text" name="nest_id" value="{{ plan.nest_id or 'General' }}" required>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Server Locations</label>
+                {% if locations or location_labels %}
+                <div class="server-location-picker" data-server-location-picker>
+                    <div class="server-location-picker-controls">
+                        <select data-server-location-select>
+                            <option value="">Add server location</option>
+                            {% if locations %}
+                                {% for loc in locations %}
+                                <option value="{{ loc.attributes.id }}" data-label="{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})">{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})</option>
+                                {% endfor %}
+                            {% else %}
+                                {% for node_id, label in location_labels.items() %}
+                                <option value="{{ node_id }}" data-label="{{ label }}">{{ label }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                        <button type="button" class="btn-action btn-secondary" data-server-location-add>Add</button>
+                        <button type="button" class="btn-action btn-secondary" data-server-location-add-all>Add all</button>
+                    </div>
+                    <div class="server-location-list" data-server-location-list>
+                        {% if locations %}
+                            {% for loc in locations %}
+                                {% if loc.attributes.id in plan.allowed_node_ids %}
+                                <span class="server-location-pill" data-location-id="{{ loc.attributes.id }}">
+                                    <input type="hidden" name="allowed_location_ids" value="{{ loc.attributes.id }}">
+                                    <span>{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})</span>
+                                    <button type="button" data-remove-location aria-label="Remove location">&times;</button>
+                                </span>
+                                {% endif %}
+                            {% endfor %}
+                        {% elif location_labels %}
+                            {% for node_id, label in location_labels.items() %}
+                                {% if node_id in plan.allowed_node_ids %}
+                                <span class="server-location-pill" data-location-id="{{ node_id }}">
+                                    <input type="hidden" name="allowed_location_ids" value="{{ node_id }}">
+                                    <span>{{ label }}</span>
+                                    <button type="button" data-remove-location aria-label="Remove location">&times;</button>
+                                </span>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Customers will only be able to pick from these server locations during checkout.</p>
+                {% else %}
+                <textarea name="allowed_location_ids_text" rows="3" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: vertical;">{% for node_id in plan.allowed_node_ids %}{{ node_id }}{% if not loop.last %}&#10;{% endif %}{% endfor %}</textarea>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Enter allowed node IDs, one per line.</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Egg</label>
+                {% if nests %}
+                <div class="server-location-picker" data-egg-picker>
+                    <div class="server-location-picker-controls">
+                        <select id="edit-egg-select" data-egg-select data-current-egg-ids="{{ plan.allowed_eggs|join(',') }}">
+                            <option value="">Loading eggs...</option>
+                        </select>
+                        <button type="button" class="btn-action btn-secondary" data-egg-add>Add</button>
+                        <button type="button" class="btn-action btn-secondary" data-egg-add-all>Add all</button>
+                    </div>
+                    <div class="server-location-list" data-egg-list>
+                        {% for egg_id in plan.allowed_eggs %}
+                        <span class="server-location-pill" data-egg-id="{{ egg_id }}">
+                            <input type="hidden" name="allowed_egg_ids" value="{{ egg_id }}">
+                            <span>Software #{{ egg_id }}</span>
+                            <button type="button" data-remove-egg aria-label="Remove egg">&times;</button>
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Customers will only be able to pick from these eggs during checkout. The first pill becomes the default.</p>
+                {% else %}
+                <input type="number" name="egg_id" value="{{ plan.egg_id or 1 }}" required min="1">
+                <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">Fluid API is offline, so enter the egg ID manually.</p>
+                {% endif %}
+            </div>
+
+            <h3 style="margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Display Features</h3>
+            <div class="form-group">
+                <label>Features (One per line)</label>
+                <textarea name="features" rows="5" placeholder="10GB NVMe&#10;Ryzen 9 9950X&#10;DDoS Protection" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); resize: vertical;">{% for f in plan.feature_list %}{{ f }}{% if not loop.last %}&#10;{% endif %}{% endfor %}</textarea>
+            </div>
+
+            <h3 style="margin-top: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Plan Image</h3>
+            {% if plan.image_url %}
+            <div style="margin-bottom: 15px;">
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Current Image:</p>
+                <img src="{{ plan.image_url }}" alt="Preview" style="max-height: 100px; border-radius: 8px; border: 1px solid var(--border);">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; margin-top: 8px; cursor: pointer; color: var(--danger);">
+                    <input type="checkbox" name="remove_image" style="width: 16px; height: 16px; margin: 0;"> Remove current image
+                </label>
+            </div>
+            {% endif %}
+            <div class="form-group">
+                <label>Upload New Image</label>
+                <input type="file" name="image" accept="image/*">
+            </div>
+
+            <label style="display: flex; align-items: center; gap: 10px; margin: 16px 0 0; cursor: pointer; font-size: 14px; font-weight: 600;">
+                <input type="checkbox" name="is_featured" style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;" {% if plan.is_featured %}checked{% endif %}>
+                <i class="fas fa-star" style="color: #f59e0b;"></i> Mark as Popular
+            </label>
+
+            <button type="submit" class="button" style="width: 100%; height: 55px; border-radius: 12px; margin-top: 20px;">
+                <span>Save Changes</span>
+                <div class="hoverEffect"><div></div></div>
+            </button>
+        </form>

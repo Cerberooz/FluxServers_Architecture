@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Upgrade Server - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 120px 0 40px;">
+    <div class="container">
+        <h1 class="animated-title">Upgrade <span class="highlight">Server</span></h1>
+        <p style="text-align: center; color: var(--text-muted); max-width: 600px; margin: 0 auto;">
+            Scale your resources for <strong>{{ server.pelican_server_identifier }}</strong>. You only pay the difference between your current plan and the new one.
+        </p>
+    </div>
+</section>
+
+<section style="padding: 40px 0 100px;">
+    <div class="container">
+        <!-- Current Plan Info -->
+        <div class="glass-card" style="padding: 30px; margin-bottom: 60px; border-radius: 24px; display: flex; align-items: center; justify-content: space-between; background: var(--bg); border: 1px solid var(--border);">
+            <div>
+                <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Current Plan</span>
+                <h3 style="margin: 5px 0 0; font-size: 28px;">{{ current_plan.name }}</h3>
+            </div>
+            <div style="text-align: right;">
+                <span style="font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Current Price</span>
+                <h3 style="margin: 5px 0 0; font-size: 28px; color: var(--primary);">${{ "%.2f"|format(current_plan.price) }}<span style="font-size: 14px; color: var(--text-muted);">/mo</span></h3>
+            </div>
+        </div>
+
+        <h2 style="margin-bottom: 40px; text-align: center;">Available <span class="highlight">Upgrades</span></h2>
+
+        <div class="grid-3">
+            {% if upgrade_plans %}
+                {% for plan in upgrade_plans %}
+                <div class="plan-card glass-card" data-aos="fade-up" data-aos-delay="{{ loop.index0 * 100 }}">
+                    <h3>{{ plan.name }}</h3>
+                    <div class="pricing-amount">${{ "%.2f"|format(plan.price) }}<span>/mo</span></div>
+                    
+                    <div style="background: var(--primary-glow); padding: 12px; border-radius: 12px; margin: 20px 0; text-align: center; border: 1px solid var(--primary-glow);">
+                        <span style="font-size: 12px; font-weight: 700; color: var(--primary); text-transform: uppercase;">Upgrade Price</span>
+                        <div style="font-size: 24px; font-weight: 800; color: var(--primary);">$ {{ "%.2f"|format(plan.price - current_plan.price) }}</div>
+                        <span style="font-size: 10px; color: var(--text-muted);">One-time payment for the current month</span>
+                    </div>
+
+                    <ul class="pricing-features">
+                        <li><i class="fas fa-check"></i> {{ plan.feature1 }}</li>
+                        <li><i class="fas fa-check"></i> {{ plan.feature2 }}</li>
+                        <li><i class="fas fa-check"></i> {{ plan.feature3 }}</li>
+                        <li><i class="fas fa-check"></i> {{ plan.feature4 }}</li>
+                    </ul>
+
+                    <button onclick="addUpgradeToCart({{ server.id }}, {{ plan.id }})" class="button" style="width: 100%;">
+                        <span>Add Upgrade to Cart</span>
+                        <div class="hoverEffect"><div></div></div>
+                    </button>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="glass-card" style="grid-column: 1/-1; padding: 60px; text-align: center;">
+                    <i class="fas fa-rocket" style="font-size: 48px; color: var(--primary); margin-bottom: 20px;"></i>
+                    <h3>You're on the Top Plan!</h3>
+                    <p>This server is already running our highest available plan for this category. If you need even more power, please contact us for a custom dedicated solution.</p>
+                    <a href="/contact" class="btn-nav" style="margin-top: 20px;">Contact Support</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <div style="margin-top: 60px; text-align: center;">
+            <a href="/account" style="color: var(--text-muted); text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</section>
+
+<script>
+async function addUpgradeToCart(serverId, planId) {
+    try {
+        const response = await fetch(`/add-upgrade-to-cart/${serverId}/${planId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'success') {
+            // Redirect to cart
+            window.location.href = '/cart';
+        } else {
+            alert(data.message || 'Failed to add upgrade to cart');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred. Please try again.');
+    }
+}
+</script>
+{% endblock %}

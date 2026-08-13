@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+
+{% block title %}Dedicated Bare Metal Servers - Flux Servers{% endblock %}
+
+{% block content %}
+<style>
+    .dedicated-table-container {
+        overflow-x: auto;
+        margin-top: 40px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 10px;
+    }
+
+    .dedicated-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+    }
+
+    .dedicated-table th {
+        text-align: left;
+        padding: 20px;
+        color: var(--text-muted);
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .dedicated-table td {
+        padding: 24px 20px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+
+    .dedicated-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .cpu-info h3 {
+        font-size: 18px;
+        margin-bottom: 4px;
+        color: #fff;
+    }
+
+    .cpu-info span {
+        font-size: 12px;
+        color: var(--success);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .spec-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .spec-value {
+        font-weight: 700;
+        font-size: 16px;
+        color: #fff;
+    }
+
+    .spec-label {
+        font-size: 12px;
+        color: var(--text-muted);
+    }
+
+    .price-col {
+        font-size: 24px;
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .price-col span {
+        font-size: 14px;
+        color: var(--text-muted);
+        font-weight: 400;
+    }
+
+    .location-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 4px;
+    }
+
+    .os-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 20px;
+        margin-top: 40px;
+    }
+
+    .os-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        transition: 0.3s;
+    }
+
+    .os-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--primary);
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.1);
+    }
+
+    .os-card i {
+        font-size: 32px;
+        margin-bottom: 12px;
+        color: var(--primary);
+    }
+
+    .os-card p {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .feature-pill {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        padding: 8px 16px;
+        border-radius: 100px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .feature-pill i {
+        color: var(--primary);
+    }
+</style>
+
+<section class="hero" style="padding: 100px 0 60px; position: relative;">
+    <div class="mesh-bg"></div>
+    <div class="container" style="text-align: center;">
+        <div class="feature-pill" style="margin: 0 auto 24px; width: fit-content;">
+            <i class="fas fa-microchip"></i> Enterprise Bare Metal
+        </div>
+        <h1 class="animated-title" style="font-size: 56px;">Raw <span class="highlight">Performance</span></h1>
+        <p style="max-width: 700px; margin: 0 auto;">Experience the true power of dedicated hardware. No virtualization, no shared resources—just pure, unadulterated performance for your most demanding applications.</p>
+    </div>
+</section>
+
+<section id="plans" style="padding: 40px 0;">
+    <div class="container">
+        <h2 style="text-align: center; margin-bottom: 40px;">Choose Your Plan</h2>
+        {% include "services/_plan_tabs.html" %}
+        <div class="grid-3">
+            {% for plan in plans %}
+<div class="plan-card glass-card {% if plan.is_featured %}featured{% endif %}" data-aos="fade-up" data-plan-subcategory="{% if plan.subcategory_id %}subcat-{{ plan.subcategory_id }}{% else %}default{% endif %}">
+                    {% if plan.is_featured %}
+                <div class="featured-badge-corner">POPULAR</div>
+                <div class="sparkle-stars">
+                    <div class="star-particle s1"></div>
+                    <div class="star-particle s2"></div>
+                    <div class="star-particle s3"></div>
+                    <div class="star-particle s4"></div>
+                    <div class="star-particle s5"></div>
+                </div>
+                {% endif %}
+                    <div class="plan-header" style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    {% if plan.image_url %}
+    <div class="plan-image-container" style="width:auto; height:auto; overflow:hidden; flex-shrink:0;">
+        <img src="{{ plan.image_url }}" alt="{{ plan.name }}" style="max-width:64px; max-height:64px; width:auto; height:auto; object-fit:contain;">
+    </div>
+    {% endif %}
+    <div class="plan-title-price">
+        <h3 style="margin:0;">{{ plan.name }}</h3>
+        <div class="pricing-amount" style="margin-top:4px;">${{ "%.2f"|format(plan.price) }}<span>/mo</span></div>
+    </div>
+</div>
+                <div class="plan-specs" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 15px 0; font-size: 11px; font-weight: 700; color: var(--text-muted);">
+                    <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-memory" style="color: var(--primary);"></i>
+                        {% if plan.memory >= 1024 %}
+                            {{ (plan.memory / 1024)|round(1)|replace('.0', '') }} GB RAM
+                        {% else %}
+                            {{ plan.memory }} MB RAM
+                        {% endif %}
+                    </span>
+                    <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-microchip" style="color: #a855f7;"></i>
+                        {{ plan.cpu }}% CPU
+                    </span>
+                    <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-hdd" style="color: #10b981;"></i>
+                        {% if plan.disk >= 1024 %}
+                            {{ (plan.disk / 1024)|round(1)|replace('.0', '') }} GB Disk
+                        {% else %}
+                            {{ plan.disk }} MB Disk
+                        {% endif %}
+                    </span>
+                </div>
+                <ul class="pricing-features">
+                    {% for feature in plan.feature_list %}
+                    <li><i class="fas fa-check"></i> {{ feature }}</li>
+                    {% endfor %}
+                </ul>
+                            <div class="plan-cart-action"
+                                data-plan-id="{{ plan.id }}"
+                                data-plan-name="{{ plan.name }}"
+                                data-plan-price="{{ plan.price }}"
+                                data-plan-game="{{ plan.game }}">
+                                <!-- From Uiverse.io by prikshit_1236 -->
+                                <a class="cart-button" href="{{ url_for('cart.customize_plan', plan_id=plan.id) }}">
+                                  <span class="cart-icon">
+                                    <svg
+                                      stroke-linejoin="round"
+                                      stroke-linecap="round"
+                                      stroke-width="2"
+                                      stroke="currentColor"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      height="24"
+                                      width="24"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                    >
+                                      <circle r="1" cy="21" cx="9"></circle>
+                                      <circle r="1" cy="21" cx="20"></circle>
+                                      <path
+                                        d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
+                                      ></path>
+                                    </svg>
+                                  </span>
+
+                                  Add to Cart
+                                  <div class="progress-bar"></div>
+                                </a>
+                            </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<style>
+    .os-deployment-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 60px;
+        gap: 60px;
+    }
+    .os-deployment-text {
+        flex: 1;
+        text-align: left;
+    }
+    .os-deployment-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+    .os-item {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        width: 80px;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+    .os-item img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        transition: all 0.3s ease;
+    }
+    .os-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    .os-item.active-hover {
+        background: rgba(59, 130, 246, 0.05);
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+    .os-item:hover img {
+        transform: scale(1.1);
+    }
+    .os-item-plus {
+        font-size: 24px;
+        color: var(--text-muted);
+        transition: all 0.3s ease;
+    }
+    .os-item:hover .os-item-plus {
+        color: var(--primary);
+    }
+    .os-label {
+        position: absolute;
+        bottom: -25px;
+        font-size: 13px;
+        color: var(--text-muted);
+        opacity: 0;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+    .os-item:hover .os-label, .os-item.active-hover .os-label {
+        opacity: 1;
+    }
+
+    @media (max-width: 991px) {
+        .os-deployment-section {
+            flex-direction: column;
+            text-align: center;
+            padding: 40px;
+        }
+        .os-deployment-grid {
+            margin-top: 40px;
+        }
+    }
+    @media (max-width: 480px) {
+        .os-deployment-grid {
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .os-item {
+            width: 60px;
+            height: 60px;
+        }
+        .os-item img {
+            width: 30px;
+            height: 30px;
+        }
+    }
+</style>
+
+<section style="padding: 80px 0;">
+    <div class="container">
+        <div class="os-deployment-section" data-aos="fade-up">
+            <div class="os-deployment-text">
+                <h2 style="font-size: clamp(36px, 5vw, 56px); font-weight: 800; margin-bottom: 20px; line-height: 1.1; letter-spacing: -1px; margin-left: 0;">Deploy on<br><span id="dynamic-os" style="color: #3b82f6; transition: opacity 0.15s ease, color 0.15s ease;">Windows</span>,<br>or bring your own.</h2>
+                <p style="color: var(--text-muted); font-size: 18px; line-height: 1.6; max-width: 400px; margin-left: 0;">Choose from 20+ operating system templates.<br>Rebuild, rescue, or switch your OS instantly.</p>
+            </div>
+            <div class="os-deployment-grid">
+                <!-- Windows -->
+                <div class="os-item active-hover" onmouseover="updateOS(this, 'Windows', '#3b82f6')">
+                    <img src="{{ url_for('static', filename='os/Windows.svg') }}" alt="Windows">
+                    <span class="os-label">Windows</span>
+                </div>
+                <!-- Ubuntu -->
+                <div class="os-item" onmouseover="updateOS(this, 'Ubuntu', '#e95420')">
+                    <img src="{{ url_for('static', filename='os/Ubuntu.svg') }}" alt="Ubuntu">
+                    <span class="os-label">Ubuntu</span>
+                </div>
+                <!-- Debian -->
+                <div class="os-item" onmouseover="updateOS(this, 'Debian', '#d70a53')">
+                    <img src="{{ url_for('static', filename='os/Debian.svg') }}" alt="Debian">
+                    <span class="os-label">Debian</span>
+                </div>
+                <!-- CentOS -->
+                <div class="os-item" onmouseover="updateOS(this, 'CentOS', '#8fc641')">
+                    <img src="{{ url_for('static', filename='os/Centos.svg') }}" alt="CentOS">
+                    <span class="os-label">CentOS</span>
+                </div>
+                <!-- AlmaLinux -->
+                <div class="os-item" onmouseover="updateOS(this, 'AlmaLinux', '#3b82f6')">
+                    <img src="{{ url_for('static', filename='os/Almalinux.svg') }}" alt="AlmaLinux">
+                    <span class="os-label">AlmaLinux</span>
+                </div>
+                <!-- RockyLinux -->
+                <div class="os-item" onmouseover="updateOS(this, 'Rocky Linux', '#10b981')">
+                    <img src="{{ url_for('static', filename='os/Rockylinux.svg') }}" alt="Rocky Linux">
+                    <span class="os-label">Rocky Linux</span>
+                </div>
+                <!-- Proxmox -->
+                <div class="os-item" onmouseover="updateOS(this, 'Proxmox', '#e57000')">
+                    <img src="{{ url_for('static', filename='os/prox.svg') }}" alt="Proxmox">
+                    <span class="os-label">Proxmox</span>
+                </div>
+                <!-- Plus Icon -->
+                <div class="os-item" onmouseover="updateOS(this, 'anything', '#a855f7')">
+                    <i class="fas fa-plus os-item-plus"></i>
+                    <span class="os-label">Custom</span>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function updateOS(element, name, color) {
+                const osSpan = document.getElementById('dynamic-os');
+                
+                // Skip if same OS
+                if (osSpan.textContent === name) return;
+
+                // Fade out
+                osSpan.style.opacity = '0';
+                
+                setTimeout(() => {
+                    // Update text and color
+                    osSpan.textContent = name;
+                    osSpan.style.color = color;
+                    // Fade in
+                    osSpan.style.opacity = '1';
+                }, 150); // wait for fade out
+                
+                // Update active-hover class
+                document.querySelectorAll('.os-item').forEach(item => item.classList.remove('active-hover'));
+                element.classList.add('active-hover');
+                
+                // Change border color of active item
+                element.style.borderColor = color + '40'; // add some transparency for hex
+            }
+            
+            // Clean up inline border color on mouseout so css takes over
+            document.querySelectorAll('.os-item').forEach(item => {
+                item.addEventListener('mouseout', function() {
+                    if(!this.classList.contains('active-hover')) {
+                        this.style.borderColor = '';
+                    }
+                });
+            });
+        </script>
+
+        <div style="margin-top: 100px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px;">
+            <div class="card" style="padding: 40px; text-align: left; align-items: flex-start; justify-content: flex-start;">
+                <div class="icon-premium"><i class="fas fa-shield-alt"></i></div>
+                <h3>Advanced Security</h3>
+                <p>Every dedicated server includes 12Tbps+ multi-layered DDoS protection as standard. Stay online through the most complex attacks.</p>
+                <ul style="list-style: none; padding: 0; color: var(--text-muted); font-size: 14px;">
+                    <li style="margin-bottom: 10px;"><i class="fas fa-check-circle" style="color: var(--success); font-size: 14px;"></i> Real-time mitigation</li>
+                    <li style="margin-bottom: 10px;"><i class="fas fa-check-circle" style="color: var(--success); font-size: 14px;"></i> Layer 7 protection</li>
+                </ul>
+            </div>
+            <div class="card" style="padding: 40px; text-align: left; align-items: flex-start; justify-content: flex-start;">
+                <div class="icon-premium"><i class="fas fa-tools"></i></div>
+                <h3>Full Control</h3>
+                <p>Manage your hardware like you're standing in front of it. All servers come with IPMI/iDRAC access and a comprehensive control panel.</p>
+                <ul style="list-style: none; padding: 0; color: var(--text-muted); font-size: 14px;">
+                    <li style="margin-bottom: 10px;"><i class="fas fa-check-circle" style="color: var(--success); font-size: 14px;"></i> Remote Power Management</li>
+                    <li style="margin-bottom: 10px;"><i class="fas fa-check-circle" style="color: var(--success); font-size: 14px;"></i> VNC Console Access</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section" style="background: rgba(59, 130, 246, 0.05); padding: 100px 0;">
+    <div class="container">
+            <div class="custom-solution-card" data-aos="fade-up">
+                <div class="custom-solution-content">
+                    <h2>Need a custom solution?</h2>
+                    <p>Looking for customized cloud infrastructure or specific performance needs? Our team is ready to help.</p>
+                </div>
+                <div class="custom-solution-actions">
+                    <a href="https://discord.gg/8YdvzqSk9D" target="_blank" class="btn-discord">Join Discord</a>
+                    <a href="/contact" class="btn-support">Contact Support</a>
+                </div>
+            </div>
+    </div>
+</section>
+
+<style>
+    .custom-solution-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 40px 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 40px;
+        text-align: left;
+        transition: all 0.3s ease;
+    }
+
+    .custom-solution-content h2 {
+        font-size: 36px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: var(--text);
+    }
+
+    .custom-solution-content p {
+        font-size: 18px;
+        color: var(--text-muted);
+        margin: 0;
+    }
+
+    .custom-solution-actions {
+        display: flex;
+        gap: 16px;
+        flex-shrink: 0;
+    }
+
+    .btn-discord {
+        background: #2563eb;
+        color: #fff;
+        padding: 14px 32px;
+        border-radius: 100px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+
+    .btn-discord:hover {
+        background: #1d4ed8;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+    }
+
+    .btn-support {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--text);
+        padding: 14px 32px;
+        border-radius: 100px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+
+    .btn-support:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 991px) {
+        .custom-solution-card {
+            flex-direction: column;
+            text-align: center;
+            padding: 40px;
+        }
+        .custom-solution-content h2 { font-size: 28px; }
+    }
+</style>
+{% endblock %}

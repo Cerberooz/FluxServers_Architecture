@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FluxServers - System Status</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='13 2 3 14 12 14 11 22 21 10 12 10 13 2'></polygon></svg>">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        
+        <!-- HEADER SECTION -->
+        <header class="header">
+            <!-- Dynamic Status Pill -->
+            <div class="status-pill-main {{ 'pill-error' if error else 'pill-operational' if active_count == total else 'pill-degraded' if active_count > 0 else 'pill-offline' }}">
+                {% if error or active_count == 0 %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    <span>{{ 'Panel Unreachable' if error else 'All Nodes Offline' }}</span>
+                {% elif active_count == total %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                    </svg>
+                    <span>All Systems Operational</span>
+                {% else %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span>{{ active_count }}/{{ total }} nodes active</span>
+                {% endif %}
+            </div>
+            
+            <h1 class="main-title">System <span class="text-blue">Status</span></h1>
+            <p class="subtitle">Real-time status updates for Flux Servers platform and infrastructure.</p>
+        </header>
+
+        <!-- GLOBAL PROGRESS -->
+        {% if not error %}
+        <div class="progress-section">
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progress }}%;"></div>
+            </div>
+            <div class="progress-text">{{ progress }}% Active ({{ active_count }}/{{ total }} nodes)</div>
+        </div>
+        {% endif %}
+
+        <!-- ERROR MESSAGE -->
+        {% if error %}
+        <div class="error-message">
+            <p>{{ error_message }}</p>
+            <button class="btn" onclick="location.reload()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+                Retry
+            </button>
+        </div>
+        {% endif %}
+
+        <!-- NODES GRID -->
+        {% if not error and nodes %}
+        <section class="node-regions" aria-label="Node status by region">
+            {% for group in node_groups %}
+            <div class="region-group">
+                <h2 class="region-title">{{ group.name }}</h2>
+                <div class="nodes-grid">
+                    {% for node in group.nodes %}
+                    <div class="node-card">
+                        <div class="node-card-header">
+                            <div class="node-info">
+                            <div class="node-title">
+                                <span class="location-flag">
+                                    {% if node.flag_url %}
+                                    <img src="{{ node.flag_url }}" alt="{{ node.location_name }} flag" loading="lazy">
+                                    {% else %}
+                                    <span aria-hidden="true">🌐</span>
+                                    {% endif %}
+                                </span>
+                                <h3>{{ node.name }} <span class="node-location">- {{ node.location_name }}</span></h3>
+                                </div>
+                                <p class="node-meta">{{ 'Public' if node.public else 'Private' }}</p>
+                            </div>
+                            <div class="badge {{ 'badge-operational' if node.status == 'active' else 'badge-offline' }}">
+                                {{ 'OPERATIONAL' if node.status == 'active' else 'MAINTENANCE' }}
+                            </div>
+                        </div>
+
+                        <div class="mini-capacity" aria-label="Node capacity">
+                            <div class="capacity-row">
+                                <div class="capacity-label">
+                                    <span>Availability</span>
+                                    {% if node.memory.known %}
+                                    <strong>{{ '%.2f'|format(node.memory.free_percent) }}%</strong>
+                                    {% else %}
+                                    <strong>Unavailable</strong>
+                                    {% endif %}
+                                </div>
+                                <div class="capacity-ticks {{ 'capacity-low' if node.memory.free_percent < 20 else 'capacity-medium' if node.memory.free_percent < 40 else '' }}" aria-hidden="true">
+                                    {% set filled_ticks = ((node.memory.free_percent / 100) * 60)|round(0, 'floor')|int %}
+                                    {% for tick in range(60) %}
+                                    <span class="capacity-tick{% if tick < filled_ticks %} is-filled{% endif %}"></span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+
+        {% elif not error and not nodes %}
+        <div class="empty-state">
+            <p>No nodes found in this Pterodactyl panel.</p>
+        </div>
+        {% endif %}
+
+        <footer>
+            <p>FluxServers Status &copy; {{ now.year if now else '' }} &bull; Powered by Pterodactyl API</p>
+        </footer>
+    </div>
+</body>
+</html>

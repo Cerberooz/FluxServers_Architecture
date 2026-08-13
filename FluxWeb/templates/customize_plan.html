@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Configure {{ plan.name }} - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="configure-page">
+    <div class="mesh-bg"></div>
+    <div class="container configure-container">
+        <a href="javascript:history.back()" class="configure-back"><i class="fas fa-arrow-left"></i> Back to plans</a>
+
+        <div class="configure-heading glass-card">
+            <div>
+                <p>Configure your server</p>
+                <h1>{{ plan.name }}</h1>
+                <span>Choose where this server runs before adding it to your cart.</span>
+            </div>
+            <div class="configure-price">
+                <strong>${{ "%.2f"|format(plan.price) }}</strong>
+                <small>/month</small>
+            </div>
+        </div>
+
+        <form method="post" class="configure-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="configure-grid">
+                <div class="configure-main">
+                    <section class="configure-section glass-card">
+                        <div class="configure-section-title">
+                            <span class="configure-number">1</span>
+                            <div>
+                                <h2>Server location</h2>
+                                <p>Your server will be created on the node/location you choose.</p>
+                            </div>
+                        </div>
+                        <div class="choice-grid">
+                            {% set location_selection = namespace(chosen=false) %}
+                            {% for node in nodes %}
+                            {% set is_default = node.available and not location_selection.chosen %}
+                            {% if is_default %}{% set location_selection.chosen = true %}{% endif %}
+                            <label class="choice-card location-choice{% if node.availability_known and not node.available %} is-unavailable{% endif %}" data-ping-host="{{ node.fqdn }}" data-unavailability-reason="{{ node.unavailability_reason }}">
+                                <input type="radio" name="node_id" value="{{ node.id }}" {% if is_default %}checked{% endif %} {% if node.availability_known and not node.available %}disabled{% endif %} required>
+                                <span class="location-flag">
+                                    {% if node.flag_url %}
+                                    <img src="{{ node.flag_url }}" alt="{{ node.location or node.name }} flag" loading="lazy">
+                                    {% else %}
+                                    <i class="fas fa-globe"></i>
+                                    {% endif %}
+                                </span>
+                                <span class="choice-content">
+                                    <strong>{{ node.label or node.name }}</strong>
+                                    <small class="location-latency" data-latency>{% if node.fqdn %}Checking latency...{% else %}Latency unavailable{% endif %}</small>
+                                </span>
+                                <span class="choice-check"><i class="fas fa-check"></i></span>
+                            </label>
+                            {% else %}
+                            <p class="choice-empty">No locations are available for this plan. Please contact support.</p>
+                            {% endfor %}
+                        </div>
+                    </section>
+
+                    <section class="configure-section glass-card">
+                        <div class="configure-section-title">
+                            <span class="configure-number">2</span>
+                            <div>
+                                <h2>Server software</h2>
+                                <p>Select the egg that determines the server software and startup configuration.</p>
+                            </div>
+                        </div>
+                        <div class="choice-grid">
+                            {% for egg in eggs %}
+                            <label class="choice-card">
+                                <input type="radio" name="egg_id" value="{{ egg.id }}" {% if loop.first %}checked{% endif %} required>
+                                <span class="choice-content">
+                                    <strong>{{ egg.name }}</strong>
+                                    <small>{{ egg.description }}</small>
+                                </span>
+                                <span class="choice-check"><i class="fas fa-check"></i></span>
+                            </label>
+                            {% else %}
+                            <p class="choice-empty">No eggs are available for this plan. Please contact support.</p>
+                            {% endfor %}
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="configure-summary glass-card">
+                    <span class="summary-eyebrow">Selected plan</span>
+                    <h2>{{ plan.name }}</h2>
+                    <div class="summary-price">${{ "%.2f"|format(plan.price) }}<small>/mo</small></div>
+                    <div class="summary-specs">
+                        <span><i class="fas fa-memory"></i> {{ (plan.memory / 1024)|round(1)|replace('.0', '') if plan.memory >= 1024 else plan.memory }} {{ "GB" if plan.memory >= 1024 else "MB" }} RAM</span>
+                        <span><i class="fas fa-microchip"></i> {{ plan.cpu }}% CPU</span>
+                        <span><i class="fas fa-hdd"></i> {{ (plan.disk / 1024)|round(1)|replace('.0', '') if plan.disk >= 1024 else plan.disk }} {{ "GB" if plan.disk >= 1024 else "MB" }} Disk</span>
+                    </div>
+                    <button class="button configure-submit" type="submit" {% if not has_available_node or not eggs %}disabled{% endif %}>
+                        Add configured plan to cart <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <p class="configure-note">You can review everything again before checkout.</p>
+                </aside>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .configure-page { min-height: 100vh; padding: 150px 0 90px; position: relative; }
+    .configure-container { max-width: 1280px; position: relative; }
+    .configure-back { color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 800; font-size: 14px; margin-bottom: 22px; }
+    .configure-back:hover { color: var(--primary); }
+    .configure-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; padding: 32px; }
+    .configure-heading p { color: var(--primary); font-weight: 900; letter-spacing: .1em; font-size: 12px; margin: 0; text-transform: uppercase; }
+    .configure-heading h1 { font-size: clamp(34px, 5vw, 58px); line-height: 1; margin: 10px 0; letter-spacing: -2px; }
+    .configure-heading span { color: var(--text-muted); font-weight: 700; }
+    .configure-price { align-items: flex-end; display: grid; justify-items: end; white-space: nowrap; }
+    .configure-price strong { color: var(--primary); font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 1; }
+    .configure-price small { color: var(--text-muted); font-weight: 800; }
+    .configure-form { display: block; }
+    .configure-grid { align-items: start; display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr) 340px; }
+    .configure-main { display: grid; gap: 22px; }
+    .configure-section { padding: 28px; }
+    .configure-section-title { display: flex; gap: 14px; align-items: flex-start; justify-content: flex-start; margin-bottom: 20px; text-align: left; }
+    .configure-section-title > div { flex: 1; min-width: 0; text-align: left; }
+    .configure-section-title h2 { font-size: 20px; margin: 0 0 5px; text-align: left; }
+    .configure-section-title p { color: var(--text-muted); margin: 0; font-size: 13px; text-align: left; }
+    .configure-number { align-items: center; background: var(--primary); border-radius: 50%; color: #fff; display: inline-flex; flex: 0 0 30px; font-size: 14px; font-weight: 800; height: 30px; justify-content: center; }
+    .choice-grid { align-items: stretch; display: grid; gap: 12px; grid-auto-rows: 112px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .choice-card { align-items: flex-start; background: rgba(var(--surface-rgb), .45); border: 1px solid var(--border); border-radius: 16px; cursor: pointer; display: flex; gap: 12px; height: 112px; overflow: hidden; padding: 16px 48px 16px 16px; position: relative; transition: border-color .2s, transform .2s, background .2s, box-shadow .2s; }
+    .choice-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .choice-card input { position: absolute; opacity: 0; }
+    .choice-content { display: grid; gap: 5px; flex: 1; min-width: 0; overflow: hidden; }
+    .choice-content strong { display: -webkit-box; font-size: 15px; line-height: 1.25; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .choice-content small { color: var(--text-muted); display: -webkit-box; font-size: 12px; line-height: 1.45; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .location-flag { align-items: center; background: rgba(0, 122, 255, .08); border: 1px solid rgba(0, 122, 255, .16); border-radius: 10px; display: inline-flex; flex: 0 0 32px; height: 32px; justify-content: center; margin-top: -1px; overflow: hidden; width: 32px; }
+    .location-flag img { display: block; height: 100%; object-fit: cover; width: 100%; }
+    .location-flag i { color: var(--primary); font-size: 15px; }
+    .location-latency { align-items: center; display: inline-flex !important; gap: 6px; white-space: nowrap; -webkit-line-clamp: 1 !important; }
+    .location-latency::before { background: var(--warning); border-radius: 50%; content: ""; display: inline-block; height: 7px; width: 7px; }
+    .location-latency.ping-excellent::before { background: #22c55e; }
+    .location-latency.ping-good::before { background: #84cc16; }
+    .location-latency.ping-fair::before { background: #facc15; }
+    .location-latency.ping-poor::before { background: #fb923c; }
+    .location-latency.ping-bad::before { background: #f87171; }
+    .location-latency.is-unavailable::before { background: var(--text-muted); }
+    .choice-card.is-unavailable { cursor: not-allowed; filter: grayscale(1); opacity: .45; }
+    .choice-card.is-unavailable:hover { border-color: var(--border); transform: none; }
+    .choice-check { align-items: center; border: 1px solid var(--border); border-radius: 50%; color: transparent; display: inline-flex; flex: 0 0 24px; font-size: 11px; height: 24px; justify-content: center; position: absolute; right: 16px; top: 16px; width: 24px; }
+    .choice-card:has(input:checked) { background: var(--primary-glow); border-color: var(--primary); box-shadow: 0 16px 34px rgba(0, 122, 255, .12); }
+    .choice-card:has(input:checked) .choice-check { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .choice-empty { color: var(--text-muted); font-size: 14px; margin: 0; }
+    .configure-summary { display: grid; gap: 18px; padding: 28px; position: sticky; top: 112px; }
+    .summary-eyebrow { color: var(--primary); font-size: 12px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .configure-summary h2 { font-size: 26px; margin: 0; }
+    .summary-price { color: var(--text); font-size: 34px; font-weight: 900; }
+    .summary-price small { color: var(--text-muted); font-size: 14px; font-weight: 700; }
+    .summary-specs { display: grid; gap: 10px; }
+    .summary-specs span { align-items: center; background: rgba(var(--surface-rgb), .55); border: 1px solid var(--border); border-radius: 14px; color: var(--text-muted); display: flex; gap: 10px; padding: 12px 14px; font-size: 13px; font-weight: 800; }
+    .summary-specs i { color: var(--primary); width: 16px; }
+    .configure-submit { border: 0; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; min-height: 56px; padding: 0 24px; width: 100%; }
+    .configure-submit:disabled { cursor: not-allowed; opacity: .55; }
+    .configure-note { color: var(--text-muted); font-size: 12px; font-weight: 700; line-height: 1.5; margin: 0; text-align: center; }
+    @media (max-width: 900px) {
+        .configure-page { padding-top: 125px; }
+        .configure-heading { align-items: flex-start; flex-direction: column; }
+        .configure-price { justify-items: start; }
+        .configure-grid { grid-template-columns: 1fr; }
+        .configure-summary { position: static; }
+    }
+    @media (max-width: 760px) {
+        .choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+        .configure-page { padding-top: 105px; }
+        .configure-heading, .configure-section, .configure-summary { padding: 20px; }
+    }
+    @media (max-width: 520px) {
+        .choice-grid { grid-template-columns: 1fr; }
+    }
+</style>
+<script>
+    (() => {
+        const timeoutMs = 4500;
+
+        function normalizedHost(host) {
+            const value = (host || '').trim();
+            if (!value) return '';
+            try {
+                return new URL(value.startsWith('http') ? value : `https://${value}`).hostname;
+            } catch {
+                return value.replace(/^https?:\/\//, '').split('/')[0];
+            }
+        }
+
+        function measureLatency(card) {
+            const label = card.querySelector('[data-latency]');
+            const host = normalizedHost(card.dataset.pingHost);
+            if (!label || !host) return;
+
+            const started = performance.now();
+            const probe = new Image();
+            const timeout = window.setTimeout(() => {
+                probe.onload = null;
+                probe.onerror = null;
+                label.textContent = 'Latency unavailable';
+                label.classList.add('is-unavailable');
+            }, timeoutMs);
+
+            const finish = () => {
+                window.clearTimeout(timeout);
+                const latency = Math.max(1, Math.round(performance.now() - started));
+                label.textContent = `Approx. ${latency}ms ping`;
+                if (latency < 100) label.classList.add('ping-excellent');
+                else if (latency < 180) label.classList.add('ping-good');
+                else if (latency < 250) label.classList.add('ping-fair');
+                else if (latency < 350) label.classList.add('ping-poor');
+                else label.classList.add('ping-bad');
+            };
+
+            probe.onload = finish;
+            probe.onerror = finish;
+            probe.src = `https://${host}/favicon.ico?latency=${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
+
+        document.querySelectorAll('.location-choice[data-ping-host]').forEach(measureLatency);
+        document.querySelectorAll('.location-choice.is-unavailable').forEach((card) => {
+            const name = card.querySelector('.choice-content strong')?.textContent?.trim() || 'Location';
+            console.info(`[Flux] ${name} is not selectable: ${card.dataset.unavailabilityReason || 'capacity could not be verified.'}`);
+        });
+    })();
+</script>
+{% endblock %}

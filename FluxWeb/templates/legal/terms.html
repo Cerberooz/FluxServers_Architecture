@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Terms of Service - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1 data-aos="fade-up">Terms of <span class="text-gradient">Service</span></h1>
+        <p data-aos="fade-up" data-aos-delay="100">Last updated: May 2, 2026</p>
+    </div>
+</section>
+
+<section class="policy-content">
+    <div class="container">
+        <div class="glass-card policy-card" data-aos="fade-up">
+            <div class="policy-section">
+                <h2>1. Acceptance of Terms</h2>
+                <p>By accessing and using Flux Servers' services, you agree to comply with and be bound by these Terms of Service. If you do not agree to these terms, please do not use our services.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>2. Description of Service</h2>
+                <p>Flux Servers provides high-performance game server hosting (Minecraft, Hytale) and dedicated bare metal servers. Services are provisioned instantly upon confirmed payment.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>3. Use of Services</h2>
+                <p>You agree to use our services for lawful purposes only. Prohibited activities include but are not limited to:</p>
+                <ul>
+                    <li>Engaging in any form of DDoS or network attacks.</li>
+                    <li>Hosting illegal content or malware.</li>
+                    <li>Attempting to gain unauthorized access to our infrastructure.</li>
+                    <li>Using game server resources for crypto-mining or non-gaming heavy computation.</li>
+                </ul>
+            </div>
+
+            <div class="policy-section">
+                <h2>4. Uptime & Performance</h2>
+                <p>We strive for 99.9% uptime. While our infrastructure is built on premium AMD Ryzen 9950X and EPYC hardware with enterprise DDoS mitigation, we are not liable for service interruptions beyond our control.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>5. Billing & Refunds</h2>
+                <p>All payments are final. Due to the digital nature of our instant provisioning, we do not offer refunds unless a service failure on our end prevents usage for more than 24 consecutive hours.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>6. Termination</h2>
+                <p>Flux Servers reserves the right to suspend or terminate your service at any time without notice if these terms are violated.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .policy-card {
+        padding: 60px;
+        margin-bottom: 80px;
+    }
+    .policy-section {
+        margin-bottom: 40px;
+    }
+    .policy-section h2 {
+        text-align: left;
+        font-size: 24px;
+        margin-bottom: 20px;
+        color: var(--primary);
+    }
+    .policy-section p {
+        color: var(--text-muted);
+        line-height: 1.8;
+    }
+    .policy-section ul {
+        margin-top: 15px;
+        padding-left: 20px;
+        color: var(--text-muted);
+    }
+    .policy-section li {
+        margin-bottom: 10px;
+    }
+    @media (max-width: 768px) {
+        .policy-card {
+            padding: 30px;
+        }
+    }
+</style>
+{% endblock %}

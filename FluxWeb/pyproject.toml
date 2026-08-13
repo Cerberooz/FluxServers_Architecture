@@ -1,0 +1,69 @@
+[project]
+name = "fluxweb"
+version = "2.0.0"
+description = "Flux Servers game hosting platform"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+exclude = [".venv", "migrations", "static", "templates"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting - bans function-local imports drifting out of order
+    "B",    # bugbear
+    "S",    # bandit security checks
+    "C4",   # comprehensions
+    "UP",   # pyupgrade
+    "SIM",  # simplify
+    "RET",  # return consistency
+    "PL",   # pylint subset
+]
+ignore = [
+    "E501",     # line length is handled by the formatter
+    "PLR0913",  # provisioning genuinely needs several arguments
+    "PLR2004",  # magic values in comparisons are readable here
+    "B008",     # Flask/SQLAlchemy defaults in signatures
+    # Security checks and webhook handlers are written as a series of guard
+    # clauses that each reject and return early. That is the clearest possible
+    # shape for "refuse unless every condition holds", and collapsing it to
+    # satisfy a return-count limit would make it harder to audit.
+    "PLR0911",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests assert on hardcoded values and use short-lived fixtures.
+"tests/*" = ["S101", "S105", "S106", "PLR2004"]
+# The factory intentionally imports inside functions to avoid circular imports.
+# _register_cli is a registration function holding several independent
+# commands; its statement count is not a complexity signal.
+"fluxweb/__init__.py" = ["PLC0415", "PLR0915"]
+# from_env() is one long linear list of independent validation rules. Splitting
+# it to satisfy branch/statement limits would scatter the security checks.
+"fluxweb/config.py" = ["PLR0912", "PLR0915"]
+# Operator scripts are linear reports; branch counts are not a useful signal.
+"tools/*" = ["PLR0912", "PLR0915"]
+
+[tool.black]
+line-length = 110
+target-version = ["py311"]
+extend-exclude = "migrations|static|templates"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+ignore_missing_imports = true
+# Start strict where correctness matters most, widen over time.
+files = ["fluxweb/services", "fluxweb/integrations", "fluxweb/config.py", "fluxweb/money.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["fluxweb"]
+omit = ["*/migrations/*", "*/tests/*"]

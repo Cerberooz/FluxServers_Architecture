@@ -1,0 +1,300 @@
+Implement a production-ready **Plugin Manager** for Minecraft servers in Fluid Panels.
+
+Before changing code, inspect the Fluid/Pterodactyl codebase and understand:
+
+* server and egg architecture
+* Wings communication
+* server file read/write/download APIs
+* server software/version detection
+* permissions and authorization
+* background jobs/queues
+* frontend design system
+* audit logging
+* existing restart/status handling
+
+Do not redesign unrelated functionality.
+
+## Goal
+
+Add a new per-server **Plugins** tab allowing customers to discover, install, update, disable and remove plugins using the official Modrinth API.
+
+The feature must automatically determine compatibility with the current Minecraft server.
+
+## Server Detection
+
+Determine:
+
+* Minecraft version
+* server implementation/loader
+* plugin directory
+* whether the selected server software supports plugins
+
+Initially support Bukkit-family servers:
+
+* Paper
+* Purpur
+* Spigot
+* Bukkit
+* Folia where compatible
+
+Design the compatibility layer so additional platforms such as Velocity can be added later.
+
+## Discover
+
+Create a searchable Modrinth plugin browser.
+
+Use Modrinth's official API.
+
+Filter/search using:
+
+* plugin project type
+* detected Minecraft version
+* compatible loader/platform
+* server-side compatibility
+
+Display:
+
+* icon
+* name
+* author
+* description
+* downloads
+* supported versions
+* supported platforms
+* latest compatible version
+
+If no compatible version exists for the current server:
+
+* grey out the plugin
+* disable Install
+* explain why it is incompatible
+
+Do not simply use the newest release.
+
+## Install
+
+When Install is clicked:
+
+1. Resolve the newest compatible release version.
+2. Select its primary JAR file.
+3. Download it from the official Modrinth CDN.
+4. Verify its SHA-512 or SHA-1 hash against Modrinth metadata.
+5. Write it through the existing Wings/file system layer into the server's plugin directory.
+6. Record the result.
+7. Show that a restart is required where applicable.
+
+Never automatically restart a running server without user confirmation.
+
+Prevent path traversal and writes outside the server's plugin directory.
+
+## Direct Download
+
+Every project/version should also offer:
+
+**Download .jar**
+
+This action downloads the selected file to the user's browser/computer.
+
+It MUST NOT place anything into the server's plugin directory.
+
+For incompatible plugins, Install remains disabled, but manual Download may remain available with a compatibility warning.
+
+## Dependencies
+
+Read Modrinth version dependency metadata.
+
+Handle:
+
+* required
+* optional
+* incompatible
+* embedded
+
+For required dependencies:
+
+* detect whether already installed
+* resolve compatible versions
+* show them before installation
+* install them together after confirmation
+
+Never silently install optional dependencies.
+
+Warn/block installations with known incompatible dependencies.
+
+## Installed Plugins
+
+Scan the actual server plugin directory.
+
+Show every JAR, including files manually uploaded by the customer.
+
+Hash installed JAR files and use Modrinth's file-hash/version endpoints to identify known projects.
+
+Display states such as:
+
+* Modrinth managed
+* manually installed but recognized by Modrinth
+* external/unknown
+* update available
+* disabled
+
+The filesystem is the source of truth for whether a plugin exists.
+
+## Updates
+
+For recognized plugins:
+
+* determine the newest version compatible with the CURRENT Minecraft version/platform
+* show Update when available
+* preserve the existing JAR until the replacement is downloaded and hash-verified
+* allow rollback if replacement fails
+
+Optionally provide **Update All Compatible**, but never cross Minecraft-version/platform compatibility boundaries.
+
+## Disable / Enable
+
+Allow customers to disable a plugin without deleting it.
+
+Use a safe reversible mechanism consistent with the server software/filesystem, such as renaming the JAR to a known disabled filename.
+
+Clearly show disabled plugins.
+
+## Remove
+
+Allow plugin removal with confirmation.
+
+By default remove only the plugin JAR.
+
+DO NOT delete the plugin's data/config directory automatically.
+
+If supporting "Delete plugin data", make it a separate explicit action with a strong confirmation and show exactly which directory will be removed.
+
+## API Architecture
+
+Implement a Modrinth service abstraction with methods similar to:
+
+* searchPlugins()
+* getProject()
+* getVersions()
+* resolveCompatibleVersion()
+* resolveDependencies()
+* getVersionFromHash()
+* downloadAndVerify()
+
+Use permanent Modrinth project/version IDs when persisting references rather than mutable slugs.
+
+Send a proper uniquely identifying User-Agent on every Modrinth API request.
+
+Implement caching and respect Modrinth API rate-limit headers.
+
+## UI
+
+Add:
+
+Server → Plugins
+
+Tabs:
+
+* Discover
+* Installed
+
+Discover should provide:
+
+* search
+* filters
+* compatibility badges
+* Install
+* Download .jar
+
+Installed should provide:
+
+* plugin
+* installed version
+* latest compatible version
+* status
+* Update
+* Disable/Enable
+* Remove
+
+## Temporary Plugin Disable / Enable
+
+Customers must be able to temporarily disable an installed plugin
+without uninstalling it or deleting its configuration/data.
+
+Implement reversible filesystem-based disabling.
+
+For example:
+
+Plugin.jar
+→ Plugin.jar.disabled
+
+Enabling reverses the operation.
+
+Requirements:
+
+- Show Enabled / Disabled status in the Installed Plugins view.
+- Grey out disabled plugins visually.
+- Disabled plugins remain listed and manageable.
+- Preserve plugin configuration/data directories.
+- Do not delete any plugin data when disabling.
+- If the server is running, clearly state that a restart is required.
+- Do not attempt unsafe runtime plugin unloading.
+- Enabling a plugin should likewise require restart if the server is running.
+- Updating a disabled plugin must keep it disabled after the update.
+- Allow disabled plugins to be removed normally.
+- Detect manually disabled plugin files during filesystem scans.
+- Prevent duplicate enabled/disabled copies of the same plugin.
+- Dependency checking must treat a disabled required dependency as unavailable
+  and warn the user.
+- Audit plugin enable and disable actions.
+- Use atomic/reversible file operations where possible.
+
+Follow Fluid's existing UI/design system exactly.
+
+## Security
+
+* use existing Fluid authorization policies
+* never expose unrestricted Wings file access
+* sanitize filenames
+* block path traversal
+* only allow downloads from expected Modrinth CDN URLs
+* verify downloaded hashes
+* rate-limit mutations
+* prevent concurrent install/update/remove operations on the same plugin
+* audit installs, updates, disables, enables and removals
+
+
+
+
+## Testing
+
+Add automated tests for:
+
+* server version detection
+* platform detection
+* Modrinth search filtering
+* incompatible versions being disabled
+* compatible version resolution
+* primary-file selection
+* hash validation
+* dependency resolution
+* installation
+* direct browser download
+* update
+* removal
+* enable/disable
+* manually uploaded plugin recognition by hash
+* malformed filenames/path traversal
+* authorization
+* API failure/rate limiting
+
+Before implementation:
+
+1. Inspect the relevant architecture.
+2. Produce a concise implementation plan.
+3. Identify files/migrations/components that need changes.
+4. Implement incrementally.
+5. Run tests, lint and build.
+6. Fix regressions.
+
+Do not leave mocked functionality or TODO implementations.
+

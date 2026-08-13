@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+vendor
+node_modules
+storage
+database/*.sqlite
+database/*.sqlite3
+bootstrap/cache/*.php

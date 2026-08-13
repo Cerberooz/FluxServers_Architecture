@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Privacy Policy - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1 data-aos="fade-up">Privacy <span class="text-gradient">Policy</span></h1>
+        <p data-aos="fade-up" data-aos-delay="100">Your privacy is our priority.</p>
+    </div>
+</section>
+
+<section class="policy-content">
+    <div class="container">
+        <div class="glass-card policy-card" data-aos="fade-up">
+            <div class="policy-section">
+                <h2>1. Information We Collect</h2>
+                <p>When you use Flux Servers, we collect minimal data to provide our services:</p>
+                <ul>
+                    <li><strong>Account Info:</strong> Name and Email address provided during ticket creation or ordering.</li>
+                    <li><strong>Technical Data:</strong> IP addresses and browser information for security and DDoS mitigation.</li>
+                    <li><strong>Cookies:</strong> We use essential cookies (like <code>_fxt</code>) to maintain your session and ticket access.</li>
+                </ul>
+            </div>
+
+            <div class="policy-section">
+                <h2>2. How We Use Your Data</h2>
+                <p>Your information is used solely for:</p>
+                <ul>
+                    <li>Providing technical support via our ticket system.</li>
+                    <li>Processing service orders and provisioning.</li>
+                    <li>Protecting our network from abuse and attacks.</li>
+                    <li>Improving site performance and user experience.</li>
+                </ul>
+            </div>
+
+            <div class="policy-section">
+                <h2>3. Data Protection</h2>
+                <p>We implement industry-standard security measures, including encryption and secure database management, to protect your data. We do not sell your personal information to third parties.</p>
+            </div>
+
+            <div class="policy-section">
+                <h2>4. Third-Party Services</h2>
+                <p>We use trusted third-party providers for specific functions:</p>
+                <ul>
+                    <li><strong>Cloudflare:</strong> For DDoS protection and global content delivery.</li>
+                    <li><strong>Payment Processors:</strong> To securely handle financial transactions.</li>
+                </ul>
+            </div>
+
+            <div class="policy-section">
+                <h2>5. Your Rights</h2>
+                <p>You have the right to request the deletion of your data or a copy of the information we hold about you by contacting our support team.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .policy-card {
+        padding: 60px;
+        margin-bottom: 80px;
+    }
+    .policy-section {
+        margin-bottom: 40px;
+    }
+    .policy-section h2 {
+        text-align: left;
+        font-size: 24px;
+        margin-bottom: 20px;
+        color: var(--primary);
+    }
+    .policy-section p {
+        color: var(--text-muted);
+        line-height: 1.8;
+    }
+    .policy-section ul {
+        margin-top: 15px;
+        padding-left: 20px;
+        color: var(--text-muted);
+    }
+    .policy-section li {
+        margin-bottom: 10px;
+    }
+    @media (max-width: 768px) {
+        .policy-card {
+            padding: 30px;
+        }
+    }
+</style>
+{% endblock %}

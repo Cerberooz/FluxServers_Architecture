@@ -1,0 +1,316 @@
+body.skin-blue {
+    background: #0b0f16;
+    color: #d1d5db;
+}
+
+.skin-blue .wrapper,
+.skin-blue .main-sidebar,
+.skin-blue .left-side {
+    background: #0b0f16;
+}
+
+.skin-blue .main-header {
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+}
+
+.skin-blue .main-header .navbar,
+.skin-blue .main-header .logo {
+    background: #0b0f16;
+    border-bottom: 1px solid #374151;
+}
+
+.skin-blue .main-header .logo:hover,
+.skin-blue .main-header .navbar .sidebar-toggle:hover {
+    background: #111827;
+}
+
+.skin-blue .main-header .navbar .nav > li > a {
+    color: #d1d5db;
+}
+
+.skin-blue .main-header .navbar .nav > li > a:hover,
+.skin-blue .main-header .navbar .nav > li > a:active,
+.skin-blue .main-header .navbar .nav > li > a:focus {
+    background: #1f2937;
+    color: #f9fafb;
+}
+
+.skin-blue .sidebar-menu > li.header {
+    background: #0b0f16;
+    color: #67e8f9;
+}
+
+.skin-blue .sidebar-menu > li > a {
+    border-left: 3px solid transparent;
+    color: #cbd5e1;
+}
+
+.skin-blue .sidebar {
+    padding-top: 10px;
+}
+
+.skin-blue .sidebar-menu > li:hover > a,
+.skin-blue .sidebar-menu > li.active > a {
+    background: #1f2937;
+    border-left-color: #06b6d4;
+    color: #ffffff;
+}
+
+.content-wrapper,
+.right-side {
+    background: #0b0f16;
+}
+
+.content {
+    padding-top: 20px;
+}
+
+.content-header > h1,
+.content-header > h1 > small,
+.breadcrumb > li,
+.breadcrumb > li > a {
+    color: #d1d5db;
+}
+
+.content-header > .breadcrumb {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 9999px;
+    padding: 6px 12px;
+}
+
+.box {
+    background: #1f2937;
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+    color: #d1d5db;
+}
+
+.box-header,
+.box-footer {
+    border-color: #4b5563;
+}
+
+.box-title,
+.control-label,
+.table > thead > tr > th {
+    color: #f9fafb;
+}
+
+.table > tbody > tr > td,
+.table > tbody > tr > th,
+.table > tfoot > tr > td,
+.table > tfoot > tr > th,
+.table > thead > tr > td,
+.table > thead > tr > th {
+    border-color: #374151;
+}
+
+.table-hover > tbody > tr:hover {
+    background: #273449;
+}
+
+.form-control,
+.select2-container--default .select2-selection--single,
+.select2-container--default .select2-selection--multiple {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+
+.form-control:focus {
+    border-color: #06b6d4;
+    box-shadow: 0 0 0 1px #06b6d4;
+}
+
+.select2-dropdown {
+    background: #111827;
+    border-color: #4b5563;
+    color: #f9fafb;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background: #0891b2;
+}
+
+.btn-primary {
+    background: #0891b2;
+    border-color: #06b6d4;
+}
+
+.btn-primary:hover,
+.btn-primary:active,
+.btn-primary:focus {
+    background: #0e7490;
+    border-color: #0891b2;
+}
+
+.main-footer {
+    background: #0b0f16;
+    border-top: 1px solid #4b5563;
+    color: #9ca3af;
+}
+
+.skin-blue .main-header .logo .logo-lg {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    height: 100%;
+    width: 100%;
+    padding-left: 16px;
+}
+
+.skin-blue .main-header .logo .logo-mini {
+    display: none;
+}
+
+.fluid-brand-logo {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+/* AdminLTE swaps to the compact mark only when its sidebar is collapsed. */
+.sidebar-mini.sidebar-collapse .main-header .logo .logo-lg {
+    display: none;
+}
+
+.sidebar-mini.sidebar-collapse .main-header .logo .logo-mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.sidebar-mini.sidebar-collapse .main-header .logo .fluid-brand-logo {
+    margin-right: 0;
+}
+
+a {
+    color: #67e8f9;
+}
+
+a:hover,
+a:active,
+a:focus {
+    color: #a5f3fc;
+}
+
+.alert-info,
+.callout.callout-info {
+    background: #164e63 !important;
+    border-color: #06b6d4;
+    color: #ecfeff;
+}
+
+.modal-content {
+    background: #1f2937;
+    color: #d1d5db;
+    border: 1px solid #4b5563;
+}
+
+.modal-header,
+.modal-footer {
+    border-color: #4b5563;
+}
+
+.alert {
+    border: 1px solid #4b5563;
+    border-radius: 8px;
+}
+
+.alert-danger,
+.callout.callout-danger {
+    background: #7f1d1d !important;
+    border-color: #ef4444;
+    color: #fee2e2;
+}
+
+.btn-default {
+    background: #111827;
+    border-color: #4b5563;
+    color: #e5e7eb;
+}
+
+.btn-default:hover,
+.btn-default:active,
+.btn-default:focus {
+    background: #1f2937;
+    border-color: #6b7280;
+    color: #ffffff;
+}
+
+/* Keep AdminLTE's actions deliberately restrained and consistent with the panel. */
+.btn,
+.btn-primary,
+.btn-info,
+.btn-success,
+.btn-warning {
+    background: #1f2937;
+    border-color: #4b5563;
+    color: #f9fafb;
+    border-radius: 6px;
+    box-shadow: none;
+}
+
+.btn:hover,
+.btn:active,
+.btn:focus,
+.btn-primary:hover,
+.btn-primary:active,
+.btn-primary:focus,
+.btn-info:hover,
+.btn-info:active,
+.btn-info:focus,
+.btn-success:hover,
+.btn-success:active,
+.btn-success:focus,
+.btn-warning:hover,
+.btn-warning:active,
+.btn-warning:focus {
+    background: #374151;
+    border-color: #6b7280;
+    color: #ffffff;
+    box-shadow: 0 0 0 1px rgba(103, 232, 249, 0.12);
+}
+
+.btn-primary {
+    border-color: #0891b2;
+}
+
+.btn-danger {
+    background: #3f1d26;
+    border-color: #7f1d2d;
+    color: #fee2e2;
+    border-radius: 6px;
+    box-shadow: none;
+}
+
+.btn-danger:hover,
+.btn-danger:active,
+.btn-danger:focus {
+    background: #5c202c;
+    border-color: #be123c;
+    color: #ffffff;
+}
+
+.btn-link {
+    color: #a5f3fc;
+}
+
+.btn-link:hover,
+.btn-link:focus {
+    color: #ecfeff;
+}
+
+.btn.disabled,
+.btn[disabled] {
+    background: #111827;
+    border-color: #374151;
+    color: #6b7280;
+    opacity: 1;
+}

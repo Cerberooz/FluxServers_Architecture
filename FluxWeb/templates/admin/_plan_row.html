@@ -1,0 +1,53 @@
+{# A single row of the nested plans tree.
+
+   Rendered both inside the dashboard loop and standalone by
+   /admin/plans/edit/<id> after an AJAX save, so an edited row is repainted by
+   exactly the same template that drew it. Formatting lives in one place. #}
+{% from "admin/_macros.html" import location_names %}
+<div class="plan-tree-row plan-tree-plan"
+     data-plan-row="{{ plan.id }}"
+     data-plan-name="{{ plan.name|lower }}"
+     data-plan-game="{{ plan.game }}"
+     data-plan-category="{{ plan.category_id or '' }}"
+     data-plan-subcategory="{{ plan.subcategory_id or '' }}"
+     data-drop-target="plan"
+     data-drop-category="{{ plan.category_id or '' }}"
+     data-drop-subcategory="{{ plan.subcategory_id or '' }}"
+     data-drop-plan="{{ plan.id }}">
+    <div class="plan-tree-drag"
+         draggable="true"
+         data-drag-type="plan"
+         data-drag-id="{{ plan.id }}"
+         aria-label="Drag plan"><i class="fas fa-grip-lines"></i></div>
+    <div class="plan-tree-main">
+        <div class="plan-tree-title">
+            {{ plan.name }} - ${{ "%.2f"|format(plan.price) }}
+            {% if plan.is_featured %}
+            <span class="plan-tree-badge">POPULAR</span>
+            {% endif %}
+        </div>
+        <div class="plan-tree-meta">
+            {{ plan.sub_type or "Monthly" }}
+            <span>•</span>
+            {{ location_labels.get(plan.location_id, 'Node ' ~ plan.location_id) }}
+            <span>•</span>
+            {{ plan.memory }}MB RAM
+            <span>•</span>
+            Checkout: {{ location_names(plan.allowed_node_ids, location_labels) }}
+        </div>
+    </div>
+    <div class="plan-tree-actions">
+        <a href="/admin/plans/edit/{{ plan.id }}"
+           class="btn-action btn-primary-admin js-edit-plan"
+           data-plan-id="{{ plan.id }}"
+           data-plan-name="{{ plan.name }}"
+           title="Edit Spec"><i class="fas fa-edit"></i></a>
+        {# Still a real form: without JavaScript this posts and redirects as
+           before, so the dashboard degrades rather than breaking. #}
+        <form action="/admin/plans/delete/{{ plan.id }}" method="POST"
+              class="js-delete-plan" data-plan-id="{{ plan.id }}" data-plan-name="{{ plan.name }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn-action btn-danger" title="Delete Plan"><i class="fas fa-trash"></i></button>
+        </form>
+    </div>
+</div>

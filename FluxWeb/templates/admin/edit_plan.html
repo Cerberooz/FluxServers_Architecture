@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Plan - Admin{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 145px 0 70px;">
+    <div class="container" style="max-width: 1040px;">
+        <h1 class="animated-title" style="font-size: 32px;">Edit <span class="highlight">Plan</span></h1>
+        <p style="margin-bottom: 40px; color: var(--text-muted);">Configure Fluid panel specifications for {{ plan.name }}.</p>
+
+        {% include "admin/_plan_form.html" %}
+
+        <a href="/admin" style="display: block; margin-top: 24px; text-align: center; color: var(--text-muted); text-decoration: none;">← Back to Dashboard</a>
+    </div>
+</section>
+
+<style>
+    .plan-edit-form {
+        padding: 28px;
+        display: grid;
+        gap: 18px;
+        text-align: left;
+        background: var(--surface);
+        border: 1px solid var(--glass-border);
+        border-radius: 22px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.12);
+    }
+    .plan-edit-form h3 {
+        margin: 10px 0 2px !important;
+        padding: 0 0 10px !important;
+        border-bottom: 1px solid var(--glass-border) !important;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 900;
+        font-size: 11px;
+        color: var(--text-muted);
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        width: 100%;
+        padding: 13px 14px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        color: var(--text);
+        font-weight: 700;
+        outline: none;
+        transition: border-color .18s, box-shadow .18s, background .18s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--primary-glow);
+        background: var(--surface-hover);
+    }
+    .plan-edit-form .button {
+        border: 0;
+        justify-self: end;
+        min-width: 180px;
+    }
+    .unit-pair {
+        display: grid;
+        grid-template-columns: .78fr 1.22fr;
+        gap: 8px;
+    }
+    .unit-pair input {
+        margin: 0;
+    }
+    .server-location-picker {
+        display: grid;
+        gap: 10px;
+    }
+    .server-location-picker-controls {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 10px;
+    }
+    .server-location-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-height: 44px;
+        padding: 10px;
+        border: 1px dashed var(--border);
+        border-radius: 14px;
+        background: var(--surface-2);
+    }
+    .server-location-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(0, 122, 255, 0.18);
+        background: var(--primary-glow);
+        font-size: 12px;
+        font-weight: 800;
+        color: var(--text);
+    }
+    .server-location-pill button {
+        border: 0;
+        background: transparent;
+        color: var(--danger);
+        cursor: pointer;
+        font-weight: 900;
+        padding: 0;
+    }
+    @media (max-width: 640px) {
+        .unit-pair, .server-location-picker-controls {
+            grid-template-columns: 1fr;
+        }
+        .plan-edit-form .button {
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+    const planSubcategoriesByCategory = {{ (plan_subcategory_options|default({}))|tojson|safe }};
+    function updateSubcategoryOptions(categorySelectId, subcategorySelectId, selectedValue = '') {
+        const categorySelect = document.getElementById(categorySelectId);
+        const subcategorySelect = document.getElementById(subcategorySelectId);
+        if (!categorySelect || !subcategorySelect) return;
+        const options = planSubcategoriesByCategory[String(categorySelect.value)] || [];
+        subcategorySelect.innerHTML = '<option value="">No subcategory</option>';
+        options.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.name;
+            if (selectedValue && String(selectedValue) === String(item.id)) opt.selected = true;
+            subcategorySelect.appendChild(opt);
+        });
+    }
+
+    function setupUnitPairs(root = document) {
+        root.querySelectorAll('[data-unit-pair]').forEach(pair => {
+            if (pair.dataset.unitReady === '1') return;
+            pair.dataset.unitReady = '1';
+            const gbInput = pair.querySelector('[data-unit-gb]');
+            const mbInput = pair.querySelector('[data-unit-mb]');
+            if (!gbInput || !mbInput) return;
+
+            const mbToGb = () => {
+                if (mbInput.value === '') {
+                    gbInput.value = '';
+                    return;
+                }
+                const gb = Number(mbInput.value) / 1024;
+                gbInput.value = Number.isInteger(gb) ? String(gb) : String(Number(gb.toFixed(2)));
+            };
+            const gbToMb = () => {
+                if (gbInput.value === '') {
+                    mbInput.value = '';
+                    return;
+                }
+                mbInput.value = String(Math.round(Number(gbInput.value) * 1024));
+            };
+
+            if (mbInput.value) mbToGb();
+            else if (gbInput.value) gbToMb();
+            gbInput.addEventListener('input', gbToMb);
+            mbInput.addEventListener('input', mbToGb);
+        });
+    }
+
+    function setupServerLocationPickers(root = document) {
+        root.querySelectorAll('[data-server-location-picker]').forEach(picker => {
+            if (picker.dataset.locationReady === '1') return;
+            picker.dataset.locationReady = '1';
+            const select = picker.querySelector('[data-server-location-select]');
+            const addButton = picker.querySelector('[data-server-location-add]');
+            const addAllButton = picker.querySelector('[data-server-location-add-all]');
+            const list = picker.querySelector('[data-server-location-list]');
+            if (!select || !addButton || !list) return;
+
+            const addLocation = (option = select.selectedOptions[0]) => {
+                if (!option || !option.value) return;
+                if (list.querySelector(`[data-location-id="${CSS.escape(option.value)}"]`)) {
+                    select.value = '';
+                    return;
+                }
+                const pill = document.createElement('span');
+                pill.className = 'server-location-pill';
+                pill.dataset.locationId = option.value;
+
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'allowed_location_ids';
+                hidden.value = option.value;
+
+                const label = document.createElement('span');
+                label.textContent = option.dataset.label || option.textContent;
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.dataset.removeLocation = '';
+                remove.setAttribute('aria-label', 'Remove location');
+                remove.innerHTML = '&times;';
+
+                pill.append(hidden, label, remove);
+                list.appendChild(pill);
+                select.value = '';
+            };
+
+            addButton.addEventListener('click', addLocation);
+            addAllButton?.addEventListener('click', () => {
+                Array.from(select.options).filter(option => option.value).forEach(addLocation);
+            });
+            select.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addLocation();
+                }
+            });
+            list.addEventListener('click', event => {
+                const remove = event.target.closest('[data-remove-location]');
+                if (remove) remove.closest('.server-location-pill')?.remove();
+            });
+        });
+    }
+
+    function setupEggPickers(root = document) {
+        root.querySelectorAll('[data-egg-picker]').forEach(picker => {
+            if (picker.dataset.eggReady === '1') return;
+            picker.dataset.eggReady = '1';
+            const select = picker.querySelector('[data-egg-select]');
+            const addButton = picker.querySelector('[data-egg-add]');
+            const addAllButton = picker.querySelector('[data-egg-add-all]');
+            const list = picker.querySelector('[data-egg-list]');
+            if (!select || !addButton || !list) return;
+
+            const addEgg = (option = select.selectedOptions[0]) => {
+                if (!option || !option.value) return;
+                if (list.querySelector(`[data-egg-id="${CSS.escape(option.value)}"]`)) {
+                    select.value = '';
+                    return;
+                }
+                const pill = document.createElement('span');
+                pill.className = 'server-location-pill';
+                pill.dataset.eggId = option.value;
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = 'allowed_egg_ids';
+                hidden.value = option.value;
+                const label = document.createElement('span');
+                label.textContent = option.dataset.label || option.textContent;
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.dataset.removeEgg = '';
+                remove.setAttribute('aria-label', 'Remove egg');
+                remove.innerHTML = '&times;';
+                pill.append(hidden, label, remove);
+                list.appendChild(pill);
+                select.value = '';
+            };
+
+            addButton.addEventListener('click', addEgg);
+            addAllButton?.addEventListener('click', () => {
+                Array.from(select.options).filter(option => option.value).forEach(addEgg);
+            });
+            select.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addEgg();
+                }
+            });
+            list.addEventListener('click', event => {
+                const remove = event.target.closest('[data-remove-egg]');
+                if (remove) remove.closest('.server-location-pill')?.remove();
+            });
+        });
+    }
+
+    async function loadEggs(nestId, targetSelectId, currentEggId = null) {
+        if (!nestId) return;
+        const resp = await fetch(`/admin/api/eggs/${nestId}`);
+        const eggs = await resp.json();
+        const select = document.getElementById(targetSelectId);
+        select.innerHTML = '<option value="">Select Egg</option>';
+        eggs.forEach(egg => {
+            const opt = document.createElement('option');
+            opt.value = egg.id;
+            opt.textContent = `ID ${egg.id} — ${egg.name}`;
+            if (String(currentEggId || '').split(',').includes(String(egg.id))) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
+    async function loadEggs(nestId, targetSelectId, currentEggId = null) {
+        if (!nestId) return;
+        const select = document.getElementById(targetSelectId);
+        if (!select) return;
+        const picker = select.closest('[data-egg-picker]');
+        const list = picker?.querySelector('[data-egg-list]');
+        const currentIds = String(currentEggId || select.dataset.currentEggIds || '').split(',').filter(Boolean);
+        try {
+            const resp = await fetch(`/admin/api/eggs/${nestId}`);
+            if (!resp.ok) throw new Error(`Egg request failed (${resp.status})`);
+            const eggs = await resp.json();
+            select.innerHTML = '<option value="">Select Egg</option>';
+            if (list) list.innerHTML = '';
+            eggs.forEach(egg => {
+                const opt = document.createElement('option');
+                opt.value = egg.id;
+                opt.dataset.label = egg.name;
+                opt.textContent = egg.name;
+                select.appendChild(opt);
+                if (list && currentIds.includes(String(egg.id))) {
+                    const pill = document.createElement('span');
+                    pill.className = 'server-location-pill';
+                    pill.dataset.eggId = String(egg.id);
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'allowed_egg_ids';
+                    hidden.value = egg.id;
+                    const label = document.createElement('span');
+                    label.textContent = egg.name;
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.dataset.removeEgg = '';
+                    remove.setAttribute('aria-label', 'Remove egg');
+                    remove.innerHTML = '&times;';
+                    pill.append(hidden, label, remove);
+                    list.appendChild(pill);
+                }
+            });
+        } catch (error) {
+            select.innerHTML = '<option value="">Could not load eggs — try again</option>';
+            console.error('Could not load Fluid eggs:', error);
+        }
+    }
+
+    // Initialize eggs on load
+    document.addEventListener('DOMContentLoaded', () => {
+        const category = document.getElementById('edit-category-select');
+        const subcategory = document.getElementById('edit-subcategory-select');
+        setupUnitPairs(document);
+        setupServerLocationPickers(document);
+        setupEggPickers(document);
+        if (category && subcategory) {
+            updateSubcategoryOptions('edit-category-select', 'edit-subcategory-select', subcategory.dataset.currentSubcategoryId || subcategory.value);
+        }
+
+        const nest = document.getElementById('edit-nest-select');
+        const nestId = nest ? nest.value : '';
+        if (nestId) {
+            loadEggs(nestId, 'edit-egg-select', '{{ plan.allowed_eggs|join(',') }}');
+        }
+    });
+</script>
+{% endblock %}

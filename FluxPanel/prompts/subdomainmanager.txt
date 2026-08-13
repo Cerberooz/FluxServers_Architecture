@@ -1,0 +1,177 @@
+Implement a production-ready Subdomain Manager feature in Fluid Panels.
+
+First inspect the entire Fluid/Pterodactyl codebase and understand:
+- server ownership/authentication
+- servers and allocations
+- node IP/address handling
+- eggs/game identifiers
+- existing admin settings
+- background jobs/queues
+- database/migration conventions
+- frontend component conventions
+- audit logging
+- encryption/secrets handling
+
+Do not redesign unrelated parts of Fluid.
+
+GOAL
+
+Allow customers to create a friendly hostname such as:
+
+myserver.fluxmc.net
+
+for one of their game servers.
+
+Fluid must automatically create and maintain the necessary DNS records based on the server's actual allocation.
+
+ARCHITECTURE
+
+Implement a provider abstraction:
+
+DNSProvider
+- createRecord()
+- updateRecord()
+- deleteRecord()
+- testConnection()
+
+Implement CloudflareDNSProvider first using the official Cloudflare DNS API.
+
+Cloudflare credentials must only exist server-side and must never be sent to the browser.
+
+ADMIN FEATURES
+
+Add Admin → Subdomain Manager.
+
+Allow admins to:
+- configure Cloudflare using a restricted API token
+- test connection
+- register multiple root domains
+- enable/disable domains
+- specify allowed game/egg types
+- configure max subdomains per server
+- configure reserved subdomain labels
+- view existing customer subdomains
+- view failed DNS operations
+
+CUSTOMER FEATURES
+
+Add a Subdomains page to each server.
+
+Customers can:
+- view assigned subdomains
+- create a subdomain
+- select from enabled domains
+- delete a subdomain
+- rename/change a subdomain
+- copy the connection address
+
+Show states:
+Pending
+Active
+Updating
+Error
+
+Do not allow customers to supply an IP address or port.
+
+Always derive those values from the server's allocation.
+
+VALIDATION
+
+Normalize labels to lowercase.
+
+Only allow valid DNS labels.
+
+Reject:
+- duplicate hostnames
+- reserved names
+- disabled domains
+- unauthorized servers
+- servers with invalid allocations
+
+Use database uniqueness constraints as well as application validation.
+
+MINECRAFT JAVA DNS
+
+For Minecraft Java create:
+
+A:
+<subdomain>.<domain> -> allocation IPv4
+
+Cloudflare proxy status MUST be DNS-only.
+
+If the allocation port is not 25565, additionally create:
+
+SRV:
+_minecraft._tcp.<subdomain>.<domain>
+
+priority = 0
+weight = 0
+port = allocation port
+target = <subdomain>.<domain>
+
+Store Cloudflare's returned record IDs so records can be updated/deleted safely.
+
+LIFECYCLE
+
+Automatically update DNS when:
+- primary allocation changes
+- allocation port changes
+- node IP changes
+
+Automatically remove DNS when:
+- subdomain is deleted
+- server is deleted
+
+If DNS creation partially fails, roll back created records where possible.
+
+Implement retry/backoff for transient provider failures.
+
+Add a reconciliation/background job that compares Fluid's expected DNS state with provider state and repairs inconsistencies.
+
+SECURITY
+
+Use the minimum Cloudflare token permissions required for DNS editing of configured zones.
+
+Do not expose API tokens.
+
+Protect every customer action with existing Fluid authorization policies.
+
+Rate-limit subdomain mutations.
+
+Audit:
+- create
+- rename
+- delete
+- provider errors
+- automatic updates
+
+TESTING
+
+Add automated tests covering:
+- creation
+- duplicate name rejection
+- reserved names
+- ownership checks
+- A record generation
+- Minecraft SRV generation
+- port 25565 behavior
+- deletion
+- server deletion cleanup
+- allocation changes
+- Cloudflare failures
+- retry/reconciliation
+- authorization
+
+UI
+
+Follow Fluid's existing design system exactly.
+Do not create a visually separate addon-style UI.
+
+Before changing code:
+1. inspect the relevant architecture,
+2. produce a short implementation plan,
+3. identify files/migrations that will change,
+4. then implement it,
+5. run tests/build/lint and fix all regressions.
+
+Do not leave mocked functionality or TODO implementations.

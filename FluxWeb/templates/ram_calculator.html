@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}Advanced RAM Calculator - Flux Servers{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --calc-bg: rgba(15, 23, 42, 0.6);
+        --calc-accent: #3b82f6;
+        --calc-accent-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        --calc-card-border: rgba(255, 255, 255, 0.08);
+    }
+
+    .calculator-container {
+        padding: 80px 0;
+        background: radial-gradient(circle at top center, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+    }
+
+    .calc-header {
+        text-align: center;
+        margin-bottom: 50px;
+    }
+
+    .calc-header h1 {
+        font-size: 3.5rem;
+        font-weight: 800;
+        margin-bottom: 15px;
+        background: linear-gradient(to bottom, #fff, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .calc-header p {
+        font-size: 1.1rem;
+        color: #94a3b8;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .calc-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 30px;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .calc-main {
+        background: var(--calc-bg);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--calc-card-border);
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .calc-sidebar {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+
+    .result-card {
+        background: var(--calc-accent-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        text-align: center;
+        color: white;
+        position: sticky;
+        top: 100px;
+        box-shadow: 0 20px 40px rgba(37, 99, 235, 0.3);
+        overflow: hidden;
+    }
+
+    .result-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .result-value {
+        font-size: 5rem;
+        font-weight: 900;
+        line-height: 1;
+        margin-bottom: 10px;
+    }
+
+    .result-unit {
+        font-size: 1.5rem;
+        font-weight: 600;
+        opacity: 0.9;
+    }
+
+    .input-group {
+        margin-bottom: 35px;
+    }
+
+    .input-group label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .option-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+    }
+
+    .option-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--calc-card-border);
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+    }
+
+    .option-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .option-card.active {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: var(--calc-accent);
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+    }
+
+    .option-card i {
+        display: block;
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+        color: #94a3b8;
+    }
+
+    .option-card.active i {
+        color: var(--calc-accent);
+    }
+
+    .option-card span {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #cbd5e1;
+    }
+
+    /* Slider Styling */
+    .slider-wrapper {
+        position: relative;
+        padding-top: 10px;
+    }
+
+    .slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .slider-val {
+        font-family: 'Stack Sans Headline', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--calc-accent);
+        background: rgba(59, 130, 246, 0.1);
+        padding: 4px 12px;
+        border-radius: 8px;
+    }
+
+    input[type=range] {
+        -webkit-appearance: none;
+        width: 100%;
+        background: transparent;
+    }
+
+    input[type=range]:focus {
+        outline: none;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 8px;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        height: 24px;
+        width: 24px;
+        border-radius: 50%;
+        background: #fff;
+        cursor: pointer;
+        -webkit-appearance: none;
+        margin-top: -8px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .recommendation-box {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--calc-card-border);
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    .recommendation-box h4 {
+        font-size: 0.9rem;
+        color: #94a3b8;
+        margin-bottom: 10px;
+    }
+
+    .recommendation-box p {
+        font-size: 0.95rem;
+        color: #cbd5e1;
+        line-height: 1.5;
+    }
+
+    .btn-order {
+        display: block;
+        width: 100%;
+        padding: 18px;
+        background: white;
+        color: #1e3a8a;
+        text-decoration: none;
+        border-radius: 14px;
+        font-weight: 700;
+        margin-top: 25px;
+        transition: transform 0.2s;
+    }
+
+    .btn-order:hover {
+        transform: translateY(-3px);
+    }
+
+    @media (max-width: 992px) {
+        .calc-grid {
+            grid-template-columns: 1fr;
+        }
+        .result-card {
+            position: static;
+        }
+    }
+</style>
+
+<div class="calculator-container">
+    <div class="container">
+        <div class="calc-header" data-aos="fade-up">
+            <h1>Server RAM <span class="highlight">Calculator</span></h1>
+            <p>Find the perfect balance of performance and cost. Select your server specifications below for an instant recommendation.</p>
+        </div>
+
+        <div class="calc-grid">
+            <div class="calc-main" data-aos="fade-right">
+                <!-- Software Selection -->
+                <div class="input-group">
+                    <label>Server Software</label>
+                    <div class="option-grid" id="software-options">
+                        <div class="option-card active" data-value="vanilla">
+                            <i class="fas fa-cube"></i>
+                            <span>Vanilla</span>
+                        </div>
+                        <div class="option-card" data-value="paper">
+                            <i class="fas fa-scroll"></i>
+                            <span>Paper/Spigot</span>
+                        </div>
+                        <div class="option-card" data-value="forge">
+                            <i class="fas fa-hammer"></i>
+                            <span>Forge/Fabric</span>
+                        </div>
+                        <div class="option-card" data-value="proxy">
+                            <i class="fas fa-network-wired"></i>
+                            <span>Bungee/Velocity</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Version Selection -->
+                <div class="input-group">
+                    <label>Minecraft Version</label>
+                    <div class="option-grid" id="version-options">
+                        <div class="option-card" data-value="legacy">
+                            <span>1.8 - 1.12</span>
+                        </div>
+                        <div class="option-card" data-value="classic">
+                            <span>1.13 - 1.16</span>
+                        </div>
+                        <div class="option-card active" data-value="modern">
+                            <span>1.17 - 1.19</span>
+                        </div>
+                        <div class="option-card" data-value="latest">
+                            <span>1.20+</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Player Count -->
+                <div class="input-group">
+                    <div class="slider-header">
+                        <label style="margin-bottom: 0;">Expected Players</label>
+                        <span class="slider-val" id="player-val">12</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" id="player-slider" min="1" max="150" value="12">
+                    </div>
+                </div>
+
+                <!-- Plugin/Mod Count -->
+                <div class="input-group" id="mod-group">
+                    <div class="slider-header">
+                        <label style="margin-bottom: 0;">Plugins / Mods</label>
+                        <span class="slider-val" id="mod-val">0</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" id="mod-slider" min="0" max="250" value="0">
+                    </div>
+                </div>
+
+                <!-- World Size -->
+                <div class="input-group">
+                    <label>World Complexity</label>
+                    <div class="option-grid" id="world-options">
+                        <div class="option-card active" data-value="small">
+                            <span>Standard</span>
+                        </div>
+                        <div class="option-card" data-value="large">
+                            <span>Large / Pregen</span>
+                        </div>
+                        <div class="option-card" data-value="custom">
+                            <span>Custom / Modded</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="calc-sidebar" data-aos="fade-left">
+                <div class="result-card">
+                    <h3>Flux Recommendation</h3>
+                    <div class="result-value" id="final-ram">4</div>
+                    <div class="result-unit">GIGABYTES</div>
+                    
+                    <div class="recommendation-box">
+                        <h4>Why this much?</h4>
+                        <p id="calc-explanation">This allocation provides a smooth experience for a small community with modern optimizations.</p>
+                    </div>
+
+                    <a href="/minecraft#plans" class="button" style="width: 100%;">
+                        <span>GET STARTED NOW</span>
+                        <div class="hoverEffect">
+                            <div></div>
+                        </div>
+                    </a>
+                    <p style="margin-top: 15px; font-size: 0.8rem; opacity: 0.7;">Powered by AMD Ryzen 9950X</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const playerSlider = document.getElementById('player-slider');
+        const modSlider = document.getElementById('mod-slider');
+        const playerVal = document.getElementById('player-val');
+        const modVal = document.getElementById('mod-val');
+        const finalRam = document.getElementById('final-ram');
+        const explanation = document.getElementById('calc-explanation');
+        const modGroup = document.getElementById('mod-group');
+
+        let software = 'vanilla';
+        let version = 'modern';
+        let world = 'small';
+
+        // Setup Card Selectors
+        function setupCards(containerId, callback) {
+            const container = document.getElementById(containerId);
+            const cards = container.querySelectorAll('.option-card');
+            cards.forEach(card => {
+                card.addEventListener('click', () => {
+                    cards.forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    callback(card.dataset.value);
+                    updateCalc();
+                });
+            });
+        }
+
+        setupCards('software-options', (val) => {
+            software = val;
+            if (val === 'proxy') {
+                modGroup.style.opacity = '0.3';
+                modGroup.style.pointerEvents = 'none';
+            } else {
+                modGroup.style.opacity = '1';
+                modGroup.style.pointerEvents = 'auto';
+            }
+        });
+        setupCards('version-options', (val) => version = val);
+        setupCards('world-options', (val) => world = val);
+
+        playerSlider.addEventListener('input', () => {
+            playerVal.innerText = playerSlider.value;
+            updateCalc();
+        });
+
+        modSlider.addEventListener('input', () => {
+            modVal.innerText = modSlider.value;
+            updateCalc();
+        });
+
+        function updateCalc() {
+            let ram = 1.5; // Baseline
+            const players = parseInt(playerSlider.value);
+            const mods = parseInt(modSlider.value);
+
+            // Software Logic
+            if (software === 'paper') ram += 1;
+            if (software === 'forge') ram += 2.5;
+            if (software === 'proxy') ram = 1;
+
+            // Version Logic (Modern versions are RAM hogs)
+            if (version === 'classic') ram += 0.5;
+            if (version === 'modern') ram += 1.5;
+            if (version === 'latest') ram += 2;
+
+            // Player Logic
+            ram += (players * 0.08);
+
+            // Mod Logic
+            if (software !== 'proxy') {
+                ram += (mods * 0.04);
+            }
+
+            // World Complexity
+            if (world === 'large') ram += 1;
+            if (world === 'custom') ram += 2;
+
+            // Rounding to nearest useful number
+            let final = Math.ceil(ram);
+            if (final % 2 !== 0 && final > 4) final += 1; // Prefer even numbers for higher tiers
+            if (final < 2) final = 2;
+            if (software === 'proxy' && final > 4) final = 4; // Proxies rarely need > 4GB
+
+            finalRam.innerText = final;
+
+            // Explanation logic
+            let exp = "";
+            if (software === 'forge') {
+                exp = `Modpacks on version ${version} require significant heap space. ${final}GB ensures your mods run without stuttering.`;
+            } else if (players > 50) {
+                exp = `With ${players} concurrent players, chunk loading and entity tracking are the main bottlenecks. This RAM keeps your TPS stable.`;
+            } else if (software === 'proxy') {
+                exp = "Proxies focus on network traffic rather than game logic, so memory requirements stay low even with many players.";
+            } else {
+                exp = `A well-optimized setup for ${players} players. This provides enough overhead for smooth garbage collection.`;
+            }
+            explanation.innerText = exp;
+        }
+
+        updateCalc();
+    });
+</script>
+{% endblock %}

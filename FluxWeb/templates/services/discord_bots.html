@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Discord Bot Hosting - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="hero" data-aos="fade-up" style="position: relative;">
+    <div class="mesh-bg"></div>
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="animated-title">Discord Bot <span class="highlight">Hosting</span></h1>
+            <p>High-performance hosting for your Discord bots. Supporting Node.js, Python, Java, and more with 24/7 uptime.</p>
+            <div class="hero-buttons">
+                <a href="#plans" class="button">
+                    <span>View Plans</span>
+                    <div class="hoverEffect">
+                        <div></div>
+                    </div>
+                </a>
+                <a href="#custom" class="btn btn-secondary">Custom Plan</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="plans">
+    <div class="container">
+        <h2>Choose Your Plan</h2>
+        {% include "services/_plan_tabs.html" %}
+        <div class="grid-3">
+            {% if plans %}
+                {% for plan in plans %}
+                <div class="plan-card glass-card {% if plan.is_featured %}featured{% endif %}" data-aos="fade-up" data-plan-subcategory="{% if plan.subcategory_id %}subcat-{{ plan.subcategory_id }}{% else %}default{% endif %}">
+                    {% if plan.is_featured %}
+                <div class="featured-badge-corner">POPULAR</div>
+                <div class="sparkle-stars">
+                    <div class="star-particle s1"></div>
+                    <div class="star-particle s2"></div>
+                    <div class="star-particle s3"></div>
+                    <div class="star-particle s4"></div>
+                    <div class="star-particle s5"></div>
+                </div>
+                {% endif %}
+                    <div class="plan-header" style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    {% if plan.image_url %}
+    <div class="plan-image-container" style="width:auto; height:auto; overflow:hidden; flex-shrink:0;">
+        <img src="{{ plan.image_url }}" alt="{{ plan.name }}" style="max-width:64px; max-height:64px; width:auto; height:auto; object-fit:contain;">
+    </div>
+    {% endif %}
+    <div class="plan-title-price">
+        <h3 style="margin:0;">{{ plan.name }}</h3>
+        <div class="pricing-amount" style="margin-top:4px;">${{ "%.2f"|format(plan.price) }}<span>/mo</span></div>
+    </div>
+</div>
+                    <div class="plan-specs" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 15px 0; font-size: 11px; font-weight: 700; color: var(--text-muted);">
+                        <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-memory" style="color: var(--primary);"></i>
+                            {% if plan.memory >= 1024 %}
+                                {{ (plan.memory / 1024)|round(1)|replace('.0', '') }} GB RAM
+                            {% else %}
+                                {{ plan.memory }} MB RAM
+                            {% endif %}
+                        </span>
+                        <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-microchip" style="color: #a855f7;"></i>
+                            {{ plan.cpu }}% CPU
+                        </span>
+                        <span style="background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border); padding: 6px 10px; border-radius: 10px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fas fa-hdd" style="color: #10b981;"></i>
+                            {% if plan.disk >= 1024 %}
+                                {{ (plan.disk / 1024)|round(1)|replace('.0', '') }} GB Disk
+                            {% else %}
+                                {{ plan.disk }} MB Disk
+                            {% endif %}
+                        </span>
+                    </div>
+                    <ul class="pricing-features">
+                        {% for feature in plan.feature_list %}
+                        <li><i class="fas fa-check"></i> {{ feature }}</li>
+                        {% endfor %}
+                    </ul>
+                                <div class="plan-cart-action"
+                                    data-plan-id="{{ plan.id }}"
+                                    data-plan-name="{{ plan.name }}"
+                                    data-plan-price="{{ plan.price }}"
+                                    data-plan-game="{{ plan.game }}">
+                                    <a class="cart-button" href="{{ url_for('cart.customize_plan', plan_id=plan.id) }}">
+                                      <span class="cart-icon">
+                                        <svg
+                                          stroke-linejoin="round"
+                                          stroke-linecap="round"
+                                          stroke-width="2"
+                                          stroke="currentColor"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                          height="24"
+                                          width="24"
+                                          xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                          <circle r="1" cy="21" cx="9"></circle>
+                                          <circle r="1" cy="21" cx="20"></circle>
+                                          <path
+                                            d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
+                                          ></path>
+                                        </svg>
+                                      </span>
+
+                                      Add to Cart
+                                      <div class="progress-bar"></div>
+                                    </a>
+                                </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section id="custom" style="background: var(--surface);">
+    <div class="container">
+            <div class="custom-solution-card" data-aos="fade-up">
+                <div class="custom-solution-content">
+                    <h2>Need a specialized bot environment?</h2>
+                    <p>Whether you're running a massive music bot or a complex dashboard, we have the resources you need.</p>
+                </div>
+                <div class="custom-solution-actions">
+                    <a href="https://discord.gg/fluxservers" target="_blank" class="btn-discord">Join Discord</a>
+                    <a href="/contact" class="btn-support">Contact Support</a>
+                </div>
+            </div>
+    </div>
+</section>
+
+<section class="features-new">
+    <div class="container">
+        <div class="section-header" style="text-align: center; margin-bottom: 60px;">
+            <h2 data-aos="fade-up" style="font-size: 48px; margin-bottom: 16px;">Bot Hosting <span class="highlight">Features</span></h2>
+            <p data-aos="fade-up" data-aos-delay="100" style="font-size: 18px; color: var(--text-muted);">Powerful tools for bot developers.</p>
+        </div>
+        
+        <div class="feature-grid">
+            <div class="feature-card" data-aos="fade-up" style="--feature-color: #3b82f6;">
+                <div class="feature-icon-wrapper">
+                    <i class="fab fa-node-js"></i>
+                </div>
+                <h3>Multi-Language Support</h3>
+                <p>Native support for Node.js, Python, Java, Go, Rust, and more. Use your favorite language without limits.</p>
+            </div>
+            
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="100" style="--feature-color: #10b981;">
+                <div class="feature-icon-wrapper">
+                    <i class="fas fa-microchip"></i>
+                </div>
+                <h3>Dedicated Resources</h3>
+                <p>No more resource sharing. Your bot gets its own dedicated RAM and CPU slices for consistent performance.</p>
+            </div>
+            
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="200" style="--feature-color: #8b5cf6;">
+                <div class="feature-icon-wrapper">
+                    <i class="fas fa-terminal"></i>
+                </div>
+                <h3>Full Console Access</h3>
+                <p>Real-time log streaming and interactive terminal. Debug your bot live as if you were on your own machine.</p>
+            </div>
+            
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="300" style="--feature-color: #f59e0b;">
+                <div class="feature-icon-wrapper">
+                    <i class="fas fa-database"></i>
+                </div>
+                <h3>Database Integration</h3>
+                <p>One-click deployment for MongoDB, Redis, and MySQL. Scale your bot's data storage effortlessly.</p>
+            </div>
+
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="400" style="--feature-color: #ec4899;">
+                <div class="feature-icon-wrapper">
+                    <i class="fas fa-upload"></i>
+                </div>
+                <h3>Git Deployment</h3>
+                <p>Deploy directly from GitHub, GitLab, or Bitbucket. Automatic restarts on push for seamless updates.</p>
+            </div>
+
+            <div class="feature-card" data-aos="fade-up" data-aos-delay="500" style="--feature-color: #06b6d4;">
+                <div class="feature-icon-wrapper">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h3>24/7 Uptime</h3>
+                <p>Your bot never sleeps. Our automated monitoring and restart systems ensure maximum availability.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .custom-solution-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 40px 60px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 40px;
+        text-align: left;
+        margin-top: 40px;
+        transition: all 0.3s ease;
+    }
+
+    .custom-solution-content h2 {
+        font-size: 36px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: var(--text);
+    }
+
+    .custom-solution-content p {
+        font-size: 18px;
+        color: var(--text-muted);
+        margin: 0;
+    }
+
+    .custom-solution-actions {
+        display: flex;
+        gap: 16px;
+        flex-shrink: 0;
+    }
+
+    .btn-discord {
+        background: #5865F2;
+        color: #fff;
+        padding: 14px 32px;
+        border-radius: 100px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+
+    .btn-discord:hover {
+        background: #4752c4;
+        transform: translateY(-2px);
+    }
+
+    .btn-support {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 14px 32px;
+        border-radius: 100px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: 0.3s;
+    }
+
+    .btn-support:hover {
+        background: var(--surface-hover);
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 991px) {
+        .custom-solution-card {
+            flex-direction: column;
+            text-align: center;
+            padding: 40px;
+        }
+    }
+</style>
+{% endblock %}

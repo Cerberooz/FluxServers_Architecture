@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Support - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 60px 0;">
+        <div class="container" style="text-align: center;">
+        <h1 style="font-size: 48px; margin-bottom: 16px;">Get in <span class="highlight">Touch</span></h1>
+        <p style="margin: 0 auto; max-width: 600px;">Our team of experts is available 24/7 to assist you.</p>
+    </div>
+</section>
+
+<section class="contact-section">
+    <div class="container">
+        <div class="grid-3" style="margin-bottom: 60px;">
+            <div class="card" style="text-align: center;">
+                <i class="fab fa-discord"></i>
+                <h3>Discord</h3>
+                <p>Join our Discord for instant support and community chat.</p>
+                <a href="https://discord.gg/8YdvzqSk9D" class="card-link">Join Now </a>
+            </div>
+            <div class="card" style="text-align: center;">
+                <i class="fas fa-envelope"></i>
+                <h3>Email</h3>
+                <p>Reach out via email for billing or complex technical issues.</p>
+                <a href="mailto:support@fluxserver.com" class="card-link">Send Email</a>
+            </div>
+            <div class="card" style="text-align: center;">
+                <i class="fas fa-book"></i>
+                <h3>Knowledgebase</h3>
+                <p>Browse our guides and tutorials for quick answers.</p>
+                <a href="/#faq" class="card-link">Read Guides</a>
+            </div>
+        </div>
+
+        <div class="custom-solution-card" data-aos="fade-up" style="margin-top: 0;">
+            <div class="custom-solution-content">
+                <h2>Join our Discord</h2>
+                <p>The fastest way to get support is through our community Discord server. Our staff and community are active 24/7.</p>
+            </div>
+            <div class="custom-solution-actions">
+                <a href="https://discord.gg/8YdvzqSk9D" target="_blank" class="btn-discord">Join Discord</a>
+            </div>
+        </div>
+
+        <style>
+            .custom-solution-card {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 24px;
+                padding: 40px 60px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 40px;
+                text-align: left;
+                transition: all 0.3s ease;
+            }
+
+            .custom-solution-content h2 {
+                font-size: 32px;
+                font-weight: 700;
+                margin-bottom: 12px;
+                color: var(--text);
+            }
+
+            .custom-solution-content p {
+                font-size: 16px;
+                color: var(--text-muted);
+                margin: 0;
+            }
+
+            .custom-solution-actions {
+                display: flex;
+                gap: 16px;
+                flex-shrink: 0;
+            }
+
+            .btn-discord {
+                background: #5865f2;
+                color: #ffffff !important;
+                padding: 14px 32px;
+                border-radius: 100px;
+                font-weight: 600;
+                text-decoration: none;
+                transition: 0.3s;
+                display: inline-block;
+            }
+
+            .btn-discord:hover {
+                background: #4752c4;
+                transform: translateY(-2px);
+                box-shadow: 0 10px 20px rgba(88, 101, 242, 0.3);
+            }
+
+            @media (max-width: 768px) {
+                .custom-solution-card {
+                    flex-direction: column;
+                    text-align: center;
+                    padding: 30px;
+                }
+            }
+        </style>
+
+    </div>
+</section>
+{% endblock %}

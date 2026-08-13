@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}System Status - Flux Servers{% endblock %}
+
+{% block content %}
+<style>
+    .status-indicator-hero {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 24px;
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 100px;
+        color: var(--success);
+        font-weight: 600;
+        font-size: 16px;
+        margin-bottom: 24px;
+    }
+
+    .status-indicator-hero.partial {
+        background: rgba(245, 158, 11, 0.1);
+        border-color: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+    }
+
+    .status-indicator-hero.major {
+        background: rgba(239, 68, 68, 0.1);
+        border-color: rgba(239, 68, 68, 0.2);
+        color: var(--danger);
+    }
+
+    .pulse {
+        width: 10px;
+        height: 10px;
+        background: currentColor;
+        border-radius: 50%;
+        position: relative;
+    }
+
+    .pulse::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: currentColor;
+        border-radius: 50%;
+        animation: pulse-anim 2s infinite;
+    }
+
+    @keyframes pulse-anim {
+        0% {
+            transform: scale(1);
+            opacity: 0.8;
+        }
+
+        100% {
+            transform: scale(3);
+            opacity: 0;
+        }
+    }
+
+    .services-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-bottom: 60px;
+    }
+
+    .service-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: transform 0.3s, border-color 0.3s;
+    }
+
+    .service-card:hover {
+        transform: translateY(-5px);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .service-info h3 {
+        font-family: 'Stack Sans Headline', sans-serif;
+        font-size: 18px;
+        margin-bottom: 4px;
+    }
+
+    .service-info p {
+        color: var(--text-muted);
+        font-size: 13px;
+    }
+
+    .status-badge {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 12px;
+        text-transform: uppercase;
+    }
+
+    .status-operational {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--success);
+    }
+
+    .status-degraded {
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--warning);
+    }
+
+    .status-outage {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger);
+    }
+
+    .section-title {
+        font-family: 'Stack Sans Headline', sans-serif;
+        font-size: 24px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .section-title i {
+        color: var(--primary);
+    }
+
+    .maintenance-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .maintenance-card {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+    }
+
+    .m-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+
+    .m-title {
+        font-family: 'Stack Sans Headline', sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .m-date {
+        color: var(--text-muted);
+        font-size: 12px;
+    }
+
+    .m-footer {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .m-status-scheduled {
+        color: var(--warning);
+    }
+
+    .m-status-progress {
+        color: var(--primary);
+    }
+
+    .m-status-resolved {
+        color: var(--success);
+    }
+
+    .view-all {
+        text-align: center;
+        margin-top: 32px;
+    }
+</style>
+
+<section class="hero" style="padding: 100px 0 60px;">
+    <div class="container" style="text-align: center;">
+        {% set status_scope = namespace(major=false, partial=false) %}
+        {% for s in services %}
+        {% if s.status == 'Major Outage' %}
+        {% set status_scope.major = true %}
+        {% elif s.status in ['Partial Outage', 'Degraded Performance'] %}
+        {% set status_scope.partial = true %}
+        {% endif %}
+        {% endfor %}
+
+        {% if status_scope.major %}
+        <div class="status-indicator-hero major">
+            <div class="status-heartbeat">
+                <svg viewBox="0 0 64 48">
+                    <polyline points="0 24, 64 24" id="back"></polyline>
+                    <polyline points="0 24, 64 24" id="front"></polyline>
+                </svg>
+            </div>
+            Major System Outage
+        </div>
+        {% elif status_scope.partial %}
+        <div class="status-indicator-hero partial">
+            <div class="status-heartbeat">
+                <svg viewBox="0 0 64 48">
+                    <polyline points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24" id="back"></polyline>
+                    <polyline points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24" id="front"></polyline>
+                </svg>
+            </div>
+            Partial System Outage
+        </div>
+        {% else %}
+        <div class="status-indicator-hero">
+            <div class="status-heartbeat">
+                <svg viewBox="0 0 64 48">
+                    <polyline points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24" id="back"></polyline>
+                    <polyline points="0.157 23.954, 14 23.954, 21.843 48, 43 0, 50 24, 64 24" id="front"></polyline>
+                </svg>
+            </div>
+            All Systems Operational
+        </div>
+        {% endif %}
+
+        <h1 class="animated-title" style="font-size: 48px;">System <span class="highlight">Status</span></h1>
+        <p style="max-width: 600px; margin: 0 auto;">Real-time status updates for <span class="flux-word">Flux</span>
+            Servers platform and infrastructure.</p>
+    </div>
+</section>
+
+<section style="padding: 60px 0;">
+    <div class="container">
+        <div class="services-grid">
+            {% for service in services %}
+            <div class="service-card" data-aos="fade-up" data-aos-delay="{{ loop.index * 100 }}">
+                <div class="service-info">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        {% if service.flag_icon %}
+                        <img src="/static/flags/{{ service.flag_icon }}.svg"
+                            style="height: 18px; width: auto; border-radius: 3px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        {% endif %}
+                        <h3 style="margin-bottom: 0;">{{ service.name }}</h3>
+                    </div>
+                    <p style="margin-top: 4px;">Last updated: {{ service.updated_at.strftime('%H:%M %p') }}</p>
+                </div>
+                <div class="status-badge 
+                    {% if service.status == 'Operational' %}status-operational
+                    {% elif service.status == 'Degraded Performance' or service.status == 'Partial Outage' %}status-degraded
+                    {% else %}status-outage{% endif %}">
+                    {{ service.status }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div style="margin-top: 80px;">
+            <h2 class="section-title"><i class="fas fa-tools"></i> Recent Maintenance</h2>
+            <div class="maintenance-list">
+                {% if recent_updates %}
+                {% for update in recent_updates %}
+                <div class="maintenance-card" data-aos="fade-up">
+                    <div class="m-header">
+                        <h3 class="m-title">{{ update.title }}</h3>
+                        <span class="m-date">{{ update.created_at.strftime('%B %d, %Y') }}</span>
+                    </div>
+                    <div class="m-content" style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">
+                        {{ update.content }}
+                    </div>
+                    <div class="m-footer 
+                            {% if update.status == 'Scheduled' %}m-status-scheduled
+                            {% elif update.status == 'In Progress' %}m-status-progress
+                            {% else %}m-status-resolved{% endif %}">
+                        <i
+                            class="fas {% if update.status == 'Resolved' %}fa-check-circle{% else %}fa-clock{% endif %}"></i>
+                        {{ update.status }}
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p style="text-align: center; color: var(--text-muted); padding: 40px;">No recent maintenance updates.
+                </p>
+                {% endif %}
+            </div>
+
+            <div class="view-all">
+                <a href="/maintenance" class="button">
+                    <span>View All Maintenance History</span>
+                    <div class="hoverEffect">
+                        <div></div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

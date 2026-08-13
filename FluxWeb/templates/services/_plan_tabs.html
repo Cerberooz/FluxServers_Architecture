@@ -1,0 +1,45 @@
+{% set groups = plan_groups if plan_groups is defined else [] %}
+{% if groups|length > 1 %}
+<div class="plan-subcategory-tabs" data-plan-tabs style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin: 0 0 28px;">
+    {% for group in groups %}
+    <button type="button"
+            data-plan-tab="{{ group.id }}"
+            style="padding: 10px 18px; border-radius: 999px; border: 1px solid var(--border); background: {% if loop.first %}var(--primary){% else %}var(--surface){% endif %}; color: {% if loop.first %}#fff{% else %}var(--text){% endif %}; font-weight: 800; cursor: pointer;">
+        {{ group.name }}
+    </button>
+    {% endfor %}
+</div>
+<p data-plan-tab-description style="display:none; max-width:720px; margin:-14px auto 28px; text-align:center; color:var(--text-muted); font-weight:600;"></p>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('[data-plan-tabs]').forEach(tabWrap => {
+            const section = tabWrap.closest('section');
+            const descriptions = {
+                {% for group in groups %}
+                "{{ group.id }}": {{ (group.description or "")|tojson }}{% if not loop.last %},{% endif %}
+                {% endfor %}
+            };
+            const descriptionEl = section.querySelector('[data-plan-tab-description]');
+            const showGroup = target => {
+                tabWrap.querySelectorAll('[data-plan-tab]').forEach(tab => {
+                    const active = tab.dataset.planTab === target;
+                    tab.style.background = active ? 'var(--primary)' : 'var(--surface)';
+                    tab.style.color = active ? '#fff' : 'var(--text)';
+                });
+                if (descriptionEl) {
+                    descriptionEl.textContent = descriptions[target] || '';
+                    descriptionEl.style.display = descriptions[target] ? '' : 'none';
+                }
+                section.querySelectorAll('[data-plan-subcategory]').forEach(card => {
+                    card.style.display = card.dataset.planSubcategory === target ? '' : 'none';
+                });
+            };
+            const first = tabWrap.querySelector('[data-plan-tab]');
+            if (first) showGroup(first.dataset.planTab);
+            tabWrap.querySelectorAll('[data-plan-tab]').forEach(tab => {
+                tab.addEventListener('click', () => showGroup(tab.dataset.planTab));
+            });
+        });
+    });
+</script>
+{% endif %}

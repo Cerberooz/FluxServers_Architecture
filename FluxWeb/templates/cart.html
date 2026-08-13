@@ -1,0 +1,1371 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping Cart - Flux Servers{% endblock %}
+
+{% block extra_head %}
+{# Only load the PayPal SDK when PayPal is actually configured. Loading it with
+   an empty client-id previously produced a dead, silently broken button. #}
+{% if paypal_enabled or stripe_enabled %}
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&components=buttons,funding-eligibility"></script>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<section class="hero cart-hero" data-aos="fade-up" style="position: relative;">
+    <div class="mesh-bg"></div>
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="animated-title">Shopping <span class="highlight">Cart</span></h1>
+            <p>Review your selected packages and proceed to checkout</p>
+        </div>
+    </div>
+</section>
+
+
+
+<section class="cart-section">
+    <div class="container">
+        <div class="cart-layout {% if not cart %}cart-layout-empty{% endif %}">
+            <!-- Cart Items -->
+            <div class="cart-items-container">
+                <div class="glass-card cart-main-card">
+                    {% if cart %}
+                    <div class="cart-header">
+                        <h2>Your <span class="highlight">Selection</span></h2>
+                        <span class="item-count">{{ cart|length }} items</span>
+                    </div>
+                    <div id="cart-items-list">
+                        {% for item in cart %}
+                        <div class="cart-item-row" data-item-index="{{ loop.index0 }}">
+                            <div class="item-info">
+                                <div class="item-icon-box">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path
+                                            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                                        </path>
+                                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                    </svg>
+                                </div>
+                                <div class="item-details">
+                                    <h3>{{ item.name }}</h3>
+                                    <p>{{ item.game|upper }} EDITION</p>
+                                    {% if item.kind == 'new' %}
+                                    <p style="margin-top: 5px; color: var(--text-muted); font-size: 11px;">
+                                        Location: {{ item.node_name or ("Node " ~ item.node_id) }} &bull; Software: {{ item.egg_name or ("Software #" ~ item.egg_id) }}
+                                    </p>
+                                    {% endif %}
+                                    {% if item.game == 'discord_bot' %}
+                                    <div class="software-selector" style="margin-top: 10px;">
+                                        <select onchange="updateSoftware({{ loop.index0 }}, this.value)"
+                                            style="padding: 5px 10px; border-radius: 8px; background: var(--surface); color: var(--text); border: 1px solid var(--border); font-size: 12px; font-weight: 600;">
+                                            <option value="nodejs" {% if item.software=='nodejs' %}selected{% endif %}>
+                                                Node.js</option>
+                                            <option value="python" {% if item.software=='python' %}selected{% endif %}>
+                                                Python</option>
+                                        </select>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="item-pricing">
+                                <div class="price">${{ "%.2f"|format(item.price) }}<small>/mo</small></div>
+                                <button onclick="removeFromCart({{ loop.index0 }})" class="remove-btn"
+                                    title="Remove Item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path
+                                            d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                                        </path>
+                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-cart-state">
+                        <div class="empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <circle cx="9" cy="21" r="1"></circle>
+                                <circle cx="20" cy="21" r="1"></circle>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                            </svg>
+                        </div>
+                        <h2>Your cart is empty</h2>
+                        <p>Looks like you haven't added any premium hosting packages yet.</p>
+                        <a href="/minecraft" class="button">Browse Packages</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cart Summary -->
+            <div class="cart-summary-container">
+                <div class="glass-card summary-card sticky-card">
+                    <h2>Order <span class="highlight">Summary</span></h2>
+
+                    {% if cart %}
+                    <div class="coupon-box">
+                        <form id="coupon-form" method="POST" action="/apply-coupon">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="coupon-input-group">
+                                <input type="text" name="code" id="coupon-input" placeholder="Promo Code" required>
+                                <button type="submit" class="apply-btn">Apply</button>
+                            </div>
+                        </form>
+                        <div id="active-coupon-container">
+                            {% if coupon_code %}
+                            <div class="active-coupon">
+                                <div class="coupon-info">
+                                    <span class="code">{{ coupon_code }}</span>
+                                    <span class="discount">{{ discount_percent }}% OFF</span>
+                                </div>
+                                <a href="#" class="remove-coupon-link"
+                                    onclick="event.preventDefault(); removeCoupon();">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="pricing-details">
+                        <div class="price-row">
+                            <span>Subtotal</span>
+                            <span>$<span id="summary-subtotal">{{ "%.2f"|format(subtotal) }}</span></span>
+                        </div>
+
+                        <div class="price-row discount-row" id="summary-discount-row"
+                            style="{% if discount_amount == 0 %}display: none;{% endif %}">
+                            <span>Discount</span>
+                            <span>-$<span id="summary-discount">{{ "%.2f"|format(discount_amount) }}</span></span>
+                        </div>
+
+                        <div class="price-row total-row">
+                            <span>Total Due</span>
+                            <span>$<span id="summary-total">{{ "%.2f"|format(total) }}</span></span>
+                        </div>
+                    </div>
+
+                    {% if requires_verification %}
+                    <div class="verify-notice" style="margin: 0 0 20px; padding: 14px 16px; border-radius: 10px;
+                         background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);">
+                        <div style="font-size: 13px; font-weight: 700; margin-bottom: 4px;">
+                            <i class="fas fa-envelope" style="margin-right: 6px;"></i>Verify your email to order
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-muted);">
+                            We sent a verification link to your address. Confirm it and your servers can be
+                            provisioned automatically.
+                            <form method="POST" action="/resend-verification" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" style="background: none; border: none; padding: 0;
+                                    color: var(--primary-color); font-weight: 600; cursor: pointer; font-size: 12px;">
+                                    Resend link
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <form id="order-form" method="POST" action="/checkout">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="payment-modal">
+                            <div class="checkout-fields" style="display: grid; gap: 15px; margin-bottom: 25px;">
+                                <div class="input-field">
+                                    <label>Server Name</label>
+                                    <input type="text" name="server_name" id="order-server-name"
+                                        placeholder="My Awesome Server" required>
+                                </div>
+                                    <div class="input-field">
+                                        <label>Account Full Name</label>
+                                        <input type="text" name="name" id="order-name"
+                                            value="{{ current_user.username if current_user else '' }}"
+                                            placeholder="John Doe" required>
+                                    </div>
+                                    <div class="input-field">
+                                        <label>Account Email Address</label>
+                                        <input type="email" name="email" id="order-email"
+                                            value="{{ current_user.email if current_user else '' }}"
+                                            placeholder="john@example.com" required>
+                                    </div>
+                                </div>
+
+                                {% if paypal_enabled or stripe_enabled %}
+                                <div class="payment-selector">
+                                    {% if paypal_enabled %}
+                                    <div class="pay-option active" id="pay-paypal" onclick="togglePayment('paypal')">
+                                        <i class="fab fa-paypal" style="color: #0070ba;"></i>
+                                        <span>PayPal</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if stripe_enabled %}
+                                    <div class="pay-option{% if not paypal_enabled %} active{% endif %}" id="pay-stripe" onclick="togglePayment('stripe')">
+                                        <i class="fas fa-credit-card"></i>
+                                        <span>Credit Card</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+
+                                <div id="paypal-container" style="display: {% if paypal_enabled %}block{% else %}none{% endif %};">
+                                    <div id="paypal-button-container" style="min-height: 150px; z-index: 1;"></div>
+                                </div>
+
+                                <div id="stripe-container" style="display: {% if stripe_enabled and not paypal_enabled %}block{% else %}none{% endif %};">
+                                    <button type="button" id="stripe-button" class="cart-button" style="width: 100%;">
+                                        <span class="cart-icon"><i class="fas fa-lock"></i></span>
+                                        Secure Card Checkout
+                                    </button>
+                                </div>
+
+                                <div id="free-checkout-container" style="display: none;">
+                                    <button type="button" id="free-checkout-button" class="cart-button success"
+                                        style="width: 100%;">
+                                        <span class="cart-icon"><i class="fas fa-check-circle"></i></span>
+                                        Claim for Free
+                                    </button>
+                                </div>
+                            </div>
+                    </form>
+
+                    <div class="secure-checkout-note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                        Secure Encrypted Checkout
+                    </div>
+                    {% if stripe_enabled %}
+                    <div
+                        style="text-align: center; font-size: 10px; color: var(--text-muted); margin-top: 8px; opacity: 0.8;">
+                        Powered by <strong style="color: #635bff; font-weight: 700;">Stripe</strong>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="empty-summary-state">
+                        <p>Add a hosting package first, then your configuration and checkout total will appear here.</p>
+                        <a href="/minecraft" class="summary-browse-link">Browse packages <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    let cartTotal = "{{ '%.2f'|format(total) }}";
+    function updateSoftware(index, software) {
+        fetch(`/update-cart-item/${index}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ software: software })
+        });
+    }
+
+    function updateCartUI(data) {
+        if (data.cart_count !== undefined) {
+            document.querySelector('.item-count').textContent = data.cart_count + ' items';
+            if (data.cart_count === 0) {
+                location.reload(); // Reload to show empty state
+                return;
+            }
+        }
+        document.getElementById('summary-subtotal').textContent = data.subtotal.toFixed(2);
+        document.getElementById('summary-total').textContent = data.total.toFixed(2);
+        cartTotal = data.total.toFixed(2);
+
+        const discountRow = document.getElementById('summary-discount-row');
+        if (data.discount_amount > 0) {
+            document.getElementById('summary-discount').textContent = data.discount_amount.toFixed(2);
+            discountRow.style.display = 'flex';
+        } else {
+            discountRow.style.display = 'none';
+        }
+
+        // Handle Free Checkout Visibility
+        const paypalContainer = document.getElementById('paypal-container');
+        const stripeContainer = document.getElementById('stripe-container');
+        const freeContainer = document.getElementById('free-checkout-container');
+        const selector = document.querySelector('.payment-selector');
+        const payPaypal = document.getElementById('pay-paypal');
+        const payStripe = document.getElementById('pay-stripe');
+
+        if (parseFloat(cartTotal) <= 0) {
+            if (paypalContainer) paypalContainer.style.display = 'none';
+            if (stripeContainer) stripeContainer.style.display = 'none';
+            if (selector) selector.style.display = 'none';
+            freeContainer.style.display = 'block';
+        } else {
+            if (selector) selector.style.display = 'flex';
+            freeContainer.style.display = 'none';
+            if (payPaypal && payStripe) {
+                const method = document.querySelector('.pay-option.active').id === 'pay-paypal' ? 'paypal' : 'stripe';
+                togglePayment(method);
+            } else if (payStripe) {
+                togglePayment('stripe');
+            } else if (payPaypal) {
+                togglePayment('paypal');
+            }
+        }
+    }
+
+    function togglePayment(method) {
+        const paypalContainer = document.getElementById('paypal-container');
+        const stripeContainer = document.getElementById('stripe-container');
+        const payPaypal = document.getElementById('pay-paypal');
+        const payStripe = document.getElementById('pay-stripe');
+
+        if (method === 'paypal') {
+            if (paypalContainer) paypalContainer.style.display = 'block';
+            if (stripeContainer) stripeContainer.style.display = 'none';
+            if (payPaypal) payPaypal.classList.add('active');
+            if (payStripe) payStripe.classList.remove('active');
+        } else {
+            if (paypalContainer) paypalContainer.style.display = 'none';
+            if (stripeContainer) stripeContainer.style.display = 'block';
+            if (payStripe) payStripe.classList.add('active');
+            if (payPaypal) payPaypal.classList.remove('active');
+        }
+    }
+
+    let stripe = null;
+    const stripeKey = '{{ stripe_key }}';
+    if (stripeKey && stripeKey !== 'None' && stripeKey !== '') {
+        try {
+            stripe = Stripe(stripeKey);
+        } catch (e) {
+            console.warn("Stripe initialization failed:", e);
+        }
+    }
+    const stripeButton = document.getElementById('stripe-button');
+
+    if (stripeButton && stripe) {
+        stripeButton.addEventListener('click', function () {
+            const name = document.getElementById('order-name').value;
+            const email = document.getElementById('order-email').value;
+            const serverNameEl = document.getElementById('order-server-name');
+            const serverName = serverNameEl ? serverNameEl.value : "Upgrade Specs";
+
+            if ((serverNameEl && !serverName) || !name || !email) {
+                alert('Please fill in all required fields before proceeding.');
+                return;
+            }
+
+            stripeButton.classList.add('adding');
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('email', email);
+            formData.append('server_name', serverName);
+
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            fetch('/create-stripe-checkout', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+                .then(function (response) {
+                    return response.json();
+                })
+                .then(function (session) {
+                    if (session.error) {
+                        alert(session.error);
+                        stripeButton.classList.remove('adding');
+                    } else if (session.url) {
+                        // Prefer the hosted URL returned by the server.
+                        window.location.href = session.url;
+                    } else {
+                        return stripe.redirectToCheckout({ sessionId: session.id });
+                    }
+                })
+                .catch(function (error) {
+                    console.error('Error:', error);
+                    stripeButton.classList.remove('adding');
+                });
+        });
+    }
+
+    const freeButton = document.getElementById('free-checkout-button');
+    if (freeButton) {
+        freeButton.addEventListener('click', function () {
+            const name = document.getElementById('order-name').value;
+            const email = document.getElementById('order-email').value;
+            const serverNameEl = document.getElementById('order-server-name');
+            const serverName = serverNameEl ? serverNameEl.value : "Upgrade Specs";
+
+            if ((serverNameEl && !serverName) || !name || !email) {
+                alert('Please fill in all required fields before proceeding.');
+                return;
+            }
+
+            freeButton.classList.add('adding');
+            freeButton.innerHTML = '<span class="cart-icon"><i class="fas fa-spinner fa-spin"></i></span> Processing...';
+
+            // Just submit the regular order form
+            document.getElementById('order-form').submit();
+        });
+    }
+
+    function removeFromCart(index) {
+        const row = document.querySelector(`.cart-item-row[data-item-index="${index}"]`);
+        if (row) row.style.opacity = '0.5';
+
+        fetch(`/remove-from-cart/${index}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (row) row.remove();
+                    updateCartUI(data);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function removeCoupon() {
+        fetch('/remove-coupon', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('active-coupon-container').innerHTML = '';
+                    updateCartUI(data);
+                }
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const couponForm = document.getElementById('coupon-form');
+        if (couponForm) {
+            couponForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const btn = couponForm.querySelector('.apply-btn');
+                const originalText = btn.textContent;
+                btn.textContent = '...';
+                btn.disabled = true;
+
+                const code = document.getElementById('coupon-input').value;
+                fetch('/apply-coupon', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ code: code })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+
+                        if (data.status === 'success') {
+                            document.getElementById('active-coupon-container').innerHTML = `
+                        <div class="active-coupon">
+                            <div class="coupon-info">
+                                <span class="code">${data.code}</span>
+                                <span class="discount">${data.discount_percent}% OFF</span>
+                            </div>
+                            <a href="#" class="remove-coupon-link" onclick="event.preventDefault(); removeCoupon();">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </a>
+                        </div>
+                    `;
+                            document.getElementById('coupon-input').value = '';
+                            updateCartUI(data);
+                        } else {
+                            alert(data.message || 'Invalid coupon code.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Coupon error:", err);
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                    });
+            });
+        }
+
+        // Initialize UI state
+        updateCartUI({
+            subtotal: parseFloat("{{ subtotal }}"),
+            total: parseFloat("{{ total }}"),
+            discount_amount: parseFloat("{{ discount_amount }}")
+        });
+    });
+
+    if (typeof paypal !== 'undefined') {
+        // The order is created and captured SERVER-SIDE. The browser never
+        // supplies an amount, and the server verifies the captured amount,
+        // currency and payee against the stored order before provisioning.
+        const csrfHeader = () => ({
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+        });
+
+        // Tracks which server-side order this PayPal order belongs to.
+        let activeOrderPublicId = null;
+
+        function checkoutFieldsValid() {
+            const name = document.getElementById('order-name').value;
+            const email = document.getElementById('order-email').value;
+            const serverNameEl = document.getElementById('order-server-name');
+            const serverName = serverNameEl ? serverNameEl.value : 'Upgrade Specs';
+            if ((serverNameEl && !serverName) || !name || !email) {
+                alert('Please fill in all required account info before proceeding to checkout.');
+                return false;
+            }
+            return true;
+        }
+
+        function createServerSideOrder() {
+            const serverNameEl = document.getElementById('order-server-name');
+            return fetch('/api/paypal/order', {
+                method: 'POST',
+                headers: csrfHeader(),
+                body: JSON.stringify({
+                    server_name: serverNameEl ? serverNameEl.value : null
+                })
+            })
+                .then(res => res.json().then(data => ({ ok: res.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok || !data.id) {
+                        throw new Error(data.error || 'Could not start the payment.');
+                    }
+                    activeOrderPublicId = data.order;
+                    return data.id;
+                });
+        }
+
+        function captureServerSide(data) {
+            return fetch('/api/paypal/capture', {
+                method: 'POST',
+                headers: csrfHeader(),
+                body: JSON.stringify({
+                    paypal_order_id: data.orderID,
+                    order: activeOrderPublicId
+                })
+            })
+                .then(res => res.json().then(body => ({ ok: res.ok, body })))
+                .then(({ ok, body }) => {
+                    if (!ok) {
+                        throw new Error(body.error || 'We could not confirm your payment.');
+                    }
+                    window.location.href = body.redirect || '/account';
+                });
+        }
+
+        function handlePaymentError(err) {
+            console.error('PayPal Checkout Error:', err);
+            alert(err && err.message
+                ? err.message
+                : 'Something went wrong with the payment. You have not been charged twice — please check your account page before retrying.');
+        }
+
+        const sharedHandlers = {
+            onClick: function (data, actions) {
+                return checkoutFieldsValid() ? actions.resolve() : actions.reject();
+            },
+            createOrder: createServerSideOrder,
+            onApprove: captureServerSide,
+            onError: handlePaymentError
+        };
+
+        paypal.Buttons(Object.assign({
+            style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'checkout' },
+            fundingSource: paypal.FUNDING.PAYPAL
+        }, sharedHandlers)).render('#paypal-button-container');
+
+        // Apple Pay / Google Pay / Card use the SAME create + capture path.
+        // Previously these captured the payment and then submitted the form
+        // without the order reference, so the customer was charged and the
+        // checkout failed.
+        const fundingSources = [paypal.FUNDING.APPLEPAY, paypal.FUNDING.GOOGLEPAY, paypal.FUNDING.CARD];
+        fundingSources.forEach(function (fundingSource) {
+            if (paypal.isFundingEligible(fundingSource)) {
+                paypal.Buttons(Object.assign({
+                    fundingSource: fundingSource,
+                    style: { shape: 'rect' }
+                }, sharedHandlers)).render('#paypal-button-container');
+            }
+        });
+    } else {
+        console.warn("PayPal SDK not loaded. Payment buttons will be unavailable.");
+        const container = document.getElementById('paypal-button-container');
+        if (container) container.innerHTML = '<p style="color: var(--text-muted); font-size: 14px; text-align: center;">Payment provider currently unavailable.</p>';
+    }
+
+
+</script>
+
+<style>
+    .cart-hero {
+        padding-bottom: 36px;
+    }
+
+    .cart-section {
+        padding: 34px 0 90px;
+        min-height: calc(100vh - 280px);
+    }
+
+    .cart-layout {
+        display: grid;
+        grid-template-columns: 1.8fr 1fr;
+        gap: 40px;
+        max-width: 1300px;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    .cart-layout-empty {
+        grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+        align-items: stretch;
+        max-width: 1180px;
+    }
+
+    .glass-card {
+        background: rgba(var(--surface-rgb), 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+
+    .cart-layout-empty .glass-card {
+        height: 100%;
+    }
+
+    .cart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .item-count {
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .cart-item-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 0;
+        border-bottom: 1px solid var(--border);
+        transition: 0.3s;
+    }
+
+    .cart-item-row:last-child {
+        border-bottom: none;
+    }
+
+    .item-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .item-icon-box {
+        width: 60px;
+        height: 60px;
+        background: var(--primary-glow);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+    }
+
+    .item-icon-box svg {
+        width: 30px;
+        height: 30px;
+    }
+
+    .item-details h3 {
+        margin: 0;
+        font-size: 18px;
+    }
+
+    .item-details p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: var(--primary);
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .item-pricing {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+    }
+
+    .price {
+        font-size: 22px;
+        font-weight: 800;
+        color: var(--text);
+    }
+
+    .price small {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 400;
+    }
+
+    .remove-btn {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 10px;
+        border-radius: 12px;
+        transition: 0.3s;
+    }
+
+    .remove-btn:hover {
+        background: #fee2e2;
+        color: #ef4444;
+    }
+
+    .remove-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .sticky-card {
+        position: sticky;
+        top: 100px;
+    }
+
+    .coupon-box {
+        margin: 30px 0;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+    }
+
+    .coupon-input-group {
+        display: flex;
+        gap: 10px;
+    }
+
+    .coupon-input-group input {
+        flex: 1;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 12px 16px;
+        border-radius: 12px;
+        font-size: 14px;
+    }
+
+    .apply-btn {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 0 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .active-coupon {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        padding: 12px;
+        background: var(--primary-glow);
+        border-radius: 10px;
+    }
+
+    .coupon-info .code {
+        font-weight: 800;
+        color: var(--primary);
+        margin-right: 10px;
+    }
+
+    .coupon-info .discount {
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .remove-coupon-link svg {
+        width: 16px;
+        height: 16px;
+        color: var(--primary);
+    }
+
+    .pricing-details {
+        margin: 30px 0;
+    }
+
+    .price-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        color: var(--text-muted);
+    }
+
+    .total-row {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        color: var(--text);
+        font-size: 24px;
+        font-weight: 800;
+    }
+
+    .discount-row {
+        color: #10b981;
+        font-weight: 600;
+    }
+
+    .checkout-fields {
+        display: grid;
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .input-field label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 700;
+        font-size: 11px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .input-field input {
+        width: 100%;
+        padding: 14px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        color: var(--text);
+        font-size: 14px;
+        transition: 0.3s;
+        box-sizing: border-box;
+    }
+
+    .input-field input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 4px var(--primary-glow);
+        outline: none;
+    }
+
+    .payment-selector {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .pay-option {
+        height: 70px;
+        background: var(--bg);
+        border: 2px solid var(--border);
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        gap: 4px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .pay-option i {
+        font-size: 20px;
+        transition: 0.3s;
+    }
+
+    .pay-option span {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        transition: 0.3s;
+    }
+
+    .pay-option:hover {
+        border-color: var(--primary);
+        background: var(--surface-hover);
+        transform: translateY(-2px);
+    }
+
+    .pay-option.active {
+        border-color: var(--primary);
+        background: var(--primary-glow);
+        box-shadow: 0 8px 20px rgba(var(--primary-rgb), 0.15);
+    }
+
+    .pay-option.active i {
+        color: var(--primary) !important;
+        transform: scale(1.1);
+    }
+
+    .pay-option.active span {
+        color: var(--text);
+    }
+
+    .pay-option::after {
+        content: '';
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 6px;
+        height: 6px;
+        background: var(--primary);
+        border-radius: 50%;
+        opacity: 0;
+        transition: 0.3s;
+    }
+
+    .pay-option.active::after {
+        opacity: 1;
+    }
+
+    .separator-line {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin: 25px 0;
+        color: var(--text-muted);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1px;
+    }
+
+    .separator-line hr {
+        flex: 1;
+        border: none;
+        border-top: 1px solid var(--border);
+    }
+
+    .credit-card-form {
+        display: grid;
+        gap: 15px;
+    }
+
+    .split-inputs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    .secure-checkout-note {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 20px;
+    }
+
+    .secure-checkout-note svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    /* UIVERSE CHECKOUT BUTTON */
+    .checkout-action {
+        width: 100%;
+    }
+
+    .checkout-btn-label {
+        width: 100%;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    .cart-button {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        color: white;
+        padding: 16px 24px;
+        border: none;
+        border-radius: 16px;
+        cursor: pointer;
+        font-size: 16px;
+        font-family: var(--font-title);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3);
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .cart-button::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: 0.5s;
+    }
+
+    .cart-button:hover::before {
+        left: 100%;
+    }
+
+    .cart-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+    }
+
+    .cart-button:active {
+        transform: scale(0.95);
+    }
+
+    .cart-icon {
+        display: inline-block;
+        margin-right: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .cart-icon svg {
+        vertical-align: middle;
+        width: 22px;
+        height: 22px;
+    }
+
+    .progress-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.8);
+        width: 0;
+    }
+
+    .loc-option {
+        background: var(--bg);
+        border: 2px solid var(--border);
+        border-radius: 16px;
+        padding: 15px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-align: center;
+    }
+
+    .loc-option:hover {
+        border-color: var(--primary);
+        background: var(--surface-hover);
+        transform: translateY(-2px);
+    }
+
+    .loc-option.active {
+        border-color: var(--primary);
+        background: var(--primary-glow);
+        box-shadow: 0 8px 20px rgba(var(--primary-rgb), 0.15);
+    }
+
+    .loc-option.active img {
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+    }
+
+    .loc-option.active span {
+        color: var(--primary);
+    }
+
+    .adding {
+        pointer-events: none;
+        opacity: 0.8;
+    }
+
+    .adding .progress-bar {
+        animation: progress 1s ease-in-out;
+    }
+
+    .success {
+        background: linear-gradient(135deg, #10b981, #059669) !important;
+    }
+
+    .success .cart-icon {
+        animation: addedToCart 0.5s ease-in-out;
+    }
+
+    @keyframes addedToCart {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.4) rotate(15deg);
+        }
+
+        100% {
+            transform: scale(1) rotate(0);
+        }
+    }
+
+    @keyframes progress {
+        0% {
+            width: 0;
+        }
+
+        100% {
+            width: 100%;
+        }
+    }
+
+    .cart-toggle {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .empty-cart-state {
+        text-align: center;
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 360px;
+        padding: 54px 24px;
+    }
+
+    .empty-icon {
+        color: var(--text-muted);
+        margin-bottom: 24px;
+    }
+
+    .empty-icon svg {
+        width: 80px;
+        height: 80px;
+    }
+
+    .empty-cart-state h2 {
+        margin-bottom: 14px;
+    }
+
+    .empty-cart-state p {
+        color: var(--text-muted);
+        margin-bottom: 24px;
+    }
+
+    .empty-summary-state {
+        color: var(--text-muted);
+        display: grid;
+        gap: 18px;
+        min-height: 180px;
+        place-content: center;
+        text-align: left;
+    }
+
+    .empty-summary-state p {
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .summary-browse-link {
+        align-items: center;
+        color: var(--primary);
+        display: inline-flex;
+        font-weight: 800;
+        gap: 8px;
+        text-decoration: none;
+    }
+
+    @media (max-width: 992px) {
+        .cart-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .cart-layout-empty {
+            grid-template-columns: 1fr;
+        }
+
+        .sticky-card {
+            position: static;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .cart-layout {
+            gap: 20px;
+        }
+
+        .glass-card {
+            padding: 20px;
+            border-radius: 16px;
+        }
+
+        .cart-header {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+        }
+
+        .cart-header h2 {
+            font-size: 20px;
+        }
+
+        .cart-item-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px 0;
+        }
+
+        .item-info {
+            gap: 12px;
+        }
+
+        .item-icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+
+        .item-icon-box svg {
+            width: 22px;
+            height: 22px;
+        }
+
+        .item-details h3 {
+            font-size: 15px;
+        }
+
+        .item-details p {
+            font-size: 11px;
+        }
+
+        .item-pricing {
+            width: 100%;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .price {
+            font-size: 18px;
+        }
+
+        .coupon-box {
+            padding: 14px;
+        }
+
+        .coupon-input-group {
+            flex-direction: column;
+        }
+
+        .coupon-input-group input {
+            width: 100%;
+        }
+
+        .apply-btn {
+            padding: 12px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .payment-selector {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .pay-option {
+            height: 60px;
+        }
+
+        .total-row {
+            font-size: 20px;
+        }
+
+        .summary-card h2 {
+            font-size: 20px;
+        }
+
+        .input-field input {
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .cart-button {
+            padding: 14px 16px;
+            font-size: 14px;
+        }
+
+        .split-inputs {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .glass-card {
+            padding: 16px;
+            border-radius: 14px;
+        }
+
+        .cart-header h2 {
+            font-size: 18px;
+        }
+
+        .price {
+            font-size: 16px;
+        }
+
+        .total-row {
+            font-size: 18px;
+        }
+
+        .pay-option {
+            height: 54px;
+        }
+
+        .pay-option i {
+            font-size: 18px;
+        }
+
+        .pay-option span {
+            font-size: 10px;
+        }
+    }
+</style>
+
+{% endblock %}

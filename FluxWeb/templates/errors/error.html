@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ code }} - {{ title }}{% endblock %}
+
+{% block content %}
+<style>
+    .error-wrapper {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        /* Account for fixed navbar (~80px) + announcement bar possibility + breathing room */
+        padding: calc(var(--nav-height, 80px) + 60px) 24px 80px;
+        position: relative;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    /* Error Page Styles */
+    .error-code-massive {
+        font-size: clamp(80px, 18vw, 240px);
+        font-weight: 900;
+        line-height: 0.85;
+        margin-bottom: 20px;
+        font-family: 'Stack Sans Headline', sans-serif;
+        background-image: linear-gradient(180deg, var(--text) 0%, var(--primary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -4px;
+        animation: subtleFloat 4s ease-in-out infinite;
+    }
+
+    [data-theme="dark"] .error-code-massive {
+        background-image: linear-gradient(180deg, #FFFFFF 0%, #A5B4FC 100%);
+    }
+
+    .error-subtitle {
+        font-size: clamp(20px, 5vw, 32px);
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 12px;
+        font-family: 'Stack Sans Headline', sans-serif;
+    }
+
+    .error-desc {
+        color: var(--text-muted);
+        font-size: clamp(15px, 2.5vw, 18px);
+        max-width: 500px;
+        margin: 0 auto 40px;
+        line-height: 1.6;
+    }
+
+    .error-btns {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn-error-primary {
+        background: var(--primary);
+        color: #fff;
+        padding: 14px 36px;
+        border-radius: 100px;
+        font-weight: 700;
+        text-decoration: none;
+        box-shadow: 0 0 25px rgba(59, 130, 246, 0.3);
+        transition: 0.3s;
+    }
+
+    .btn-error-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 0 40px rgba(59, 130, 246, 0.5);
+    }
+
+    .btn-error-glass {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 14px 36px;
+        border-radius: 100px;
+        font-weight: 700;
+        text-decoration: none;
+        backdrop-filter: blur(10px);
+        transition: 0.3s;
+    }
+
+    [data-theme="dark"] .btn-error-glass {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .btn-error-glass:hover {
+        background: var(--surface-hover);
+        border-color: var(--border-hover);
+        transform: translateY(-3px);
+    }
+
+    [data-theme="dark"] .btn-error-glass:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    @keyframes subtleFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+    }
+
+    @media (max-width: 480px) {
+        .error-wrapper {
+            padding-top: calc(var(--nav-height, 80px) + 40px);
+        }
+        .error-code-massive {
+            letter-spacing: -2px;
+        }
+        .btn-error-primary,
+        .btn-error-glass {
+            padding: 12px 28px;
+            font-size: 14px;
+        }
+    }
+
+    /* Performance optimization */
+    body.low-perf .error-shape,
+    body.low-perf .error-glow {
+        display: none !important;
+    }
+</style>
+
+
+<div class="error-wrapper">
+    <div class="error-code-massive" data-aos="fade-up">{{ code }}</div>
+    <h1 class="error-subtitle" data-aos="fade-up" data-aos-delay="100">
+        {% if code == 404 %}Page not found{% elif code == 403 %}Access Forbidden{% elif code == 401 %}Authentication Required{% else %}Internal Error{% endif %}
+    </h1>
+    <p class="error-desc" data-aos="fade-up" data-aos-delay="200">
+        {{ message }}
+    </p>
+
+    <div class="error-btns" data-aos="fade-up" data-aos-delay="300">
+        <a href="/" class="btn-error-primary">Go Home</a>
+        <a href="/minecraft" class="btn-error-glass">Minecraft Hosting</a>
+    </div>
+</div>
+{% endblock %}

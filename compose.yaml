@@ -1,0 +1,149 @@
+# Unified production stack for Flux Servers.
+#
+# Public traffic is terminated by the host Nginx/Caddy proxy. The applications
+# therefore bind only to localhost; Wings keeps its own host port (8080).
+name: fluxservers
+
+services:
+  database:
+    image: mariadb:11.4
+    restart: unless-stopped
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    environment:
+      MYSQL_DATABASE: ${PANEL_DB_DATABASE:-panel}
+      MYSQL_USER: ${PANEL_DB_USERNAME:-panel}
+      MYSQL_PASSWORD: ${PANEL_DB_PASSWORD:?Set PANEL_DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${PANEL_MYSQL_ROOT_PASSWORD:?Set PANEL_MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      # Keep the existing production volume name so switching to this root
+      # compose file does not create a blank Panel database.
+      - panel_mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - panel_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  panel:
+    build:
+      context: ./FluxPanel
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18080:80"
+    env_file:
+      - ./FluxPanel/.env
+    volumes:
+      - panel_storage:/var/www/html/storage
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./FluxPanel
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./FluxPanel/.env
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=90"]
+    volumes:
+      - panel_storage:/var/www/html/storage
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ./FluxPanel
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./FluxPanel/.env
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - panel_storage:/var/www/html/storage
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  status:
+    build:
+      context: ./Flux Status
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:5000"
+    env_file:
+      - ./Flux Status/.env
+    environment:
+      PANEL_URL: http://panel
+    depends_on:
+      - panel
+
+  web:
+    build:
+      context: ./FluxWeb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18082:8000"
+    env_file:
+      - ./FluxWeb/.env
+    environment:
+      # Requests stay on Docker's private network instead of hairpinning
+      # through the public TLS proxy.
+      FLUID_URL: http://panel
+      REDIS_URL: redis://redis:6379/1
+      PORT: 8000
+    depends_on:
+      redis:
+        condition: service_healthy
+      panel:
+        condition: service_started
+
+  web-sync:
+    build:
+      context: ./FluxWeb
+    restart: unless-stopped
+    env_file:
+      - ./FluxWeb/.env
+    environment:
+      FLUID_URL: http://panel
+      REDIS_URL: redis://redis:6379/1
+      WEB_SYNC_INTERVAL: ${WEB_SYNC_INTERVAL:-300}
+    command:
+      - /bin/sh
+      - -c
+      - 'while true; do flask --app app.py sync-servers; sleep "$${WEB_SYNC_INTERVAL}"; done'
+    depends_on:
+      redis:
+        condition: service_healthy
+      panel:
+        condition: service_started
+
+volumes:
+  # These explicit names are the same names used by the previous Panel stack.
+  # Do not run `docker compose down -v` on production.
+  panel_mariadb_data:
+    name: fluidpanel_mariadb_data
+  panel_redis_data:
+    name: fluidpanel_redis_data
+  panel_storage:
+    name: fluidpanel_storage

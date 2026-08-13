@@ -1,0 +1,11 @@
+{# Shared admin macros.
+
+   Kept in their own file so the dashboard and the partials it re-renders over
+   AJAX can both use them. A macro defined inside admin.html is not available
+   when the server renders a single row on its own. #}
+
+{% macro location_names(node_ids, labels) -%}
+    {%- for node_id in node_ids -%}
+        {{ labels.get(node_id, 'Node ' ~ node_id) }}{% if not loop.last %}, {% endif %}
+    {%- endfor -%}
+{%- endmacro %}

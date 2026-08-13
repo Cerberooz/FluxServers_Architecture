@@ -1,0 +1,72 @@
+{# External sign-in buttons.
+
+   Rendered only for providers listed in SUPABASE_OAUTH_PROVIDERS *and* known
+   to PROVIDER_LABELS, so a customer is never sent to a provider that is
+   switched off in the Supabase dashboard.
+
+   These are plain links, not form posts: the flow is a top-level navigation
+   to Supabase, and no state is submitted from here. #}
+{% if oauth_buttons %}
+<div class="oauth-block">
+    <div class="oauth-divider"><span>or continue with</span></div>
+
+    <div class="oauth-buttons">
+        {% for provider in oauth_buttons %}
+        <a class="oauth-button"
+           href="{{ url_for('auth.oauth_start', provider=provider.id) }}{% if request.args.get('url') %}?url={{ request.args.get('url')|urlencode }}{% endif %}"
+           style="background: {{ provider.background }}; color: {{ provider.colour }};"
+           rel="nofollow">
+            <i class="{{ provider.icon }}"></i>
+            <span>{{ provider.label }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .oauth-block { margin: 26px 0 4px; }
+
+    .oauth-divider {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+        color: var(--text-muted, #94a3b8);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        font-weight: 700;
+    }
+
+    .oauth-divider::before,
+    .oauth-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border, rgba(255, 255, 255, 0.1));
+    }
+
+    .oauth-buttons { display: grid; gap: 10px; }
+
+    .oauth-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 13px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+        border: 1px solid rgba(0, 0, 0, 0.12);
+        transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    .oauth-button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    .oauth-button i { font-size: 16px; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .oauth-button:hover { transform: none; }
+    }
+</style>
+{% endif %}

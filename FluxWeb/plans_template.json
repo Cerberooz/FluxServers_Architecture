@@ -1,0 +1,90 @@
+[
+  {
+    "game": "minecraft",
+    "name": "Starter",
+    "price": 1.79,
+    "memory": 2048,
+    "cpu": 100,
+    "disk": 10240,
+    "nest_id": "General",
+    "egg_id": 1,
+    "backups": 1,
+    "allocations": 1,
+    "databases": 1,
+    "features": [
+      "2 GB RAM",
+      "10 GB NVMe SSD",
+      "1 vCPU Core",
+      "Unlimited Slots"
+    ],
+    "is_featured": false,
+    "sub_type": "Minecraft",
+    "serial_number": 1
+  },
+  {
+    "game": "minecraft",
+    "name": "Advanced",
+    "price": 5.99,
+    "memory": 6144,
+    "cpu": 200,
+    "disk": 25600,
+    "nest_id": "General",
+    "egg_id": 1,
+    "backups": 3,
+    "allocations": 2,
+    "databases": 2,
+    "features": [
+      "6 GB RAM",
+      "25 GB NVMe SSD",
+      "2 vCPU Cores",
+      "Unlimited Slots",
+      "Free Subdomain"
+    ],
+    "is_featured": true,
+    "sub_type": "Minecraft",
+    "serial_number": 2
+  },
+  {
+    "game": "hytale",
+    "name": "Hytale Starter",
+    "price": 3.60,
+    "memory": 2048,
+    "cpu": 100,
+    "disk": 10240,
+    "nest_id": "General",
+    "egg_id": 1,
+    "backups": 1,
+    "allocations": 1,
+    "databases": 1,
+    "features": [
+      "2 GB RAM",
+      "10 GB NVMe SSD",
+      "1 vCPU Core"
+    ],
+    "is_featured": false,
+    "sub_type": "Hytale",
+    "serial_number": 1
+  },
+  {
+    "game": "discord_bot",
+    "name": "Bot Basic",
+    "price": 3.50,
+    "memory": 1024,
+    "cpu": 100,
+    "disk": 5120,
+    "nest_id": "General",
+    "egg_id": 314,
+    "backups": 1,
+    "allocations": 1,
+    "databases": 0,
+    "features": [
+      "1 GB RAM",
+      "5 GB SSD",
+      "Node.js / Python",
+      "24/7 Uptime"
+    ],
+    "is_featured": false,
+    "sub_type": "Discord Bot",
+    "serial_number": 1
+  }
+]

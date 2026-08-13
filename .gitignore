@@ -1,0 +1,11 @@
+# Deployment secrets and local state
+.env
+.env.*
+!.env.example
+
+# Docker and editor state
+.docker/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

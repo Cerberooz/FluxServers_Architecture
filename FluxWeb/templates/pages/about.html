@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+
+{% block title %}About Us - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1 data-aos="fade-up">About <span class="text-gradient">Flux Servers</span></h1>
+        <p data-aos="fade-up" data-aos-delay="100">Engineering the future of affordable, high-performance hosting.</p>
+    </div>
+</section>
+
+<section class="about-mission">
+    <div class="container">
+        <div class="about-grid">
+            <div class="about-text" data-aos="fade-right">
+                <div class="badge">Our Mission</div>
+                <h2>Bridging the Gap Between <span class="text-gradient">Power & Price</span></h2>
+                <p>
+                    At Flux Servers, we believe that high-performance hosting shouldn't come with a premium price tag. 
+                    Founded in 2026, our mission has remained consistent: to bridge the gap between uncompromising power 
+                    and true affordability.
+                </p>
+                <p>
+                    We understand that whether you are launching a community project or scaling a professional environment, 
+                    you need hardware that can keep up with your ambitions without breaking your budget.
+                </p>
+                <div class="about-stats">
+                    <div class="stat-item">
+                        <span class="stat-value">2026</span>
+                        <span class="stat-label">Founded</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">99.9%</span>
+                        <span class="stat-label">Uptime</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value">24/7</span>
+                        <span class="stat-label">Support</span>
+                    </div>
+                </div>
+            </div>
+            <div class="about-image" data-aos="fade-left">
+                <div class="glass-card about-card">
+                    <i class="fas fa-rocket fa-3x text-gradient"></i>
+                    <h3>Fast Provisioning</h3>
+                    <p>Get your server up and running in seconds, not hours. Our automated system handles the heavy lifting.</p>
+                </div>
+                <div class="glass-card about-card" style="margin-top: 20px;">
+                    <i class="fas fa-shield-halved fa-3x text-gradient"></i>
+                    <h3>Enterprise Security</h3>
+                    <p>Advanced DDoS mitigation and secure isolation for every single instance on our network.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="about-infrastructure section-bg">
+    <div class="container">
+        <div class="about-grid reverse">
+            <div class="about-image" data-aos="fade-right">
+                <div class="image-wrapper">
+                    <img src="{{ url_for('static', filename='images/infrastructure.png') }}" alt="Flux Infrastructure" class="img-fluid rounded-3xl glow-border">
+                </div>
+            </div>
+            <div class="about-text" data-aos="fade-left">
+                <div class="badge">Infrastructure</div>
+                <h2>The Backbone of <span class="text-gradient">Performance</span></h2>
+                <p>
+                    To ensure peak reliability and speed, our infrastructure is built on industry-leading hardware, 
+                    featuring <strong>AMD EPYC™</strong> enterprise processors and the lightning-fast <strong>Ryzen™ 9 9950X</strong>.
+                </p>
+                <p>
+                    By combining these powerhouse CPUs with optimized networking, we provide a hosting experience 
+                    that prioritizes uptime, low latency, and scalability.
+                </p>
+                <ul class="infra-list">
+                    <li><i class="fas fa-check-circle text-gradient"></i> AMD Ryzen™ 9 9950X Nodes</li>
+                    <li><i class="fas fa-check-circle text-gradient"></i> AMD EPYC™ Enterprise Series</li>
+                    <li><i class="fas fa-check-circle text-gradient"></i> Ultra-Fast NVMe Storage</li>
+                    <li><i class="fas fa-check-circle text-gradient"></i> Low Latency Global Network</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="about-cta">
+    <div class="container">
+        <div class="cta-card glass-card text-center" data-aos="zoom-in" style="text-align: center;">
+            <h2>Ready to Start Your Journey?</h2>
+            <p style="max-width: 700px; margin: 0 auto 32px;">At Flux Servers, we don't just host your data; we provide the foundation for your next big idea—engineered for performance, priced for everyone.</p>
+            <div class="cta-btns">
+                <a href="/minecraft" class="button">
+                    <span>Get Started</span>
+                    <div class="hoverEffect">
+                        <div></div>
+                    </div>
+                </a>
+                <a href="/contact" class="cta">
+                    <span>Contact Us &nbsp;</span>
+                    <svg viewBox="0 0 13 10" height="10px" width="15px">
+                        <path d="M1,5 L11,5"></path>
+                        <polyline points="8 1 12 5 8 9"></polyline>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .about-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 60px;
+        align-items: center;
+        padding: 80px 0;
+        overflow: hidden;
+    }
+
+    .about-grid.reverse {
+        display: flex;
+        flex-direction: row-reverse;
+    }
+
+    .about-grid.reverse > * {
+        flex: 1;
+    }
+
+    .about-text h2 {
+        font-size: clamp(28px, 5vw, 42px);
+        margin-bottom: 24px;
+        line-height: 1.2;
+    }
+
+    .about-text p {
+        font-size: clamp(16px, 2vw, 18px);
+        color: var(--text-muted);
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+
+    .about-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 40px;
+        margin-top: 40px;
+    }
+
+    .stat-item {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-value {
+        font-size: clamp(24px, 4vw, 32px);
+        font-weight: 800;
+        color: var(--primary);
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .about-card {
+        padding: 30px;
+        text-align: center;
+    }
+
+    .about-card i {
+        margin-bottom: 20px;
+    }
+
+    .about-card h3 {
+        margin-bottom: 15px;
+        font-size: 20px;
+    }
+
+    .infra-list {
+        list-style: none;
+        padding: 0;
+        margin-top: 30px;
+    }
+
+    .infra-list li {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-size: clamp(14px, 2vw, 18px);
+        margin-bottom: 12px;
+        font-weight: 600;
+    }
+
+    .image-wrapper {
+        position: relative;
+        max-width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+
+    .image-wrapper img {
+        max-width: 100%;
+        height: auto;
+        object-fit: cover;
+    }
+
+    .image-wrapper::after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: 0px;
+        width: 100%;
+        height: 100%;
+        border: 2px solid var(--primary);
+        border-radius: 24px;
+        z-index: -1;
+        opacity: 0.3;
+    }
+
+    .about-grid.reverse .image-wrapper::after {
+        left: 0px;
+        right: auto;
+    }
+
+    .rounded-3xl {
+        border-radius: 24px;
+    }
+
+    .glow-border {
+        border: 1px solid var(--border);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+    }
+
+    .about-cta {
+        padding: 60px 0 120px;
+    }
+
+    .cta-card {
+        padding: clamp(60px, 10vw, 100px) clamp(40px, 6vw, 80px);
+        border-radius: 40px;
+    }
+
+    .cta-card h2 {
+        font-size: clamp(28px, 5vw, 42px);
+        margin-bottom: 24px;
+    }
+
+    .cta-card p {
+        font-size: clamp(15px, 2vw, 18px);
+        color: var(--text-muted);
+        line-height: 1.7;
+    }
+
+    .cta-btns {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+    }
+
+    @media (max-width: 992px) {
+        .about-grid {
+            grid-template-columns: 1fr;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .about-grid.reverse {
+            flex-direction: column;
+        }
+
+        .about-stats {
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .infra-list li {
+            justify-content: center;
+        }
+
+        .image-wrapper::after {
+            display: none;
+        }
+
+        .about-image {
+            width: 100%;
+        }
+
+        .about-card {
+            padding: 20px;
+        }
+    }
+</style>
+{% endblock %}

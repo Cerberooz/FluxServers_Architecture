@@ -1,0 +1,69 @@
+[
+  {
+    "game": "minecraft",
+    "name": "Diamond",
+    "price": 7.20,
+    "memory": 8192,
+    "cpu": 300,
+    "disk": 102400,
+    "nest_id": "General",
+    "egg_id": 1,
+    "backups": 4,
+    "allocations": 3,
+    "databases": 3,
+    "features": [
+      "8 GB RAM",
+      "100 GB NVMe SSD",
+      "3 Shared vCPUs",
+      "Unlimited Slots"
+    ],
+    "is_featured": false,
+    "sub_type": "Minecraft",
+    "serial_number": 1
+  },
+  {
+    "game": "minecraft",
+    "name": "Netherite",
+    "price": 10.80,
+    "memory": 12288,
+    "cpu": 400,
+    "disk": 153600,
+    "nest_id": "General",
+    "egg_id": 1,
+    "backups": 5,
+    "allocations": 3,
+    "databases": 3,
+    "features": [
+      "12 GB RAM",
+      "150 GB NVMe SSD",
+      "4 Shared vCPUs",
+      "Unlimited Slots"
+    ],
+    "is_featured": true,
+    "sub_type": "Minecraft",
+    "serial_number": 2
+  },
+  {
+    "game": "minecraft",
+    "name": "Bedrock",
+    "price": 14.40,
+    "memory": 16384,
+    "cpu": 400,
+    "disk": 204800,
+    "nest_id": "General",
+    "egg_id": 1,
+    "backups": 10,
+    "allocations": 5,
+    "databases": 5,
+    "features": [
+      "16 GB RAM",
+      "200 GB NVMe SSD",
+      "4 Dedicated vCPUs",
+      "Unlimited Slots",
+      "Unlimited Backups"
+    ],
+    "is_featured": false,
+    "sub_type": "Minecraft",
+    "serial_number": 3
+  }
+]

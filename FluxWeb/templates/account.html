@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+
+{% block title %}My Account - Flux Servers{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 120px 0 40px;">
+    <div class="container">
+        <h1 class="animated-title">My <span class="highlight">Account</span></h1>
+        <p style="text-align: center; color: var(--text-muted); max-width: 600px; margin: 0 auto;">
+            Manage your high-performance servers and view your hosting details.
+        </p>
+    </div>
+</section>
+
+<section style="padding: 0 0 80px;">
+    <div class="container">
+        <!-- User Info Card -->
+        {% if not email_verified %}
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35);
+                    border-radius: 18px; padding: 18px 22px; margin-bottom: 24px; display: flex;
+                    align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px;">
+            <div>
+                <strong style="font-size: 15px;">
+                    <i class="fas fa-envelope-circle-check" style="margin-right: 8px;"></i>Verify your email address
+                </strong>
+                <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-muted);">
+                    We sent a link to {{ user.email }}. Servers can only be provisioned once it is confirmed.
+                </p>
+            </div>
+            <form method="POST" action="/resend-verification">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit"
+                    style="padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border);
+                           background: rgba(255,255,255,0.05); color: var(--text); font-weight: 700;
+                           font-size: 13px; cursor: pointer;">
+                    Resend link
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <div
+            style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 30px; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <div style="display: flex; align-items: center; gap: 24px;">
+                <div
+                    style="width: 70px; height: 70px; background: linear-gradient(135deg, var(--primary), #8b5cf6); border-radius: 20px; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: 700; box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);">
+                    {{ user.username[0]|upper }}
+                </div>
+                <div>
+                    <h3 style="margin: 0; font-size: 24px; font-family: 'Stack Sans Headline', sans-serif;">{{ user.username }}</h3>
+                    <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
+                        <p style="margin: 0; font-size: 14px; color: var(--text-muted);">
+                            <i class="fas fa-envelope" style="font-size: 12px; width: 16px; color: var(--primary);"></i> {{ user.email }}
+                        </p>
+                        {% if user.pelican_password_decrypted %}
+                        <p style="margin: 0; font-size: 14px; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-key" style="font-size: 12px; width: 16px;"></i> Panel Password: 
+                            <span id="panel-pw" 
+                                  style="filter: blur(5px); cursor: pointer; transition: filter 0.3s ease; user-select: none; padding: 2px 6px; border-radius: 6px; background: rgba(59,130,246,0.08);" 
+                                  onmouseenter="this.style.filter='none'" 
+                                  onmouseleave="if(!this.dataset.locked) this.style.filter='blur(5px)'" 
+                                  onclick="
+                                    navigator.clipboard.writeText(this.textContent.trim());
+                                    this.dataset.locked='1';
+                                    this.style.filter='none';
+                                    const old=this.textContent;
+                                    this.textContent='Copied!';
+                                    setTimeout(()=>{this.textContent=old;this.dataset.locked='';this.style.filter='blur(5px)'},1500);
+                                  "
+                                  title="Hover to reveal · Click to copy">
+                                {{ user.pelican_password_decrypted }}
+                            </span>
+                            <i class="fas fa-copy" style="font-size: 11px; color: var(--text-muted); cursor: pointer;" onclick="document.getElementById('panel-pw').click()" title="Copy password"></i>
+                            <form method="POST" action="/account/panel-password" style="display: inline;"
+                                  onsubmit="return confirm('Generate a new game panel password? The current one stops working immediately.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" title="Generate a new panel password"
+                                    style="background: none; border: none; padding: 0; color: var(--text-muted);
+                                           cursor: pointer; font-size: 11px;">
+                                    <i class="fas fa-rotate"></i>
+                                </button>
+                            </form>
+                        </p>
+                        {% elif user.pelican_user_id %}
+                        <p style="margin: 0; font-size: 13px; color: var(--text-muted);">
+                            <i class="fas fa-key" style="font-size: 12px; width: 16px;"></i>
+                            Panel password unavailable.
+                            <form method="POST" action="/account/panel-password" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit"
+                                    style="background: none; border: none; padding: 0; color: var(--primary);
+                                           font-weight: 600; cursor: pointer; font-size: 13px;">
+                                    Generate a new one
+                                </button>
+                            </form>
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button onclick="togglePasswordForm()"
+                    style="padding: 12px 24px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-shield-alt"></i> Security
+                </button>
+                {# Built from FLUID_URL, not hardcoded: a hardcoded host is how
+                   the panel link silently broke when the panel moved. #}
+                {% if panel_url %}
+                <a href="{{ panel_url }}/auth/login" target="_blank" rel="noopener"
+                    style="padding: 12px 24px; background: linear-gradient(135deg, var(--primary), #1d4ed8); border-radius: 14px; color: white; text-decoration: none; font-size: 14px; font-weight: 700; transition: all 0.3s; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);">
+                    <i class="fas fa-external-link-alt"></i> Access Game Panel
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Password Change Form (Hidden by default) -->
+        <div id="password-form" class="glass-card" style="display: none; padding: 30px; margin-bottom: 40px; border-radius: 24px; border: 1px solid var(--border); background: var(--surface);">
+            <h3 style="margin-top: 0; margin-bottom: 20px; font-family: 'Stack Sans Headline', sans-serif;">Change Account <span class="highlight">Password</span></h3>
+
+            {% if not user.can_change_password %}
+            {# Signed in through an external provider: there is no password
+               here or at Supabase to change. #}
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">
+                <i class="fas fa-shield-halved" style="margin-right: 8px; color: var(--primary);"></i>
+                You sign in with <strong>{{ user.auth_provider|title }}</strong>, so there's no
+                password stored here.
+            </p>
+            <p style="font-size: 13px; color: var(--text-muted); margin: 0;">
+                Manage your password and two-factor settings with {{ user.auth_provider|title }}.
+                Your game panel password is separate and shown above.
+            </p>
+            {% else %}
+            <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">This updates your Flux Servers sign-in password. Your game panel password is separate — rotate it from the button above.</p>
+
+            <form action="/account/change-password" method="POST" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: end; max-width: 800px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">Current Password</label>
+                    <input type="password" name="current_password" placeholder="••••••••" required
+                        autocomplete="current-password"
+                        style="padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-weight: 600;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase;">New Password (Min. 10 characters)</label>
+                    <input type="password" name="new_password" placeholder="••••••••" required minlength="10"
+                        autocomplete="new-password"
+                        style="padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-weight: 600;">
+                </div>
+                <button type="submit" class="button" style="height: 52px; padding: 0 30px; border-radius: 12px;">
+                    <span>Update Password</span>
+                    <div class="hoverEffect"><div></div></div>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        <!-- My Servers Section -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
+            <h2 style="font-size: 28px; font-family: 'Stack Sans Headline', sans-serif; display: flex; align-items: center; gap: 12px; margin: 0;">
+                <i class="fas fa-server" style="color: var(--primary);"></i> My <span class="highlight">Servers</span>
+            </h2>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <form action="/account/sync" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" style="padding: 10px 20px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-sync-alt"></i> Refresh Dashboard
+                    </button>
+                </form>
+                <span style="background: var(--primary-glow); color: var(--primary); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+                    {{ servers|length }} INSTANCES
+                </span>
+            </div>
+        </div>
+
+        {% if servers %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 24px;">
+            {% for server in servers %}
+                <div class="glass-card server-card" id="server-{{ server.id }}" style="padding: 24px; border-radius: 24px; border: 1px solid var(--border); background: var(--surface); transition: all 0.3s; position: relative; overflow: hidden;">
+                    
+                    <!-- External Link Arrow -->
+                    <a href="{{ panel_url }}/server/{{ server.pelican_server_identifier }}" target="_blank" 
+                       style="position: absolute; top: 20px; right: 20px; color: var(--text-muted); font-size: 14px; transition: 0.3s;" 
+                       onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--text-muted)'">
+                        <i class="fas fa-external-link-alt"></i>
+                    </a>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                        <div>
+                            <span style="font-size: 10px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-bottom: 4px;">{{ server.plan_name }}</span>
+                            <h3 style="font-size: 20px; margin: 0; font-family: 'Stack Sans Headline', sans-serif;">{{ server.pelican_server_identifier }}</h3>
+                        </div>
+                        <span class="status-badge" data-id="{{ server.pelican_server_identifier }}" style="padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; 
+                            {% if server.status == 'Active' %}background: rgba(16, 185, 129, 0.1); color: #10b981;
+                            {% elif server.status == 'Suspended' %}background: rgba(239, 68, 68, 0.1); color: #ef4444;
+                            {% elif server.status == 'Expired' %}background: rgba(245, 158, 11, 0.1); color: #f59e0b;
+                            {% else %}background: rgba(100, 116, 139, 0.1); color: #64748b;{% endif %}">
+                            <i class="fas fa-circle" style="font-size: 6px; margin-right: 6px; vertical-align: middle;"></i> {{ server.status }}
+                        </span>
+                    </div>
+
+
+                    <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 12px;">
+                             <div>
+                                <p style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Node Location</p>
+                                <p style="font-size: 14px; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                    {% if server.ip_address and '3.67.189.201' in server.ip_address %}
+                                        <i class="fas fa-city" style="color: #fbbf24;"></i> Frankfurt, DE
+                                    {% elif server.ip_address and '100.53.74.223' in server.ip_address %}
+                                        <i class="fas fa-city" style="color: #6366f1;"></i> US Virginia, US
+                                    {% elif server.ip_address and '13.215.176.80' in server.ip_address %}
+                                        <i class="fas fa-city" style="color: #10b981;"></i> Singapore, SG
+                                    {% elif server.ip_address and '174.174.117.221' in server.ip_address %}
+                                        <i class="fas fa-city" style="color: #3b82f6;"></i> US Oregon, US
+                                    {% else %}
+                                        <i class="fas fa-globe" style="opacity: 0.5;"></i> {{ server.node_name if server.node_name else 'Global Node' }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+
+
+
+                        <div style="border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px;">
+                            <p style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Expiration</p>
+                            {% if server.expires_at %}
+                                {% set remaining = (server.expires_at - datetime.utcnow()).days %}
+                                <p style="font-size: 13px; font-weight: 600; margin: 0; color: {% if remaining < 3 %}#ef4444{% elif remaining < 7 %}#f59e0b{% else %}var(--text){% endif %};">
+                                    {% if remaining > 0 %}
+                                        <i class="fas fa-clock"></i> Expires in {{ remaining }} days
+                                    {% else %}
+                                        <i class="fas fa-exclamation-circle"></i> Expired on {{ server.expires_at.strftime('%Y-%m-%d') }}
+                                        {% set delete_date = server.expires_at + timedelta(days=7) %}
+                                        {% set days_to_delete = (delete_date - datetime.utcnow()).days %}
+                                        <div style="font-size: 11px; margin-top: 4px; color: #ef4444; font-weight: 700;">
+                                            <i class="fas fa-trash-alt"></i> Deletes in {{ days_to_delete if days_to_delete > 0 else 0 }} days
+                                        </div>
+                                    {% endif %}
+                                </p>
+                            {% else %}
+                                <p style="font-size: 13px; font-weight: 600; margin: 0; color: var(--text-muted);">Lifetime / No Timer</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        {% if server.status == 'Active' %}
+                        <a href="/upgrade/{{ server.id }}" style="flex: 1; padding: 12px; background: rgba(59, 130, 246, 0.1); color: var(--primary); border: 1px solid var(--primary-glow); border-radius: 12px; font-size: 13px; font-weight: 700; text-decoration: none; text-align: center; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fas fa-arrow-up"></i> Upgrade Plan
+                        </a>
+                        {% endif %}
+                        
+                        {% if server.status == 'Expired' or (server.expires_at and (server.expires_at - datetime.utcnow()).days < 7) %}
+                        <form action="/renew/{{ server.id }}" method="POST" style="flex: 1;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" style="width: 100%; padding: 12px; background: {% if server.status == 'Expired' %}var(--primary){% else %}rgba(255,255,255,0.05){% endif %}; color: {% if server.status == 'Expired' %}white{% else %}var(--text){% endif %}; border: 1px solid var(--border); border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.3s;">
+                                {% if server.status == 'Expired' %}Buy Again{% else %}Renew Now{% endif %}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="background: var(--surface); border: 1px dashed var(--border); border-radius: 24px; padding: 80px 20px; text-align: center;">
+            <div style="width: 80px; height: 80px; background: var(--bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; color: var(--text-muted);">
+                <i class="fas fa-server" style="font-size: 32px; opacity: 0.5;"></i>
+            </div>
+            <h3 style="font-size: 22px; margin-bottom: 12px; font-family: 'Stack Sans Headline', sans-serif;">No Servers Found</h3>
+            <p style="color: var(--text-muted); font-size: 15px; max-width: 400px; margin: 0 auto 30px;">
+                Your account is ready, but you haven't deployed any servers yet. Choose a plan to get started!
+            </p>
+            <a href="/minecraft" class="button" style="padding: 14px 32px;">
+                Deploy First Server
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<style>
+    .glass-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--primary);
+        box-shadow: 0 15px 35px rgba(59, 130, 246, 0.1);
+    }
+
+    @media (max-width: 768px) {
+        /* Hero section */
+        section.hero { padding: 100px 0 30px !important; }
+        section.hero h1 { font-size: 28px !important; }
+
+        /* User Info Card - stack vertically */
+        section > .container > div:first-child {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 20px !important;
+            border-radius: 16px !important;
+        }
+
+        /* Avatar + name row */
+        section > .container > div:first-child > div:first-child {
+            gap: 16px !important;
+        }
+
+        section > .container > div:first-child > div:first-child > div:first-child {
+            width: 50px !important;
+            height: 50px !important;
+            font-size: 22px !important;
+            border-radius: 14px !important;
+        }
+
+        section > .container > div:first-child h3 {
+            font-size: 20px !important;
+        }
+
+        /* Action buttons row */
+        section > .container > div:first-child > div:last-child {
+            width: 100% !important;
+        }
+
+        section > .container > div:first-child > div:last-child a,
+        section > .container > div:first-child > div:last-child button {
+            flex: 1 !important;
+            justify-content: center !important;
+            padding: 10px 16px !important;
+            font-size: 13px !important;
+        }
+
+        /* Password form */
+        #password-form {
+            padding: 20px !important;
+            border-radius: 16px !important;
+        }
+        #password-form form {
+            grid-template-columns: 1fr !important;
+        }
+
+        /* Servers header */
+        div[style*="display: flex"][style*="justify-content: space-between"][style*="margin-bottom: 24px"] {
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+
+        div[style*="display: flex"][style*="justify-content: space-between"][style*="margin-bottom: 24px"] h2 {
+            font-size: 22px !important;
+        }
+
+        /* Server cards grid */
+        div[style*="grid-template-columns: repeat(auto-fill, minmax(380px, 1fr))"] {
+            grid-template-columns: 1fr !important;
+        }
+
+        /* Server card internal */
+        .server-card {
+            padding: 18px !important;
+            border-radius: 16px !important;
+        }
+
+        .server-card h3 {
+            font-size: 16px !important;
+        }
+
+        /* Server details box */
+        .server-card > div[style*="background: var(--bg)"] {
+            padding: 12px !important;
+            border-radius: 12px !important;
+        }
+
+        /* Empty state */
+        div[style*="border: 1px dashed"] {
+            padding: 50px 16px !important;
+        }
+    }
+
+    @media (max-width: 480px) {
+        section.hero h1 { font-size: 24px !important; }
+        section.hero p { font-size: 13px !important; }
+        
+        section > .container > div:first-child > div:last-child {
+            flex-direction: column !important;
+        }
+        
+        section > .container > div:first-child > div:last-child a,
+        section > .container > div:first-child > div:last-child button {
+            width: 100% !important;
+        }
+    }
+</style>
+
+
+<script>
+    let activeServer = null;
+
+    function togglePasswordForm() {
+        const form = document.getElementById('password-form');
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+
+
+    function showToast(msg, type = 'success') {
+        const toast = document.createElement('div');
+        toast.style = `position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); 
+                       background: ${type === 'success' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)'};
+                       color: white; padding: 12px 24px; border-radius: 16px; font-weight: 700; 
+                       box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; font-size: 14px;
+                       backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);
+                       animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);`;
+        toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}" style="margin-right: 8px;"></i> ${msg}`;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.animation = 'slideDown 0.3s forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Add Slide Animations to CSS
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideUp { from { bottom: -50px; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        @keyframes slideDown { from { bottom: 30px; opacity: 1; } to { bottom: -50px; opacity: 0; } }
+    `;
+    document.head.appendChild(style);
+
+    const inactiveServers = new Set();
+
+    async function updateStats() {
+        const badges = document.querySelectorAll('.status-badge');
+        for (const badge of badges) {
+            const id = badge.dataset.id;
+            if (!id || inactiveServers.has(id)) continue;
+            
+            const status = badge.textContent.trim();
+            if (status === 'Deleted' || status === 'Expired' || status === 'Removed') continue;
+
+            try {
+                const res = await fetch(`/api/server/${id}/stats`);
+                if (res.status === 404) {
+                    inactiveServers.add(id);
+                    badge.textContent = 'Removed';
+                    badge.style.background = 'rgba(239, 68, 68, 0.1)';
+                    badge.style.color = '#ef4444';
+                    const card = document.getElementById(`server-${id}`);
+                    if(card) card.style.opacity = '0.5';
+                    continue;
+                }
+                
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const stats = data.stats;
+                    const state = stats.state || (stats.cpu > 0 ? 'running' : 'offline');
+
+                    // Update Status Badge if it changed
+                    if (state === 'running') {
+                        badge.textContent = 'Active';
+                        badge.style.background = 'rgba(16, 185, 129, 0.1)';
+                        badge.style.color = '#10b981';
+                    }
+
+
+
+                }
+            } catch (e) {}
+        }
+    }
+
+    function copyToClipboard(text) {
+        if (!text || text === 'Allocating...') return;
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Address copied to clipboard!');
+        });
+    }
+
+    // Live stats require a per-user Fluid credential. The website deliberately
+    // does not use one shared client API key for all customers; users can open
+    // their linked Fluid account from the panel button above.
+</script>
+{% endblock %}

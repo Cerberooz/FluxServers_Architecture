@@ -1,0 +1,1702 @@
+{% macro pagination(pager, page_arg, active_tab, anchor_id) -%}
+    {% if pager and pager.pages > 1 %}
+    <div class="pagination-bar">
+        {% if pager.has_prev %}
+        <a class="pagination-link" href="{{ admin_page_url(active_tab, page_arg, pager.prev_num) }}#{{ anchor_id }}">Previous</a>
+        {% else %}
+        <span class="pagination-link disabled">Previous</span>
+        {% endif %}
+
+        <div class="pagination-pages">
+            {% for page in pager.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+                {% if page %}
+                    {% if page == pager.page %}
+                    <span class="pagination-link active">{{ page }}</span>
+                    {% else %}
+                    <a class="pagination-link" href="{{ admin_page_url(active_tab, page_arg, page) }}#{{ anchor_id }}">{{ page }}</a>
+                    {% endif %}
+                {% else %}
+                <span class="pagination-ellipsis">…</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if pager.has_next %}
+        <a class="pagination-link" href="{{ admin_page_url(active_tab, page_arg, pager.next_num) }}#{{ anchor_id }}">Next</a>
+        {% else %}
+        <span class="pagination-link disabled">Next</span>
+        {% endif %}
+    </div>
+    {% endif %}
+{%- endmacro %}
+{% macro compact_pagination(pager, page_arg, active_tab, anchor_id) -%}
+    {% if pager and pager.pages > 1 %}
+    <div class="pagination-compact" aria-label="Page navigation">
+        {% if pager.has_prev %}
+        <a class="pagination-link" href="{{ admin_page_url(active_tab, page_arg, pager.prev_num) }}#{{ anchor_id }}"><i class="fas fa-chevron-left"></i></a>
+        {% else %}
+        <span class="pagination-link disabled"><i class="fas fa-chevron-left"></i></span>
+        {% endif %}
+        <span class="pagination-compact-label">Page {{ pager.page }} of {{ pager.pages }}</span>
+        {% if pager.has_next %}
+        <a class="pagination-link" href="{{ admin_page_url(active_tab, page_arg, pager.next_num) }}#{{ anchor_id }}"><i class="fas fa-chevron-right"></i></a>
+        {% else %}
+        <span class="pagination-link disabled"><i class="fas fa-chevron-right"></i></span>
+        {% endif %}
+    </div>
+    {% endif %}
+{%- endmacro %}
+{% from "admin/_macros.html" import location_names %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Flux Servers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@200..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        :root {
+            --bg: #f2f6ff; --surface: rgba(255, 255, 255, 0.82); --surface-rgb: 255, 255, 255; --surface-2: rgba(245, 249, 255, 0.92); --surface-hover: rgba(255, 255, 255, 0.96);
+            --primary: #007aff; --primary-glow: rgba(0, 122, 255, 0.1); --accent: #5856d6;
+            --success: #34c759; --warning: #ff9500; --danger: #ff3b30; --text: #111827;
+            --text-muted: #6b7280; --border: rgba(15, 23, 42, 0.12); --border-hover: rgba(0, 122, 255, 0.32);
+            --glass-blur: 25px;
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --modal-bg: #ffffff;
+            --field-bg: #f8fbff;
+            --field-bg-focus: #ffffff;
+            --field-border: rgba(15, 23, 42, 0.12);
+            --pill-bg: #eef6ff;
+        }
+        [data-theme="dark"] {
+            --bg: #020617; --surface: rgba(15, 23, 42, 0.78); --surface-rgb: 15, 23, 42; --surface-2: rgba(30, 41, 59, 0.72); --surface-hover: rgba(30, 41, 59, 0.92);
+            --text: #f8fafc; --text-muted: #94a3b8; --border: rgba(148, 163, 184, 0.18); --border-hover: rgba(59, 130, 246, 0.42);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --modal-bg: #07111f;
+            --field-bg: rgba(15, 23, 42, 0.92);
+            --field-bg-focus: rgba(15, 23, 42, 1);
+            --field-border: rgba(96, 165, 250, 0.22);
+            --pill-bg: rgba(37, 99, 235, 0.14);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Stack Sans Headline', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .admin-topbar { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border-bottom: 1px solid var(--glass-border); padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .admin-topbar .brand { display: flex; align-items: center; gap: 12px; font-family: 'Stack Sans Headline', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+        .admin-topbar .brand i { color: var(--primary); }
+        .admin-topbar .brand .badge { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 700; }
+        .admin-topbar .actions { display: flex; align-items: center; gap: 16px; }
+        .admin-topbar .actions a { color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 500; padding: 8px 16px; border-radius: 8px; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+        .admin-topbar .actions a:hover { color: var(--text); background: var(--surface-hover); }
+        .admin-topbar .actions .btn-logout { background: rgba(255, 59, 48, 0.1); color: var(--danger); border: 1px solid rgba(255, 59, 48, 0.2); }
+        .admin-main { max-width: 1400px; margin: 0 auto; padding: 32px; }
+        .admin-title { font-family: 'Stack Sans Headline', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -1px; }
+        .admin-subtitle { color: var(--text-muted); font-size: 15px; margin-bottom: 32px; }
+        .tabs-bar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+        .tab-link { background: var(--surface); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); color: var(--text-muted); text-decoration: none; border-radius: 14px; padding: 12px 16px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
+        .tab-link:hover { color: var(--text); border-color: var(--border-hover); }
+        .tab-link.active { background: var(--primary-glow); color: var(--primary); border-color: rgba(0, 122, 255, 0.2); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 40px; }
+        .stat-card { background: var(--surface); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; display: flex; align-items: center; gap: 20px; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        .stat-card:hover { border-color: var(--primary); transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.05); }
+        .stat-icon { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+        .stat-icon.blue { background: rgba(0, 122, 255, 0.1); color: var(--primary); }
+        .stat-icon.purple { background: rgba(88, 86, 214, 0.1); color: var(--accent); }
+        .stat-icon.green { background: rgba(52, 199, 89, 0.1); color: var(--success); }
+        .stat-info h3 { font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Stack Sans Headline', sans-serif; }
+        .stat-info p { font-size: 13px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .admin-section { background: var(--surface); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: 24px; margin-bottom: 32px; overflow: hidden; }
+        .section-header { padding: 24px 32px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; }
+        .section-header h2 { font-family: 'Stack Sans Headline', sans-serif; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 12px; color: var(--text); }
+        .section-header h2 i { color: var(--primary); font-size: 18px; }
+        .admin-table-container { overflow-x: auto; }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .admin-table th { text-align: left; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 16px 24px; border-bottom: 1px solid var(--glass-border); background: var(--surface-2); }
+        .admin-table td { padding: 16px 24px; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
+        .btn-action { padding: 10px 18px; border: none; border-radius: 12px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; position: relative; overflow: hidden; }
+        .btn-action::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 50%; background: linear-gradient(to bottom, rgba(255,255,255,0.2), transparent); pointer-events: none; }
+        .btn-primary-admin { background: var(--primary); color: white; }
+        .btn-danger { background: rgba(255, 59, 48, 0.1); color: var(--danger); border: 1px solid rgba(255, 59, 48, 0.2); }
+        .btn-warning { background: rgba(255, 149, 0, 0.1); color: var(--warning); border: 1px solid rgba(255, 149, 0, 0.2); }
+        .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(15px); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: var(--modal-bg); border: 1px solid var(--glass-border); border-radius: 28px; width: 450px; padding: 40px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28); }
+        .modal-content h2 { margin-bottom: 20px; font-family: 'Stack Sans Headline', sans-serif; font-size: 24px; font-weight: 800; }
+        .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 14px; margin-bottom: 15px; border-radius: 14px; border: 1px solid var(--field-border); background: var(--field-bg); color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
+        .modal-content textarea { min-height: 96px; resize: vertical; font-family: inherit; }
+        .modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-glow); background: var(--field-bg-focus); }
+        .modal-content.modal-wide { width: min(1040px, 94vw); max-height: 88vh; overflow-y: auto; }
+        .plan-modal-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+        .plan-modal-column { display: grid; gap: 10px; }
+        .plan-modal-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .plan-modal-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .plan-modal-section-title { font-size: 11px; font-weight: 800; color: var(--text-muted); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.5px; }
+        .plan-modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 18px; border-top: 1px solid var(--glass-border); padding-top: 18px; }
+        .plan-modal-actions .btn-action { min-width: 150px; justify-content: center; }
+        .resource-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .resource-field { border: 1px solid var(--field-border); background: var(--field-bg); border-radius: 16px; padding: 12px; }
+        .resource-field label { display: block; color: var(--text-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+        .resource-field input { margin-bottom: 0; background: var(--field-bg-focus); }
+        .unit-pair { display: grid; grid-template-columns: .78fr 1.22fr; gap: 8px; }
+        .unit-pair input { margin-bottom: 0; }
+        .server-location-picker { display: grid; gap: 10px; }
+        .server-location-picker-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; }
+        .server-location-list { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px; padding: 10px; border: 1px dashed var(--field-border); border-radius: 14px; background: var(--field-bg); }
+        .server-location-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 999px; border: 1px solid rgba(0, 122, 255, 0.18); background: var(--pill-bg); font-size: 12px; font-weight: 800; color: var(--text); }
+        .server-location-pill button { border: 0; background: transparent; color: var(--danger); cursor: pointer; font-weight: 900; padding: 0; }
+        .plan-edit-form { padding: 28px; display: grid; gap: 18px; text-align: left; background: var(--modal-bg); border-radius: 22px; }
+        .plan-edit-form h3 { margin: 10px 0 2px !important; padding: 0 0 10px !important; border-bottom: 1px solid var(--glass-border) !important; color: var(--text); font-size: 13px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+        .plan-edit-form .form-group label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 11px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+        .plan-edit-form input:not([type="checkbox"]), .plan-edit-form select, .plan-edit-form textarea { width: 100% !important; padding: 13px 14px !important; border-radius: 14px !important; border: 1px solid var(--field-border) !important; background: var(--field-bg) !important; color: var(--text) !important; font-weight: 700 !important; outline: none; transition: border-color .18s, box-shadow .18s, background .18s; }
+        .plan-edit-form input:focus, .plan-edit-form select:focus, .plan-edit-form textarea:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 4px var(--primary-glow); background: var(--field-bg-focus) !important; }
+        .plan-edit-form textarea { min-height: 120px; resize: vertical; }
+        .plan-edit-form .button { border: 0; justify-self: end; min-width: 180px; }
+        @media (max-width: 860px) {
+            .plan-modal-grid, .plan-modal-row, .plan-modal-row.three, .resource-grid { grid-template-columns: 1fr; }
+            .unit-pair, .server-location-picker-controls { grid-template-columns: 1fr; }
+            .plan-modal-actions { flex-direction: column; }
+            .plan-modal-actions .btn-action { width: 100%; }
+            .plan-edit-form .button { width: 100%; }
+        }
+        .btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
+        .pagination-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; border-top: 1px solid var(--glass-border); flex-wrap: wrap; }
+        .pagination-pages { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .pagination-link { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); text-decoration: none; font-size: 13px; font-weight: 700; }
+        .pagination-link.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .pagination-link.disabled { opacity: 0.45; pointer-events: none; }
+        .pagination-ellipsis { color: var(--text-muted); font-weight: 700; padding: 0 4px; }
+        .table-summary { padding: 16px 24px 0; color: var(--text-muted); font-size: 13px; font-weight: 600; }
+        .admin-section-footer { min-height: 36px; margin-top: 18px; }
+        .section-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 18px 24px 0; }
+        .section-toolbar input, .section-toolbar select { min-width: 220px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); outline: none; font-size: 13px; font-weight: 600; }
+        .plans-toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 18px 24px 0; }
+        .plans-toolbar-filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .plans-toolbar input, .plans-toolbar select { min-width: 220px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); outline: none; font-size: 13px; font-weight: 600; }
+        .pagination-compact { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+        .pagination-compact .pagination-link { min-width: 42px; height: 42px; padding: 0; }
+        .pagination-compact-label { color: var(--text-muted); font-size: 13px; font-weight: 800; white-space: nowrap; }
+        .plans-empty { display: none; padding: 24px; color: var(--text-muted); font-size: 13px; font-weight: 600; text-align: center; }
+        .plans-tree { margin: 18px 24px 0; display: grid; gap: 22px; }
+        .plan-tree-group { display: grid; }
+        .plan-tree-branch { display: grid; margin-left: 42px; }
+        .plan-tree-row { min-height: 76px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 18px; padding: 16px 20px; border: 1px solid var(--glass-border); background: var(--surface-2); color: var(--text); }
+        .plan-tree-category { min-height: 78px; background: var(--surface); border-radius: 16px 16px 0 0; font-weight: 800; }
+        .plan-tree-subcategory { margin-left: 20px; background: rgba(128, 128, 128, 0.08); }
+        .plan-tree-plan { margin-left: 86px; min-height: 70px; background: rgba(128, 128, 128, 0.12); border-top: 0; }
+        .plan-tree-group > .plan-tree-row:last-child, .plan-tree-branch:last-child .plan-tree-row:last-child { border-radius: 0 0 16px 16px; }
+        .plan-tree-drag, .plan-tree-toggle, .plan-tree-menu-trigger { color: var(--text-muted); display: inline-flex; align-items: center; justify-content: center; }
+        .plan-tree-drag[draggable="true"] { cursor: grab; }
+        .plan-tree-drag[draggable="true"]:active { cursor: grabbing; }
+        .plan-tree-row.is-dragging { opacity: 0.45; }
+        .plan-tree-row.is-drop-target { outline: 2px dashed var(--primary); outline-offset: -6px; background: var(--primary-glow); }
+        .plan-tree-row.is-drop-before { box-shadow: inset 0 3px 0 var(--primary); }
+        .plan-tree-row.is-drop-after { box-shadow: inset 0 -3px 0 var(--primary); }
+        .plan-tree-toggle { border: 0; background: transparent; cursor: pointer; font-size: 14px; }
+        .plan-tree-menu { position: relative; }
+        .plan-tree-menu-trigger { border: 0; background: transparent; cursor: pointer; color: var(--primary); font-size: 18px; padding: 8px; border-radius: 10px; }
+        .plan-tree-menu-trigger:hover { background: var(--surface-hover); }
+        .plan-tree-menu-popover { position: absolute; top: calc(100% + 8px); right: 0; min-width: 220px; padding: 8px; border-radius: 14px; border: 1px solid var(--glass-border); background: var(--surface-hover); box-shadow: 0 18px 40px rgba(0,0,0,0.18); z-index: 20; display: none; }
+        .plan-tree-menu.is-open .plan-tree-menu-popover { display: grid; gap: 4px; }
+        .plan-tree-menu-popover button { width: 100%; border: 0; background: transparent; color: var(--text); text-align: left; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .plan-tree-menu-popover button:hover { background: var(--surface-2); }
+        .plan-tree-menu-popover .danger { color: var(--danger); }
+        .plan-tree-menu-popover form { margin: 0; }
+        .plan-tree-title { font-size: 15px; font-weight: 800; color: var(--text); }
+        .plan-tree-meta { margin-top: 5px; color: var(--text-muted); font-size: 12px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 7px; }
+        .plan-tree-badge { background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight: 800; margin-left: 6px; }
+        .plan-tree-actions { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+        .plan-tree-empty { margin-left: 86px; padding: 16px 20px; color: var(--text-muted); font-size: 13px; font-weight: 600; border: 1px dashed var(--border); border-top: 0; background: rgba(128, 128, 128, 0.06); }
+        .plan-tree-group.is-collapsed .plan-tree-branch, .plan-tree-group.is-collapsed .plan-tree-plan, .plan-tree-group.is-collapsed .plan-tree-empty { display: none; }
+        .plan-tree-group.is-collapsed > .plan-tree-category { border-radius: 16px; }
+        .plan-tree-branch.is-collapsed .plan-tree-plan, .plan-tree-branch.is-collapsed .plan-tree-empty { display: none; }
+        .plan-tree-branch.is-collapsed > .plan-tree-subcategory { border-radius: 0 0 16px 16px; }
+        .tab-empty { display: none; padding: 24px; color: var(--text-muted); font-size: 13px; font-weight: 600; text-align: center; }
+        #toast { position: fixed; bottom: 30px; right: 30px; padding: 16px 24px; border-radius: 16px; background: var(--surface); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); box-shadow: 0 10px 30px rgba(0,0,0,0.2); z-index: 1000; display: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <header class="admin-topbar">
+        <a href="/admin" class="brand"><i class="fas fa-bolt"></i> Flux Servers <span class="badge">ADMIN</span></a>
+        <div class="actions">
+            {% if not nests or not locations %}
+            <span style="color: var(--danger); font-size: 12px; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Fluid API Offline</span>
+            {% endif %}
+            <button class="btn-action btn-warning" onclick="testPterodactyl()" style="margin-right: 10px;"><i class="fas fa-plug"></i> Test Fluid</button>
+            <a href="/"><i class="fas fa-home"></i> Main Site</a>
+
+            <a href="/logout" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <h1 class="admin-title">Platform Dashboard</h1>
+        <p class="admin-subtitle">System Control & Management</p>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-server"></i></div><div class="stat-info"><h3>{{ stats.total_servers }}</h3><p>Active Servers</p></div></div>
+            <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-users"></i></div><div class="stat-info"><h3>{{ stats.total_users }}</h3><p>Total Users</p></div></div>
+            <div class="stat-card"><div class="stat-icon green"><i class="fas fa-globe"></i></div><div class="stat-info"><h3>{{ globe_locations|length }}</h3><p>Locations</p></div></div>
+        </div>
+
+        <nav class="tabs-bar" aria-label="Admin sections">
+            <a class="tab-link {% if active_tab == 'users' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='users') }}"><i class="fas fa-user-shield"></i> Users</a>
+            <a class="tab-link {% if active_tab == 'servers' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='servers') }}"><i class="fas fa-list-check"></i> Servers</a>
+            <a class="tab-link {% if active_tab == 'plans' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='plans') }}"><i class="fas fa-gamepad"></i> Plans</a>
+            <a class="tab-link {% if active_tab == 'referrals' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='referrals') }}"><i class="fas fa-link"></i> Referrals</a>
+            <a class="tab-link {% if active_tab == 'status' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='status') }}"><i class="fas fa-signal"></i> Status</a>
+            <a class="tab-link {% if active_tab == 'maintenance' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='maintenance') }}"><i class="fas fa-tools"></i> Maintenance</a>
+            <a class="tab-link {% if active_tab == 'faqs' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='faqs') }}"><i class="fas fa-question-circle"></i> FAQs</a>
+            <a class="tab-link {% if active_tab == 'coupons' %}active{% endif %}" href="{{ url_for('admin.admin_dashboard', tab='coupons') }}"><i class="fas fa-tag"></i> Coupons</a>
+        </nav>
+
+        <!-- User Directory -->
+        {% if active_tab == 'users' %}
+        <section class="admin-section">
+            <div class="section-header" id="users-section"><h2><i class="fas fa-user-shield"></i> User Directory</h2></div>
+            <div class="section-toolbar">
+                <input type="text" id="users-search" placeholder="Search users">
+            </div>
+            <div class="table-summary">Showing {{ all_users.items|length }} of {{ all_users.total }} users</div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>User</th><th>Email</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {% for user in all_users.items %}
+                        <tr data-filter-row="users" data-filter-text="{{ (user.username ~ ' ' ~ user.email)|lower }}"><td>{{ user.username }}</td><td>{{ user.email }}</td><td><button class="btn-action btn-primary-admin" onclick="openModal('provision-modal', '{{ user.id }}')">Grant Server</button></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="users-empty-state" class="tab-empty">No users match the current search.</div>
+            {{ pagination(all_users, 'users_page', active_tab, 'users-section') }}
+        </section>
+        {% endif %}
+
+        <!-- Deployed Instances -->
+        {% if active_tab == 'servers' %}
+        <section class="admin-section">
+            <div class="section-header" id="servers-section"><h2><i class="fas fa-list-check"></i> Deployed Instances</h2></div>
+            <div class="section-toolbar">
+                <input type="text" id="servers-search" placeholder="Search servers">
+            </div>
+            <div class="table-summary">Showing {{ servers.items|length }} of {{ stats.total_servers }} servers</div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>ID</th><th>Owner</th><th>Plan</th><th>Status</th><th>Control</th></tr></thead>
+                    <tbody>
+                        {% for server in servers.items %}
+                        <tr data-filter-row="servers" data-filter-text="{{ (server.pelican_server_identifier ~ ' ' ~ server.owner.username ~ ' ' ~ server.plan_name ~ ' ' ~ server.status)|lower }}"><td><code>{{ server.pelican_server_identifier }}</code></td><td>{{ server.owner.username }}</td><td>{{ server.plan_name }}</td>
+                        <td><span style="color: {% if server.status == 'Active' %}#10b981{% else %}#ef4444{% endif %}">{{ server.status }}</span></td>
+                        <td><button class="btn-action btn-warning" onclick="manageServer('{{ server.pelican_server_id }}', 'suspend')"><i class="fas fa-pause"></i></button></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="servers-empty-state" class="tab-empty">No servers match the current search.</div>
+            {{ pagination(servers, 'servers_page', active_tab, 'servers-section') }}
+        </section>
+        {% endif %}
+
+        <!-- Game Plans -->
+        {% if active_tab == 'plans' %}
+        <section class="admin-section">
+            <div class="section-header" id="plans-section">
+                <h2><i class="fas fa-gamepad"></i> Game Plans</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <a href="/admin/plans/export" class="btn-action btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-download"></i> Export JSON</a>
+                    <button class="btn-action btn-secondary" onclick="document.getElementById('import-plans-file').click()" style="display: inline-flex; align-items: center; gap: 6px;"><i class="fas fa-upload"></i> Import JSON</button>
+                    <form id="import-plans-form" action="/admin/plans/import" method="POST" enctype="multipart/form-data" style="display: none;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="file" id="import-plans-file" name="plans_file" accept=".json" onchange="if(this.files.length && confirm('Import ' + this.files[0].name + '? Duplicate plans will be skipped.')) this.closest('form').submit();">
+                    </form>
+                    <button class="btn-action btn-secondary" onclick="openModal('add-category-modal')">Add Category</button>
+                    <button class="btn-action btn-primary-admin" onclick="openAddPlan()">Add Plan</button>
+                </div>
+            </div>
+            <div class="plans-toolbar">
+                <div class="plans-toolbar-filters">
+                    <input type="text" id="plan-search" placeholder="Search plan name">
+                    <select id="plan-game-filter">
+                        <option value="">All Categories</option>
+                        {% for category in plan_categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="table-summary">Showing {{ plans.items|length }} of {{ plans.total }} plans</div>
+            <div class="plans-tree">
+                {% for node in plan_tree %}
+                {% set category = node.category %}
+                <div class="plan-tree-group"
+                     data-plan-group
+                     data-plan-category="{{ category.id if category else '' }}"
+                     data-plan-category-name="{{ category.name|lower if category else 'uncategorized' }}">
+                    <div class="plan-tree-row plan-tree-category"
+                         data-drop-target="category"
+                         data-drop-category="{{ category.id if category else '' }}"
+                         data-drop-subcategory="">
+                        <div class="plan-tree-drag"><i class="fas fa-grip-lines"></i></div>
+                        <div class="plan-tree-main">
+                            <div class="plan-tree-title">{{ category.name if category else "Uncategorized Plans" }}</div>
+                            <div class="plan-tree-meta">
+                                <span>{{ node.plans|length }} plans</span>
+                                {% if category %}
+                                <span>•</span>
+                                <span>/{{ category.slug }}</span>
+                                {% if category.description %}
+                                <span>•</span>
+                                <span>{{ category.description }}</span>
+                                {% endif %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="plan-tree-actions">
+                            {% if category %}
+                            <div class="plan-tree-menu">
+                                <button type="button" class="plan-tree-menu-trigger" data-plan-menu-toggle aria-label="Category options"><i class="fas fa-ellipsis-h"></i></button>
+                                <div class="plan-tree-menu-popover">
+                                    <button type="button"
+                                            data-edit-category
+                                            data-category-id="{{ category.id }}"
+                                            data-category-name="{{ category.name }}"
+                                            data-category-description="{{ category.description or '' }}"
+                                            data-category-sort="{{ category.sort_order or 0 }}"
+                                            data-category-active="{{ '1' if category.is_active else '0' }}">Edit Category</button>
+                                    <button type="button" onclick="openSubcategoryModal('{{ category.id }}')">Create Sub Category</button>
+                                    <button type="button" onclick="openAddPlan('{{ category.id }}', '')">Create Plan</button>
+                                    <form action="/admin/plan-categories/{{ category.id }}/duplicate" method="POST">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit">Duplicate Category</button>
+                                    </form>
+                                    <form action="/admin/plan-categories/{{ category.id }}/delete" method="POST" onsubmit="return confirm('Delete this category? Plans will move to Uncategorized.');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="danger">Delete Main Category</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <button type="button" class="plan-tree-toggle" data-plan-tree-toggle aria-label="Collapse category"><i class="fas fa-chevron-up"></i></button>
+                        </div>
+                    </div>
+
+                    {% for branch in node.subcategories %}
+                    {% set subcategory = branch.subcategory %}
+                    <div class="plan-tree-branch" data-plan-subcategory-block data-plan-subcategory="{{ subcategory.id }}">
+                        <div class="plan-tree-row plan-tree-subcategory"
+                             data-drop-target="subcategory"
+                             data-drop-category="{{ category.id }}"
+                             data-drop-subcategory="{{ subcategory.id }}">
+                            <div class="plan-tree-drag"
+                                 draggable="true"
+                                 data-drag-type="subcategory"
+                                 data-drag-id="{{ subcategory.id }}"
+                                 aria-label="Drag subcategory"><i class="fas fa-grip-lines"></i></div>
+                            <div class="plan-tree-main">
+                                <div class="plan-tree-title">{{ subcategory.name }}</div>
+                                <div class="plan-tree-meta">
+                                    <span>{{ branch.plans|length }} plans</span>
+                                    <span>•</span>
+                                <span>/{{ subcategory.slug }}</span>
+                                {% if subcategory.description %}
+                                <span>•</span>
+                                <span>{{ subcategory.description }}</span>
+                                {% endif %}
+                                </div>
+                            </div>
+                            <div class="plan-tree-actions">
+                                <div class="plan-tree-menu">
+                                    <button type="button" class="plan-tree-menu-trigger" data-plan-menu-toggle aria-label="Subcategory options"><i class="fas fa-ellipsis-h"></i></button>
+                                    <div class="plan-tree-menu-popover">
+                                        <button type="button"
+                                                data-edit-subcategory
+                                                data-subcategory-id="{{ subcategory.id }}"
+                                                data-subcategory-category="{{ category.id }}"
+                                                data-subcategory-name="{{ subcategory.name }}"
+                                                data-subcategory-description="{{ subcategory.description or '' }}"
+                                                data-subcategory-sort="{{ subcategory.sort_order or 0 }}"
+                                                data-subcategory-active="{{ '1' if subcategory.is_active else '0' }}">Edit SubCategory</button>
+                                        <button type="button" onclick="openAddPlan('{{ category.id }}', '{{ subcategory.id }}')">Create Plan</button>
+                                        <form action="/admin/plan-subcategories/{{ subcategory.id }}/duplicate" method="POST">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit">Duplicate Category</button>
+                                        </form>
+                                        <form action="/admin/plan-subcategories/{{ subcategory.id }}/delete" method="POST" onsubmit="return confirm('Delete this subcategory? Plans will move to Unassigned Plans.');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="danger">Delete SubCategory</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <button type="button" class="plan-tree-toggle" data-plan-tree-toggle aria-label="Collapse subcategory"><i class="fas fa-chevron-up"></i></button>
+                            </div>
+                        </div>
+                        {% for plan in branch.plans %}
+                        {% include "admin/_plan_row.html" %}
+                        {% endfor %}
+                        {% if not branch.plans %}
+                        <div class="plan-tree-empty">No plans in this subcategory yet.</div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    {% if node.subcategories %}
+                        <div class="plan-tree-branch" data-plan-subcategory-block data-plan-subcategory="">
+                            <div class="plan-tree-row plan-tree-subcategory"
+                                 data-drop-target="category"
+                                 data-drop-category="{{ category.id }}"
+                                 data-drop-subcategory="">
+                                <div class="plan-tree-drag"><i class="fas fa-grip-lines"></i></div>
+                                <div class="plan-tree-main">
+                                    <div class="plan-tree-title">Unassigned Plans</div>
+                                    <div class="plan-tree-meta"><span>{{ node.direct_plans|length }} plans</span></div>
+                                </div>
+                                <div class="plan-tree-actions">
+                                    <div class="plan-tree-menu">
+                                        <button type="button" class="plan-tree-menu-trigger" data-plan-menu-toggle aria-label="Unassigned options"><i class="fas fa-ellipsis-h"></i></button>
+                                        <div class="plan-tree-menu-popover">
+                                            <button type="button" onclick="openAddPlan('{{ category.id }}', '')">Create Plan</button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="plan-tree-toggle" data-plan-tree-toggle aria-label="Collapse unassigned plans"><i class="fas fa-chevron-up"></i></button>
+                                </div>
+                            </div>
+                            {% for plan in node.direct_plans %}
+                            {% include "admin/_plan_row.html" %}
+                            {% endfor %}
+                            {% if not node.direct_plans %}
+                            <div class="plan-tree-empty">No unassigned plans in this category.</div>
+                            {% endif %}
+                        </div>
+                    {% elif node.direct_plans %}
+                            {% for plan in node.direct_plans %}
+                            {% include "admin/_plan_row.html" %}
+                            {% endfor %}
+                    {% else %}
+                    <div class="plan-tree-empty">No plans in this category yet.</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div id="plans-empty-state" class="plans-empty">No plans match the current filters.</div>
+            <div class="admin-section-footer"></div>
+        </section>
+        {% endif %}
+
+        <!-- Referral Codes -->
+        {% if active_tab == 'referrals' %}
+        <section class="admin-section">
+            <div class="section-header" id="referrals-section">
+                <h2><i class="fas fa-link"></i> Referral Codes</h2>
+                <button class="btn-action btn-primary-admin" onclick="openModal('add-referral-modal')">Add Referral</button>
+            </div>
+            <div class="section-toolbar">
+                <input type="text" id="referrals-search" placeholder="Search referrals">
+            </div>
+            <div class="table-summary">Showing {{ referrals.items|length }} of {{ referrals.total }} referral codes</div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>Code</th><th>Target URL</th><th>Clicks</th><th>Action</th></tr></thead>
+                    <tbody>
+                        {% for ref in referrals.items %}
+                        <tr data-filter-row="referrals" data-filter-text="{{ (ref.code ~ ' ' ~ ref.target_url ~ ' ' ~ ref.clicks)|lower }}">
+                            <td><code>/r/{{ ref.code }}</code></td>
+                            <td>{{ ref.target_url }}</td>
+                            <td>{{ ref.clicks }}</td>
+                            <td>
+                                <form action="/admin/delete-referral/{{ ref.id }}" method="POST" onsubmit="return confirm('Delete referral {{ ref.code }}?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-action btn-danger"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="referrals-empty-state" class="tab-empty">No referrals match the current search.</div>
+            {{ pagination(referrals, 'referrals_page', active_tab, 'referrals-section') }}
+        </section>
+        {% endif %}
+
+        <!-- Service Status -->
+        {% if active_tab == 'status' %}
+        <section class="admin-section">
+            <div class="section-header"><h2><i class="fas fa-signal"></i> Service Status</h2></div>
+            <div class="section-toolbar">
+                <input type="text" id="status-search" placeholder="Search services">
+            </div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>Service</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {% for service in services %}
+                        <tr data-filter-row="status" data-filter-text="{{ (service.name ~ ' ' ~ service.status)|lower }}">
+                            <td>{{ service.name }}</td>
+                            <td>
+                                <form action="/admin/status/update" method="POST" style="display:flex; gap: 8px;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="service_id" value="{{ service.id }}">
+                                    <select name="status" style="margin:0; padding: 4px 8px; font-size: 12px;">
+                                        <option value="Operational" {% if service.status == 'Operational' %}selected{% endif %}>Operational</option>
+                                        <option value="Degraded Performance" {% if service.status == 'Degraded Performance' %}selected{% endif %}>Degraded</option>
+                                        <option value="Partial Outage" {% if service.status == 'Partial Outage' %}selected{% endif %}>Partial Outage</option>
+                                        <option value="Major Outage" {% if service.status == 'Major Outage' %}selected{% endif %}>Major Outage</option>
+                                    </select>
+                                    <button type="submit" class="btn-action btn-primary-admin" style="padding: 4px 10px;">Update</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="status-empty-state" class="tab-empty">No services match the current search.</div>
+        </section>
+        {% endif %}
+
+        <!-- Maintenance Logs -->
+        {% if active_tab == 'maintenance' %}
+        <section class="admin-section">
+            <div class="section-header" id="maintenance-section">
+                <h2><i class="fas fa-tools"></i> Maintenance Logs</h2>
+                <button class="btn-action btn-primary-admin" onclick="openModal('add-maintenance-modal')">Add Log</button>
+            </div>
+            <div class="section-toolbar">
+                <input type="text" id="maintenance-search" placeholder="Search maintenance logs">
+            </div>
+            <div class="table-summary">Showing {{ updates.items|length }} of {{ updates.total }} maintenance entries</div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>Date</th><th>Title</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for update in updates.items %}
+                        <tr data-filter-row="maintenance" data-filter-text="{{ (update.created_at.strftime('%Y-%m-%d') ~ ' ' ~ update.title ~ ' ' ~ update.status)|lower }}">
+                            <td>{{ update.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>{{ update.title }}</td>
+                            <td>{{ update.status }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="maintenance-empty-state" class="tab-empty">No maintenance entries match the current search.</div>
+            {{ pagination(updates, 'updates_page', active_tab, 'maintenance-section') }}
+        </section>
+        {% endif %}
+
+        <!-- FAQ Management -->
+        {% if active_tab == 'faqs' %}
+        <section class="admin-section">
+            <div class="section-header" id="faqs-section">
+                <h2><i class="fas fa-question-circle"></i> FAQ Management</h2>
+                <button class="btn-action btn-primary-admin" onclick="openModal('add-faq-modal')">Add FAQ</button>
+            </div>
+            <div class="section-toolbar">
+                <input type="text" id="faqs-search" placeholder="Search FAQs">
+            </div>
+            <div class="table-summary">Showing {{ faqs.items|length }} of {{ faqs.total }} FAQs</div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>Order</th><th>Category</th><th>Question</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        {% for faq in faqs.items %}
+                        <tr data-filter-row="faqs" data-filter-text="{{ (faq.order ~ ' ' ~ faq.category ~ ' ' ~ faq.question)|lower }}">
+                            <td>{{ faq.order }}</td>
+                            <td><span style="background: rgba(0,122,255,0.1); color: var(--primary); padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700;">{{ faq.category }}</span></td>
+                            <td>{{ faq.question }}</td>
+                            <td>
+                                <button type="button" class="btn-action btn-secondary" onclick="openModal('edit-faq-modal-{{ faq.id }}')"><i class="fas fa-edit"></i></button>
+                                <form action="/admin/faqs/delete/{{ faq.id }}" method="POST" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-action btn-danger" onclick="return confirm('Delete this FAQ?')"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="faqs-empty-state" class="tab-empty">No FAQs match the current search.</div>
+            {{ pagination(faqs, 'faqs_page', active_tab, 'faqs-section') }}
+        </section>
+        {% endif %}
+
+        <!-- Active Coupons -->
+        {% if active_tab == 'coupons' %}
+        <section class="admin-section">
+            <div class="section-header" id="coupons-section">
+                <h2><i class="fas fa-tag"></i> Active Coupons</h2>
+                <button class="btn-action btn-primary-admin" onclick="openModal('add-coupon-modal')">Add Coupon</button>
+            </div>
+            <div class="section-toolbar">
+                <input type="text" id="coupons-search" placeholder="Search coupons">
+            </div>
+            <div class="table-summary">Showing {{ coupons.items|length }} of {{ coupons.total }} coupons</div>
+            <div class="admin-table-container">
+                <table class="admin-table">
+                    <thead><tr><th>Code</th><th>Discount</th></tr></thead>
+                    <tbody>
+                        {% for c in coupons.items %}
+                        <tr data-filter-row="coupons" data-filter-text="{{ (c.code ~ ' ' ~ c.discount_percent)|lower }}">
+                            <td><code>{{ c.code }}</code></td>
+                            <td>{{ c.discount_percent }}%</td>
+                            <td style="display: flex; gap: 8px;">
+                                <form action="/admin/coupons/delete/{{ c.id }}" method="POST" onsubmit="return confirm('Delete coupon {{ c.code }}?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn-action btn-danger"><i class="fas fa-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="coupons-empty-state" class="tab-empty">No coupons match the current search.</div>
+            {{ pagination(coupons, 'coupons_page', active_tab, 'coupons-section') }}
+        </section>
+        {% endif %}
+
+        <!-- MODALS -->
+        <!-- Provision -->
+        {# Edit-plan modal. The form is fetched from /admin/plans/edit/<id>?fragment=1
+           so it is always the same markup as the standalone edit page. #}
+        <div id="edit-plan-modal" class="modal">
+            <div class="modal-content modal-wide">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 4px;">
+                    <h3 style="margin: 0;">Edit <span id="edit-plan-title" class="highlight"></span></h3>
+                    <button type="button" class="btn-action" onclick="closeModal('edit-plan-modal')"
+                            title="Close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted);">&times;</button>
+                </div>
+                <div id="edit-plan-body">
+                    <p style="color: var(--text-muted); font-size: 13px;">Loading…</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="provision-modal" class="modal"><div class="modal-content">
+            <h2>Grant Server</h2>
+            <form id="provision-form" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" id="modal-user-id">
+                <select id="modal-plan-id">{% for plan in plan_options %}<option value="{{ plan.id }}">{{ plan.name }}</option>{% endfor %}</select>
+                <button type="button" class="btn-action btn-primary-admin" style="width: 100%;" onclick="submitProvision()">Provision</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('provision-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <div id="add-category-modal" class="modal"><div class="modal-content">
+            <h2>Create Category</h2>
+            <form action="/admin/plan-categories/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" placeholder="Main category name, e.g. Minecraft Plans" required>
+                <textarea name="description" placeholder="Description shown in admin and available for public pages"></textarea>
+                <input type="number" name="sort_order" placeholder="Sort order" value="0">
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Create Category</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-category-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <div id="edit-category-modal" class="modal"><div class="modal-content">
+            <h2>Edit Category</h2>
+            <form id="edit-category-form" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" id="edit-category-name" placeholder="Category name" required>
+                <textarea name="description" id="edit-category-description" placeholder="Category description"></textarea>
+                <input type="number" name="sort_order" id="edit-category-sort" placeholder="Sort order">
+                <label style="display:flex; gap:10px; align-items:center; margin-bottom:15px; font-weight:700;">
+                    <input type="checkbox" name="is_active" id="edit-category-active" style="width:auto; margin:0;">
+                    Active
+                </label>
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Save Category</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('edit-category-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <div id="add-subcategory-modal" class="modal"><div class="modal-content">
+            <h2>Create Sub Category</h2>
+            <form action="/admin/plan-subcategories/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="category_id" id="subcategory-parent-id">
+                <input type="text" name="name" placeholder="Subcategory name, e.g. Basic Tiers" required>
+                <textarea name="description" placeholder="Description shown in admin and available for public pages"></textarea>
+                <input type="number" name="sort_order" placeholder="Sort order" value="0">
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Create Sub Category</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-subcategory-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <div id="edit-subcategory-modal" class="modal"><div class="modal-content">
+            <h2>Edit Sub Category</h2>
+            <form id="edit-subcategory-form" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="category_id" id="edit-subcategory-category" required>
+                    {% for category in plan_categories %}
+                    <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="name" id="edit-subcategory-name" placeholder="Subcategory name" required>
+                <textarea name="description" id="edit-subcategory-description" placeholder="Subcategory description"></textarea>
+                <input type="number" name="sort_order" id="edit-subcategory-sort" placeholder="Sort order">
+                <label style="display:flex; gap:10px; align-items:center; margin-bottom:15px; font-weight:700;">
+                    <input type="checkbox" name="is_active" id="edit-subcategory-active" style="width:auto; margin:0;">
+                    Active
+                </label>
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Save Sub Category</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('edit-subcategory-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <!-- Add Plan -->
+        <div id="add-plan-modal" class="modal"><div class="modal-content modal-wide">
+            <h2>Add Game Plan</h2>
+            <form action="/admin/plans/add" method="POST" enctype="multipart/form-data" class="plan-edit-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="plan-modal-grid">
+                    <div class="plan-modal-column">
+                        <p class="plan-modal-section-title">Plan Details</p>
+                        <div class="plan-modal-row">
+                            <input type="text" name="name" placeholder="Plan Name" required>
+                            <input type="number" step="0.01" name="price" placeholder="Price (USD)" required>
+                        </div>
+                        <div class="plan-modal-row">
+                            <select name="category_id" id="add-category-select" onchange="updateSubcategoryOptions('add-category-select', 'add-subcategory-select'); togglePlanFields(this.options[this.selectedIndex]?.dataset.slug || '')" required>
+                                <option value="">Select Category</option>
+                                {% for category in plan_categories %}
+                                <option value="{{ category.id }}" data-slug="{{ category.slug }}" {% if loop.first %}selected{% endif %}>{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <select name="subcategory_id" id="add-subcategory-select">
+                                <option value="">No subcategory</option>
+                            </select>
+                        </div>
+                        <div class="plan-modal-row">
+                            <select name="sub_type" required>
+                                <option value="Monthly" selected>Monthly</option>
+                                <option value="Subscription">Subscription</option>
+                                <option value="One-time">One-time</option>
+                            </select>
+                            <input type="number" name="serial_number" placeholder="Serial Number" required>
+                        </div>
+
+                        <p class="plan-modal-section-title">Fluid Panel Specs</p>
+                        <div class="resource-grid">
+                            <div class="resource-field">
+                                <label>RAM</label>
+                                <div class="unit-pair" data-unit-pair>
+                                    <input type="number" step="0.01" min="0" data-unit-gb placeholder="GB">
+                                    <input type="number" min="0" name="memory" data-unit-mb placeholder="MB" required>
+                                </div>
+                            </div>
+                            <div class="resource-field">
+                                <label>CPU</label>
+                                <input type="number" name="cpu" placeholder="CPU %" required>
+                            </div>
+                            <div class="resource-field">
+                                <label>Disk</label>
+                                <div class="unit-pair" data-unit-pair>
+                                    <input type="number" step="0.01" min="0" data-unit-gb placeholder="GB">
+                                    <input type="number" min="0" name="disk" data-unit-mb placeholder="MB" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="plan-modal-row">
+                            {% if locations %}
+                            <select name="location_id" required>
+                                <option value="">Select Location</option>
+                                {% for loc in locations %}
+                                <option value="{{ loc.attributes.id }}">{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})</option>
+                                {% endfor %}
+                            </select>
+                            {% elif location_labels %}
+                            <select name="location_id" required>
+                                {% for node_id, label in location_labels.items() %}
+                                <option value="{{ node_id }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <input type="number" name="location_id" value="1" min="1" placeholder="Node ID" required>
+                            {% endif %}
+
+                            {% if nests %}
+                            <select name="nest_id" id="add-nest-select" onchange="loadEggs(this.value, 'add-egg-select')">
+                                <option value="">Select Nest</option>
+                                {% for nest in nests %}
+                                <option value="{{ nest.attributes.id }}">{{ nest.attributes.name }}</option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <input type="text" name="nest_id" value="General" placeholder="Egg Tag / Nest" required>
+                            {% endif %}
+                        </div>
+                        <div id="panel-tech-fields" class="plan-modal-row">
+                            {% if nests %}
+                            <div class="server-location-picker" data-egg-picker style="grid-column: 1 / -1;">
+                                <div class="server-location-picker-controls">
+                                    <select id="add-egg-select" data-egg-select aria-label="Allowed eggs">
+                                        <option value="">Select Egg</option>
+                                    </select>
+                                    <button type="button" class="btn-action btn-secondary" data-egg-add>Add</button>
+                                    <button type="button" class="btn-action btn-secondary" data-egg-add-all>Add all</button>
+                                </div>
+                                <div class="server-location-list" data-egg-list></div>
+                            </div>
+                            {% else %}
+                            <input type="number" name="egg_id" value="1" min="1" placeholder="Default egg ID" required>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="plan-modal-column">
+                        <p class="plan-modal-section-title">Server Locations</p>
+                        {% if locations or location_labels %}
+                        <div class="server-location-picker" data-server-location-picker>
+                            <div class="server-location-picker-controls">
+                                <select data-server-location-select>
+                                    <option value="">Add server location</option>
+                                    {% if locations %}
+                                        {% for loc in locations %}
+                                        <option value="{{ loc.attributes.id }}" data-label="{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})">{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})</option>
+                                        {% endfor %}
+                                    {% else %}
+                                        {% for node_id, label in location_labels.items() %}
+                                        <option value="{{ node_id }}" data-label="{{ label }}">{{ label }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </select>
+                                <button type="button" class="btn-action btn-secondary" data-server-location-add>Add</button>
+                                <button type="button" class="btn-action btn-secondary" data-server-location-add-all>Add all</button>
+                            </div>
+                            <div class="server-location-list" data-server-location-list>
+                                {% if locations %}
+                                    {% for loc in locations %}
+                                        {% if loop.first %}
+                                        <span class="server-location-pill" data-location-id="{{ loc.attributes.id }}">
+                                            <input type="hidden" name="allowed_location_ids" value="{{ loc.attributes.id }}">
+                                            <span>{{ loc.attributes.short }} ({{ loc.attributes.long or loc.attributes.description }})</span>
+                                            <button type="button" data-remove-location aria-label="Remove location">&times;</button>
+                                        </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <textarea name="allowed_location_ids_text" rows="3" placeholder="Allowed node IDs, one per line">1</textarea>
+                        {% endif %}
+
+                        <p class="plan-modal-section-title">Feature Limits</p>
+                        <div class="plan-modal-row three">
+                            <input type="number" name="backups" value="1" min="0" placeholder="Backups">
+                            <input type="number" name="allocations" value="1" min="1" placeholder="Allocations">
+                            <input type="number" name="databases" value="1" min="0" placeholder="Databases">
+                        </div>
+
+                        <p class="plan-modal-section-title">Display Features</p>
+                        <textarea name="features" placeholder="Enter features, one per line (e.g. 10GB NVMe&#10;Ryzen 9 9950X&#10;DDoS Protection)" rows="4"></textarea>
+
+                        <p class="plan-modal-section-title">Plan Image</p>
+                        <input type="file" name="image" accept="image/*">
+                        <label style="display: flex; align-items: center; gap: 10px; margin: 0; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            <input type="checkbox" name="is_featured" style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; margin: 0;">
+                            <i class="fas fa-star" style="color: #f59e0b;"></i> Mark as Popular
+                        </label>
+                    </div>
+                </div>
+
+                <div class="plan-modal-actions">
+                    <button type="button" class="btn-action btn-danger" onclick="closeModal('add-plan-modal')">Cancel</button>
+                    <button type="submit" class="btn-action btn-primary-admin">Create Plan</button>
+                </div>
+            </form>
+        </div></div>
+
+        <!-- Add Location -->
+        <div id="add-location-modal" class="modal"><div class="modal-content">
+            <h2>Add Location</h2>
+            <form action="/admin/locations/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" placeholder="Location Name" required>
+                <input type="number" step="any" name="lat" placeholder="Latitude" required>
+                <input type="number" step="any" name="lng" placeholder="Longitude" required>
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Add Location</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-location-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <!-- Add Coupon -->
+        <div id="add-coupon-modal" class="modal"><div class="modal-content">
+            <h2>Add Coupon</h2>
+            <form action="/admin/coupons/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="code" placeholder="Coupon Code" required>
+                <input type="number" name="discount" placeholder="Discount %" required>
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Create Coupon</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-coupon-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <!-- Add FAQ -->
+        <div id="add-faq-modal" class="modal"><div class="modal-content">
+            <h2>Add FAQ</h2>
+            <form action="/admin/faqs/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="question" placeholder="Question" required>
+                <textarea name="answer" placeholder="Answer" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-height: 100px;" required></textarea>
+                <input type="text" name="category" placeholder="Category (e.g. Getting started, Hardware, Billing)" value="General">
+                <input type="number" name="order" placeholder="Sort Order (0-99)" value="0">
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Add FAQ</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-faq-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <!-- Edit FAQ Modals -->
+        {% for faq in faqs.items %}
+        <div id="edit-faq-modal-{{ faq.id }}" class="modal"><div class="modal-content">
+            <h2>Edit FAQ</h2>
+            <form action="/admin/faqs/edit/{{ faq.id }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="question" value="{{ faq.question }}" required>
+                <textarea name="answer" style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-height: 100px;" required>{{ faq.answer }}</textarea>
+                <input type="text" name="category" value="{{ faq.category }}">
+                <input type="number" name="order" value="{{ faq.order }}">
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Save Changes</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('edit-faq-modal-{{ faq.id }}')">Cancel</button>
+            </form>
+        </div></div>
+        {% endfor %}
+
+        <!-- Add Maintenance -->
+        <div id="add-maintenance-modal" class="modal"><div class="modal-content">
+            <h2>Add Maintenance Log</h2>
+            <form action="/admin/maintenance/add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="title" placeholder="Update Title" required>
+                <textarea name="content" placeholder="Details..." style="width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg); color: var(--text); min-height: 100px;" required></textarea>
+                <select name="status">
+                    <option value="Scheduled">Scheduled</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                </select>
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Post Update</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-maintenance-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <!-- Add Referral -->
+        <div id="add-referral-modal" class="modal"><div class="modal-content">
+            <h2>Add Referral Code</h2>
+            <form action="/admin/add-referral" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="code" placeholder="Code (e.g. test)" required>
+                <input type="text" name="target_url" placeholder="Target URL (e.g. /minecraft)" required>
+                <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Create Referral</button>
+                <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-referral-modal')">Cancel</button>
+            </form>
+        </div></div>
+
+        <div id="toast"></div>
+    </main>
+
+    <script>
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const planSubcategoriesByCategory = {{ (plan_subcategory_options|default({}))|tojson|safe }};
+        let planTreeDragData = null;
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.style.display = 'block'; setTimeout(() => t.style.display='none', 3000); }
+        function openModal(id, userId = null) { if(userId) document.getElementById('modal-user-id').value = userId; document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function updateSubcategoryOptions(categorySelectId, subcategorySelectId, selectedValue = '') {
+            const categorySelect = document.getElementById(categorySelectId);
+            const subcategorySelect = document.getElementById(subcategorySelectId);
+            if (!categorySelect || !subcategorySelect) return;
+            const options = planSubcategoriesByCategory[String(categorySelect.value)] || [];
+            subcategorySelect.innerHTML = '<option value="">No subcategory</option>';
+            options.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.textContent = item.name;
+                if (selectedValue && String(selectedValue) === String(item.id)) opt.selected = true;
+                subcategorySelect.appendChild(opt);
+            });
+        }
+        function setupUnitPairs(root = document) {
+            root.querySelectorAll('[data-unit-pair]').forEach(pair => {
+                if (pair.dataset.unitReady === '1') return;
+                pair.dataset.unitReady = '1';
+                const gbInput = pair.querySelector('[data-unit-gb]');
+                const mbInput = pair.querySelector('[data-unit-mb]');
+                if (!gbInput || !mbInput) return;
+
+                const mbToGb = () => {
+                    if (mbInput.value === '') {
+                        gbInput.value = '';
+                        return;
+                    }
+                    const gb = Number(mbInput.value) / 1024;
+                    gbInput.value = Number.isInteger(gb) ? String(gb) : String(Number(gb.toFixed(2)));
+                };
+                const gbToMb = () => {
+                    if (gbInput.value === '') {
+                        mbInput.value = '';
+                        return;
+                    }
+                    mbInput.value = String(Math.round(Number(gbInput.value) * 1024));
+                };
+
+                if (mbInput.value) mbToGb();
+                else if (gbInput.value) gbToMb();
+                gbInput.addEventListener('input', gbToMb);
+                mbInput.addEventListener('input', mbToGb);
+            });
+        }
+        function setupServerLocationPickers(root = document) {
+            root.querySelectorAll('[data-server-location-picker]').forEach(picker => {
+                if (picker.dataset.locationReady === '1') return;
+                picker.dataset.locationReady = '1';
+                const select = picker.querySelector('[data-server-location-select]');
+                const addButton = picker.querySelector('[data-server-location-add]');
+                const addAllButton = picker.querySelector('[data-server-location-add-all]');
+                const list = picker.querySelector('[data-server-location-list]');
+                if (!select || !addButton || !list) return;
+
+                const addLocation = (option = select.selectedOptions[0]) => {
+                    if (!option || !option.value) return;
+                    if (list.querySelector(`[data-location-id="${CSS.escape(option.value)}"]`)) {
+                        select.value = '';
+                        return;
+                    }
+                    const pill = document.createElement('span');
+                    pill.className = 'server-location-pill';
+                    pill.dataset.locationId = option.value;
+
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'allowed_location_ids';
+                    hidden.value = option.value;
+
+                    const label = document.createElement('span');
+                    label.textContent = option.dataset.label || option.textContent;
+
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.dataset.removeLocation = '';
+                    remove.setAttribute('aria-label', 'Remove location');
+                    remove.innerHTML = '&times;';
+
+                    pill.append(hidden, label, remove);
+                    list.appendChild(pill);
+                    select.value = '';
+                };
+
+                addButton.addEventListener('click', addLocation);
+                addAllButton?.addEventListener('click', () => {
+                    Array.from(select.options).filter(option => option.value).forEach(addLocation);
+                });
+                select.addEventListener('keydown', event => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addLocation();
+                    }
+                });
+                list.addEventListener('click', event => {
+                    const remove = event.target.closest('[data-remove-location]');
+                    if (remove) remove.closest('.server-location-pill')?.remove();
+                });
+            });
+        }
+        function setupEggPickers(root = document) {
+            root.querySelectorAll('[data-egg-picker]').forEach(picker => {
+                if (picker.dataset.eggReady === '1') return;
+                picker.dataset.eggReady = '1';
+                const select = picker.querySelector('[data-egg-select]');
+                const addButton = picker.querySelector('[data-egg-add]');
+                const addAllButton = picker.querySelector('[data-egg-add-all]');
+                const list = picker.querySelector('[data-egg-list]');
+                if (!select || !addButton || !list) return;
+
+                const addEgg = (option = select.selectedOptions[0]) => {
+                    if (!option || !option.value) return;
+                    if (list.querySelector(`[data-egg-id="${CSS.escape(option.value)}"]`)) {
+                        select.value = '';
+                        return;
+                    }
+                    const pill = document.createElement('span');
+                    pill.className = 'server-location-pill';
+                    pill.dataset.eggId = option.value;
+
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'allowed_egg_ids';
+                    hidden.value = option.value;
+
+                    const label = document.createElement('span');
+                    label.textContent = option.dataset.label || option.textContent;
+
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.dataset.removeEgg = '';
+                    remove.setAttribute('aria-label', 'Remove egg');
+                    remove.innerHTML = '&times;';
+
+                    pill.append(hidden, label, remove);
+                    list.appendChild(pill);
+                    select.value = '';
+                };
+
+                addButton.addEventListener('click', addEgg);
+                addAllButton?.addEventListener('click', () => {
+                    Array.from(select.options).filter(option => option.value).forEach(addEgg);
+                });
+                select.addEventListener('keydown', event => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addEgg();
+                    }
+                });
+                list.addEventListener('click', event => {
+                    const remove = event.target.closest('[data-remove-egg]');
+                    if (remove) remove.closest('.server-location-pill')?.remove();
+                });
+            });
+        }
+        function openSubcategoryModal(categoryId) {
+            const input = document.getElementById('subcategory-parent-id');
+            if (input) input.value = categoryId || '';
+            openModal('add-subcategory-modal');
+        }
+        function openCategoryEditModal(button) {
+            document.getElementById('edit-category-form').action = `/admin/plan-categories/${button.dataset.categoryId}/edit`;
+            document.getElementById('edit-category-name').value = button.dataset.categoryName || '';
+            document.getElementById('edit-category-description').value = button.dataset.categoryDescription || '';
+            document.getElementById('edit-category-sort').value = button.dataset.categorySort || 0;
+            document.getElementById('edit-category-active').checked = button.dataset.categoryActive === '1';
+            openModal('edit-category-modal');
+        }
+        function openSubcategoryEditModal(button) {
+            document.getElementById('edit-subcategory-form').action = `/admin/plan-subcategories/${button.dataset.subcategoryId}/edit`;
+            document.getElementById('edit-subcategory-category').value = button.dataset.subcategoryCategory || '';
+            document.getElementById('edit-subcategory-name').value = button.dataset.subcategoryName || '';
+            document.getElementById('edit-subcategory-description').value = button.dataset.subcategoryDescription || '';
+            document.getElementById('edit-subcategory-sort').value = button.dataset.subcategorySort || 0;
+            document.getElementById('edit-subcategory-active').checked = button.dataset.subcategoryActive === '1';
+            openModal('edit-subcategory-modal');
+        }
+        function openAddPlan(categoryId = '', subcategoryId = '') {
+            openModal('add-plan-modal');
+            const categorySelect = document.getElementById('add-category-select');
+            if (categorySelect && categoryId) {
+                categorySelect.value = categoryId;
+                updateSubcategoryOptions('add-category-select', 'add-subcategory-select', subcategoryId);
+                togglePlanFields(categorySelect.options[categorySelect.selectedIndex]?.dataset.slug || '');
+            }
+        }
+        function clearPlanDropState() {
+            document.querySelectorAll('.plan-tree-row.is-dragging, .plan-tree-row.is-drop-target, .plan-tree-row.is-drop-before, .plan-tree-row.is-drop-after').forEach(row => {
+                row.classList.remove('is-dragging', 'is-drop-target', 'is-drop-before', 'is-drop-after');
+            });
+        }
+        function getPlanDropPosition(event, targetRow, dragData) {
+            if (!targetRow || targetRow.dataset.dropTarget !== 'plan' || dragData?.type !== 'plan') return '';
+            const midpoint = targetRow.getBoundingClientRect().top + (targetRow.offsetHeight / 2);
+            return event.clientY < midpoint ? 'before' : 'after';
+        }
+        async function movePlanTreeItem(dragData, targetRow, event = null) {
+            const categoryId = targetRow.dataset.dropCategory || '';
+            const subcategoryId = targetRow.dataset.dropSubcategory || '';
+
+            if (dragData.type === 'subcategory') {
+                if (!categoryId || targetRow.dataset.dropTarget === 'plan') {
+                    showToast('Subcategories must stay inside a main category.');
+                    return;
+                }
+                const res = await fetch(`/admin/plan-subcategories/${dragData.id}/move`, {
+                    method: 'POST',
+                    headers: { ...AJAX_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category_id: categoryId, target_subcategory_id: subcategoryId })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showToast(data.message || 'Could not move subcategory.');
+                    return;
+                }
+                showToast(data.message || 'Subcategory moved.');
+                setTimeout(() => location.reload(), 250);
+                return;
+            }
+
+            if (dragData.type === 'plan') {
+                const targetPlanId = targetRow.dataset.dropTarget === 'plan' ? (targetRow.dataset.dropPlan || '') : '';
+                if (targetPlanId && String(targetPlanId) === String(dragData.id)) return;
+                const position = event ? getPlanDropPosition(event, targetRow, dragData) : '';
+                const res = await fetch(`/admin/plans/${dragData.id}/move`, {
+                    method: 'POST',
+                    headers: { ...AJAX_HEADERS, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        category_id: categoryId,
+                        subcategory_id: subcategoryId,
+                        target_plan_id: targetPlanId,
+                        position
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    showToast(data.message || 'Could not move plan.');
+                    return;
+                }
+                showToast(data.message || 'Plan moved.');
+                setTimeout(() => location.reload(), 250);
+            }
+        }
+        async function submitProvision() {
+            const id = document.getElementById('modal-user-id').value;
+            const plan = document.getElementById('modal-plan-id').value;
+            const fd = new FormData(); fd.append('plan_id', plan);
+            const res = await fetch(`/admin/user/${id}/provision`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: fd });
+            if (res.ok) { showToast('Success!'); location.reload(); }
+        }
+        async function manageServer(id, act) {
+            const res = await fetch(`/admin/server/${id}/${act}`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } });
+            if (res.ok) location.reload();
+        }
+        /* This check runs server -> panel with the application API key. The
+           credential never reaches the browser. Customers use their linked
+           Fluid accounts directly in the panel, rather than a shared client
+           API key from this webapp. */
+        async function testPterodactyl() {
+            let data;
+            try {
+                const res = await fetch('/admin/fluid-test');
+                data = await res.json();
+            } catch (err) {
+                alert('Could not reach this site to run the test.');
+                return;
+            }
+
+            const checks = data.checks ? `\n\nApplication API: ${data.checks.application.status}` +
+                `\nMetadata API: ${data.checks.metadata.status}` +
+                `\nClient API: ${data.checks.client.status}` : '';
+            alert(`Server -> panel\n  ${data.message}` + checks);
+        }
+        async function loadEggs(nestId, targetSelectId, currentEggId = null) {
+            if (!nestId) return;
+            const select = document.getElementById(targetSelectId);
+            try {
+                const resp = await fetch(`/admin/api/eggs/${nestId}`);
+                if (!resp.ok) throw new Error(`Egg request failed (${resp.status})`);
+                const eggs = await resp.json();
+                select.innerHTML = '<option value="">Select Egg</option>';
+                eggs.forEach(egg => {
+                    const opt = document.createElement('option');
+                    opt.value = egg.id;
+                    opt.textContent = `ID ${egg.id} — ${egg.name}`;
+                if (String(currentEggId || '').split(',').includes(String(egg.id))) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            } catch (error) {
+                select.innerHTML = '<option value="">Could not load eggs — try again</option>';
+                console.error('Could not load Fluid eggs:', error);
+            }
+        }
+
+        async function loadEggs(nestId, targetSelectId, currentEggId = null) {
+            if (!nestId) return;
+            const select = document.getElementById(targetSelectId);
+            if (!select) return;
+            const picker = select.closest('[data-egg-picker]');
+            const list = picker?.querySelector('[data-egg-list]');
+            const currentIds = String(currentEggId || select.dataset.currentEggIds || '').split(',').filter(Boolean);
+            try {
+                const resp = await fetch(`/admin/api/eggs/${nestId}`);
+                if (!resp.ok) throw new Error(`Egg request failed (${resp.status})`);
+                const eggs = await resp.json();
+                select.innerHTML = '<option value="">Select Egg</option>';
+                if (list) list.innerHTML = '';
+                eggs.forEach(egg => {
+                    const opt = document.createElement('option');
+                    opt.value = egg.id;
+                    opt.dataset.label = egg.name;
+                    opt.textContent = egg.name;
+                    select.appendChild(opt);
+                    if (list && currentIds.includes(String(egg.id))) {
+                        const pill = document.createElement('span');
+                        pill.className = 'server-location-pill';
+                        pill.dataset.eggId = String(egg.id);
+                        const hidden = document.createElement('input');
+                        hidden.type = 'hidden';
+                        hidden.name = 'allowed_egg_ids';
+                        hidden.value = egg.id;
+                        const label = document.createElement('span');
+                        label.textContent = egg.name;
+                        const remove = document.createElement('button');
+                        remove.type = 'button';
+                        remove.dataset.removeEgg = '';
+                        remove.setAttribute('aria-label', 'Remove egg');
+                        remove.innerHTML = '&times;';
+                        pill.append(hidden, label, remove);
+                        list.appendChild(pill);
+                    }
+                });
+            } catch (error) {
+                select.innerHTML = '<option value="">Could not load eggs — try again</option>';
+                console.error('Could not load Fluid eggs:', error);
+            }
+        }
+
+        /* ----------------------------------------------------------------
+           Plans: edit and delete without a page reload.
+
+           Both actions are progressive enhancements over real HTML controls —
+           a link and a form — so the dashboard still works if this script
+           fails to load. The server returns the re-rendered <tr>, so a saved
+           row is repainted by the same template that drew it rather than
+           being reformatted here.
+           ---------------------------------------------------------------- */
+        const AJAX_HEADERS = { 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' };
+
+        function planRow(planId) {
+            return document.querySelector(`[data-plan-row="${planId}"]`);
+        }
+
+        /* Keeps "Showing X of Y plans" honest, and drops a game's table once
+           its last row goes. */
+        function refreshPlanCounts(delta) {
+            const plansSection = document.getElementById('plans-section')?.closest('.admin-section');
+            const summary = plansSection?.querySelector('.table-summary');
+            if (summary && delta) {
+                summary.textContent = summary.textContent.replace(
+                    /Showing (\d+) of (\d+)/,
+                    (_, shown, total) =>
+                        `Showing ${Math.max(0, +shown + delta)} of ${Math.max(0, +total + delta)}`
+                );
+            }
+            const empty = document.getElementById('plans-empty-state');
+            if (empty && !document.querySelector('[data-plan-row]')) {
+                empty.style.display = 'block';
+            }
+        }
+
+        async function deletePlan(form) {
+            const { planId, planName } = form.dataset;
+            if (!confirm(`Delete plan ${planName}?`)) return;
+
+            const button = form.querySelector('button');
+            button.disabled = true;
+
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: AJAX_HEADERS,
+                    body: new FormData(form)
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showToast(data.message || 'Could not delete that plan.');
+                    button.disabled = false;
+                    return;
+                }
+
+                const row = planRow(planId);
+                if (row) {
+                    // Fade out rather than vanishing, so the change is visible.
+                    row.style.transition = 'opacity 0.2s ease';
+                    row.style.opacity = '0';
+                    setTimeout(() => { row.remove(); refreshPlanCounts(-1); }, 200);
+                } else {
+                    refreshPlanCounts(-1);
+                }
+                showToast(data.message || 'Plan deleted.');
+            } catch (err) {
+                console.error(err);
+                showToast('Network error — the plan was not deleted.');
+                button.disabled = false;
+            }
+        }
+
+        async function openPlanEditor(planId, planName) {
+            document.getElementById('edit-plan-title').textContent = planName || '';
+            const body = document.getElementById('edit-plan-body');
+            body.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Loading…</p>';
+            openModal('edit-plan-modal');
+
+            try {
+                const res = await fetch(`/admin/plans/edit/${planId}?fragment=1`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!res.ok) throw new Error(`status ${res.status}`);
+                body.innerHTML = await res.text();
+
+                // The fragment reuses the edit page's element ids; populate the
+                // egg list the same way that page does on load.
+                const nest = body.querySelector('#edit-nest-select');
+                const egg = body.querySelector('#edit-egg-select');
+                const category = body.querySelector('#edit-category-select');
+                const subcategory = body.querySelector('#edit-subcategory-select');
+                setupUnitPairs(body);
+                setupServerLocationPickers(body);
+                setupEggPickers(body);
+                if (category && subcategory) {
+                    updateSubcategoryOptions('edit-category-select', 'edit-subcategory-select', subcategory.dataset.currentSubcategoryId || subcategory.value);
+                }
+                if (nest && egg && nest.value) {
+                    await loadEggs(nest.value, 'edit-egg-select', egg.dataset.currentEggIds || egg.value);
+                }
+            } catch (err) {
+                console.error(err);
+                body.innerHTML =
+                    '<p style="color: var(--danger-color, #ef4444); font-size: 13px;">' +
+                    'Could not load that plan. Close this and try again.</p>';
+            }
+        }
+
+        async function savePlan(form) {
+            const planId = form.dataset.planId;
+            const submit = form.querySelector('button[type="submit"], input[type="submit"]');
+            const originalLabel = submit ? submit.innerHTML : null;
+            if (submit) { submit.disabled = true; submit.innerHTML = 'Saving…'; }
+
+            try {
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: AJAX_HEADERS,
+                    body: new FormData(form)
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    showToast(data.message || 'Could not save that plan.');
+                    return;
+                }
+
+                const row = planRow(planId);
+                if (row && data.row_html) {
+                    const oldCategory = row.dataset.planCategory || '';
+                    const oldSubcategory = row.dataset.planSubcategory || '';
+                    row.outerHTML = data.row_html;
+                    const updated = planRow(planId);
+                    if (updated) {
+                        if ((updated.dataset.planCategory || '') !== oldCategory || (updated.dataset.planSubcategory || '') !== oldSubcategory) {
+                            closeModal('edit-plan-modal');
+                            showToast('Plan updated. Refreshing tree...');
+                            setTimeout(() => location.reload(), 300);
+                            return;
+                        }
+                        // Brief highlight so it is obvious which row changed.
+                        updated.style.transition = 'background-color 0.6s ease';
+                        updated.style.backgroundColor = 'rgba(59, 130, 246, 0.16)';
+                        setTimeout(() => { updated.style.backgroundColor = ''; }, 700);
+                    }
+                } else if (!row) {
+                    // Edited a plan on another page of the paginated table.
+                    showToast('Saved. Refresh to see it in this list.');
+                }
+
+                closeModal('edit-plan-modal');
+                showToast(data.message || 'Plan updated.');
+            } catch (err) {
+                console.error(err);
+                showToast('Network error — the plan was not saved.');
+            } finally {
+                if (submit) { submit.disabled = false; submit.innerHTML = originalLabel; }
+            }
+        }
+
+        /* Delegated so rows replaced via outerHTML keep working without
+           re-binding anything. */
+        document.addEventListener('click', event => {
+            const editLink = event.target.closest('.js-edit-plan');
+            if (editLink) {
+                event.preventDefault();
+                openPlanEditor(editLink.dataset.planId, editLink.dataset.planName);
+            }
+        });
+
+        document.addEventListener('submit', event => {
+            const deleteForm = event.target.closest('form.js-delete-plan');
+            if (deleteForm) {
+                event.preventDefault();
+                deletePlan(deleteForm);
+                return;
+            }
+            const planForm = event.target.closest('form[data-plan-form]');
+            // Only intercept inside the modal; the standalone edit page posts
+            // normally and redirects, as it always has.
+            if (planForm && planForm.closest('#edit-plan-modal')) {
+                event.preventDefault();
+                savePlan(planForm);
+            }
+        });
+        function togglePlanFields(game) {
+            const techFields = document.getElementById('panel-tech-fields');
+            const nestSelect = document.getElementById('add-nest-select');
+            const eggSelect = document.getElementById('add-egg-select');
+            if (!techFields) return;
+            if (game === 'discord_bot') {
+                techFields.style.display = 'none';
+                if (nestSelect) nestSelect.required = false;
+                if (eggSelect) eggSelect.required = false;
+            } else {
+                techFields.style.display = 'grid';
+                if (nestSelect) nestSelect.required = true;
+                if (eggSelect) eggSelect.required = true;
+            }
+        }
+        function filterPlans() {
+            const searchEl = document.getElementById('plan-search');
+            const filterEl = document.getElementById('plan-game-filter');
+            if (!searchEl || !filterEl) return;
+
+            const search = searchEl.value.trim().toLowerCase();
+            const category = filterEl.value;
+            let anyVisible = false;
+
+            document.querySelectorAll('[data-plan-group]').forEach(group => {
+                const matchesCategory = !category || group.dataset.planCategory === category;
+                let visiblePlans = 0;
+                group.querySelectorAll('[data-plan-row]').forEach(row => {
+                    const matchesSearch = !search || row.dataset.planName.includes(search);
+                    const visible = matchesSearch && matchesCategory;
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) {
+                        visiblePlans += 1;
+                        anyVisible = true;
+                    }
+                });
+
+                group.querySelectorAll('[data-plan-subcategory-block]').forEach(branch => {
+                    const hasVisiblePlan = Array.from(branch.querySelectorAll('[data-plan-row]')).some(
+                        row => row.style.display !== 'none'
+                    );
+                    branch.style.display = matchesCategory && (!search || hasVisiblePlan) ? '' : 'none';
+                });
+
+                group.style.display = matchesCategory && (!search || visiblePlans > 0) ? '' : 'none';
+            });
+
+            const emptyState = document.getElementById('plans-empty-state');
+            if (emptyState) emptyState.style.display = anyVisible ? 'none' : 'block';
+        }
+        function setupTabSearch(inputId, rowKey) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.addEventListener('input', () => {
+                const search = input.value.trim().toLowerCase();
+                let anyVisible = false;
+                document.querySelectorAll(`[data-filter-row="${rowKey}"]`).forEach(row => {
+                    const haystack = row.dataset.filterText || '';
+                    const visible = !search || haystack.includes(search);
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) anyVisible = true;
+                });
+                const emptyState = document.getElementById(`${rowKey}-empty-state`);
+                if (emptyState) emptyState.style.display = anyVisible ? 'none' : 'block';
+            });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const defaultNest = document.getElementById('add-nest-select');
+            if (defaultNest?.value) loadEggs(defaultNest.value, 'add-egg-select');
+            const searchEl = document.getElementById('plan-search');
+            const filterEl = document.getElementById('plan-game-filter');
+            if (searchEl) searchEl.addEventListener('input', filterPlans);
+            if (filterEl) filterEl.addEventListener('change', filterPlans);
+            document.querySelectorAll('[data-drag-type]').forEach(handle => {
+                handle.addEventListener('dragstart', event => {
+                    planTreeDragData = {
+                        type: handle.dataset.dragType,
+                        id: handle.dataset.dragId
+                    };
+                    const row = handle.closest('.plan-tree-row');
+                    row?.classList.add('is-dragging');
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('application/json', JSON.stringify(planTreeDragData));
+                    event.dataTransfer.setData('text/plain', `${planTreeDragData.type}:${planTreeDragData.id}`);
+                });
+                handle.addEventListener('dragend', () => {
+                    planTreeDragData = null;
+                    clearPlanDropState();
+                });
+            });
+            document.querySelectorAll('[data-drop-target]').forEach(target => {
+                target.addEventListener('dragover', event => {
+                    const dragData = planTreeDragData;
+                    if (!dragData) return;
+                    if (dragData.type === 'subcategory' && (!target.dataset.dropCategory || target.dataset.dropTarget === 'plan')) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    target.classList.add('is-drop-target');
+                    target.classList.toggle('is-drop-before', getPlanDropPosition(event, target, dragData) === 'before');
+                    target.classList.toggle('is-drop-after', getPlanDropPosition(event, target, dragData) === 'after');
+                });
+                target.addEventListener('dragleave', () => {
+                    target.classList.remove('is-drop-target', 'is-drop-before', 'is-drop-after');
+                });
+                target.addEventListener('drop', async event => {
+                    const raw = event.dataTransfer.getData('application/json');
+                    if (!raw && !planTreeDragData) return;
+                    event.preventDefault();
+                    target.classList.remove('is-drop-target', 'is-drop-before', 'is-drop-after');
+                    let dragData = planTreeDragData;
+                    if (!dragData) {
+                        try { dragData = JSON.parse(raw); } catch (err) { return; }
+                    }
+                    await movePlanTreeItem(dragData, target, event);
+                });
+            });
+            document.addEventListener('click', event => {
+                const editCategory = event.target.closest('[data-edit-category]');
+                if (editCategory) {
+                    event.preventDefault();
+                    openCategoryEditModal(editCategory);
+                    return;
+                }
+                const editSubcategory = event.target.closest('[data-edit-subcategory]');
+                if (editSubcategory) {
+                    event.preventDefault();
+                    openSubcategoryEditModal(editSubcategory);
+                    return;
+                }
+                const trigger = event.target.closest('[data-plan-menu-toggle]');
+                document.querySelectorAll('.plan-tree-menu.is-open').forEach(menu => {
+                    if (!trigger || menu !== trigger.closest('.plan-tree-menu')) {
+                        menu.classList.remove('is-open');
+                    }
+                });
+                if (trigger) {
+                    event.preventDefault();
+                    trigger.closest('.plan-tree-menu')?.classList.toggle('is-open');
+                }
+            });
+            document.querySelectorAll('[data-plan-tree-toggle]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const section = button.closest('.plan-tree-branch, .plan-tree-group');
+                    if (!section) return;
+                    section.classList.toggle('is-collapsed');
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-chevron-up', !section.classList.contains('is-collapsed'));
+                        icon.classList.toggle('fa-chevron-down', section.classList.contains('is-collapsed'));
+                    }
+                });
+            });
+            const addCategory = document.getElementById('add-category-select');
+            setupUnitPairs(document);
+            setupServerLocationPickers(document);
+            setupEggPickers(document);
+            if (addCategory) {
+                updateSubcategoryOptions('add-category-select', 'add-subcategory-select');
+                togglePlanFields(addCategory.options[addCategory.selectedIndex]?.dataset.slug || '');
+            }
+            setupTabSearch('users-search', 'users');
+            setupTabSearch('servers-search', 'servers');
+            setupTabSearch('referrals-search', 'referrals');
+            setupTabSearch('status-search', 'status');
+            setupTabSearch('maintenance-search', 'maintenance');
+            setupTabSearch('faqs-search', 'faqs');
+            setupTabSearch('coupons-search', 'coupons');
+        });
+    </script>
+</body>
+</html>

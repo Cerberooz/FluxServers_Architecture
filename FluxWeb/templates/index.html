@@ -1,0 +1,973 @@
+{% extends "base.html" %}
+
+{% block title %}Flux Servers - Premium Game Server Hosting{% endblock %}
+
+{% block extra_head %}
+<!-- Primary Meta Tags -->
+<meta name="title" content="Flux Servers - Lightning Fast Cloud Computing" />
+<meta name="description"
+    content="Premium Minecraft server hosting with AMD Ryzen 9950X processors. Perfect for modded and vanilla servers, plus dedicated bare metal servers. DDoS protection, instant setup." />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="{{ request.url }}" />
+<meta property="og:title" content="Flux Servers - Lightning Fast Cloud Computing" />
+<meta property="og:description"
+    content="Premium Minecraft server hosting with AMD Ryzen 9950X processors. Perfect for modded and vanilla servers, plus dedicated bare metal servers. DDoS protection, instant setup." />
+<meta property="og:image" content="{{ url_for('static', filename='images/seotag.png', _external=True) }}" />
+
+<!-- X (Twitter) -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content="{{ request.url }}" />
+<meta property="twitter:title" content="Flux Servers - Lightning Fast Cloud Computing" />
+<meta property="twitter:description"
+    content="Premium Minecraft server hosting with AMD Ryzen 9950X processors. Perfect for modded and vanilla servers, plus dedicated bare metal servers. DDoS protection, instant setup." />
+<meta property="twitter:image" content="{{ url_for('static', filename='images/seotag.png', _external=True) }}" />
+
+<meta property="og:site_name" content="Flux Servers" />
+{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero" data-aos="fade-up" style="position: relative;">
+        <div class="mesh-bg"></div>
+        <div class="container">
+            <div class="hero-content">
+
+                <!-- Hero Title Styles -->
+                <style>
+                    .hero-title {
+                        font-family: "Stack Sans Headline", sans-serif;
+                        font-optical-sizing: auto;
+                        font-weight: 700;
+                        font-style: normal;
+                        font-size: clamp(48px, 8vw, 80px);
+                        line-height: 1.05;
+                        letter-spacing: -2px;
+                        margin-bottom: 24px;
+                        position: relative;
+                    }
+                </style>
+                <h1 class="hero-title animated-title" data-aos="zoom-out-up">
+                    Lightning Fast <br><span
+                        style="background: linear-gradient(90deg, #60a5fa, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Cloud
+                        Computing</span>
+                </h1>
+
+                <p data-aos="fade-up" data-aos-delay="200">Next-generation server hosting powered by AMD Ryzen 9950X
+                    processors. Experience zero latency and unmatched performance.</p>
+                <div class="hero-buttons" data-aos="fade-up" data-aos-delay="400">
+                    <a href="/minecraft" class="button">
+                        <span>Get Started</span>
+                        <div class="hoverEffect">
+                            <div></div>
+                        </div>
+                    </a>
+                    <a href="/contact" class="cta">
+                        <span>Contact Support &nbsp;</span>
+                        <svg viewBox="0 0 13 10" height="10px" width="15px">
+                            <path d="M1,5 L11,5"></path>
+                            <polyline points="8 1 12 5 8 9"></polyline>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="game-types" style="padding-top: 40px; padding-bottom: 40px;">
+        <div class="container">
+            <style>
+                .games-showcase {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 24px;
+                    margin-top: 40px;
+                }
+
+                .games-showcase:hover .game-showcase-card:not(:hover) {
+                    filter: blur(5px) brightness(0.6);
+                    transform: scale(0.98);
+                }
+
+                .game-showcase-card {
+                    display: flex;
+                    flex-direction: column;
+                    text-decoration: none;
+                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                    border-radius: 16px;
+                }
+
+                .game-showcase-card:hover {
+                    transform: scale(1.05);
+                    z-index: 10;
+                }
+
+                .game-showcase-card img {
+                    width: 100%;
+                    aspect-ratio: 16/9;
+                    object-fit: cover;
+                    border-radius: 12px;
+                    margin-bottom: 12px;
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                }
+
+                .game-showcase-info h3 {
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: var(--text);
+                    margin: 0 0 4px 0;
+                    font-family: 'Stack Sans Headline', sans-serif;
+                }
+
+                .game-showcase-info .price {
+                    font-size: 13px;
+                    color: var(--text-muted);
+                }
+
+                .game-showcase-info .price strong {
+                    color: var(--text);
+                    font-weight: 700;
+                    font-size: 13px;
+                }
+
+                @media (max-width: 991px) {
+                    .games-showcase {
+                        grid-template-columns: 1fr;
+                        gap: 32px;
+                        padding: 0 20px;
+                    }
+                }
+            </style>
+
+            <div class="games-showcase" data-aos="fade-up">
+                <a href="/minecraft" class="game-showcase-card">
+                    <img src="{{ url_for('static', filename='images/mc.jpg') }}" alt="Minecraft">
+                    <div class="game-showcase-info">
+                        <h3>Minecraft</h3>
+                        <span class="price">From <strong>$1.79</strong></span>
+                    </div>
+                </a>
+                <a href="/hytale" class="game-showcase-card">
+                    <img src="{{ url_for('static', filename='images/hy.jpg') }}" alt="Hytale">
+                    <div class="game-showcase-info">
+                        <h3>Hytale</h3>
+                        <span class="price">From <strong>$3.60</strong></span>
+                    </div>
+                </a>
+                <a href="/dedicated" class="game-showcase-card">
+                    <img src="{{ url_for('static', filename='images/vps.webp') }}" alt="Palworld">
+                    <div class="game-showcase-info">
+                        <h3>Discord Bots</h3>
+                        <span class="price">From <strong>$0.9</strong></span>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <section class="deploy-steps-section" style="padding: 100px 0; background: var(--bg);">
+        <div class="container">
+            <div style="text-align: center; margin-bottom: 60px;">
+                <h2 data-aos="fade-up"
+                    style="font-size: 48px; font-weight: 800; margin-bottom: 16px; letter-spacing: -1px; color: var(--text);">
+                    Deploy in 3 clicks.</h2>
+                <p data-aos="fade-up" data-aos-delay="100" style="font-size: 18px; color: var(--text-muted);">No
+                    configs, no SSH, no waiting. Pick what you want and we handle the rest.</p>
+            </div>
+
+            <style>
+                .deploy-steps-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 24px;
+                }
+
+                .deploy-step-card {
+                    background: rgba(255, 255, 255, 0.02);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 16px;
+                    padding: 32px;
+                    transition: all 0.3s ease;
+                }
+
+                .deploy-step-card:hover {
+                    background: rgba(255, 255, 255, 0.04);
+                    border-color: rgba(255, 255, 255, 0.1);
+                    transform: translateY(-5px);
+                }
+
+                .step-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 24px;
+                }
+
+                .step-number {
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: #64748b;
+                    /* slate-500 */
+                }
+
+                .step-line {
+                    flex: 1;
+                    height: 1px;
+                    background: rgba(255, 255, 255, 0.05);
+                    margin: 0 16px;
+                }
+
+                .step-icon {
+                    font-size: 20px;
+                }
+
+                .step-icon.s1 {
+                    color: #60a5fa;
+                }
+
+                .step-icon.s2 {
+                    color: #c084fc;
+                }
+
+                .step-icon.s3 {
+                    color: #34d399;
+                }
+
+                .deploy-step-card h3 {
+                    font-size: 20px;
+                    font-weight: 700;
+                    margin-bottom: 12px;
+                    color: var(--text);
+                }
+
+                .deploy-step-card p {
+                    font-size: 15px;
+                    color: var(--text-muted);
+                    line-height: 1.6;
+                    margin: 0;
+                }
+
+                @media (max-width: 991px) {
+                    .deploy-steps-grid {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            </style>
+
+            <div class="deploy-steps-grid">
+                <!-- Step 1 -->
+                <div class="deploy-step-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="step-header">
+                        <span class="step-number">01</span>
+                        <div class="step-line"></div>
+                        <i class="fas fa-mouse-pointer step-icon s1"></i>
+                    </div>
+                    <h3>Pick a plan</h3>
+                    <p>Choose your tier, location, and RAM. Use the calculator if you're not sure.</p>
+                </div>
+                <!-- Step 2 -->
+                <div class="deploy-step-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="step-header">
+                        <span class="step-number">02</span>
+                        <div class="step-line"></div>
+                        <i class="fas fa-sliders-h step-icon s2"></i>
+                    </div>
+                    <h3>Configure in seconds</h3>
+                    <p>Pick your software (Paper, Forge, Fabric...) and version. One-click installers handle the rest.
+                    </p>
+                </div>
+                <!-- Step 3 -->
+                <div class="deploy-step-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="step-header">
+                        <span class="step-number">03</span>
+                        <div class="step-line"></div>
+                        <i class="fas fa-rocket step-icon s3"></i>
+                    </div>
+                    <h3>Play in 60 seconds</h3>
+                    <p>Your server boots on Ryzen 9950X hardware with Gen 4 NVMe. Share the IP and you're live.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="performance-graph" style="padding: 100px 0; background: var(--bg);" data-aos="fade-up"
+        data-aos-delay="200">
+        <div class="container">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;">
+
+                <!-- Left Column: Text & Graph -->
+                <div class="perf-left">
+                    <h2
+                        style="font-size: 48px; font-family: 'Stack Sans Headline', sans-serif; font-weight: 800; margin-bottom: 24px; line-height: 1.1;">
+                        Top-tier parts. <span
+                            style="background: linear-gradient(135deg, #60a5fa, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Top-tier
+                            performance.</span>
+                    </h2>
+                    <p style="font-size: 16px; color: var(--text-muted); line-height: 1.6; margin-bottom: 40px;">
+                        Most hosts rent nodes in bulk from the cheapest providers they can find and resell whatever
+                        shows up. The bulk of our fleet — every Premium node in our flagship locations — is spec'd and
+                        built by us: Ryzen 9th gen, DDR5, Gen 4 NVMe in RAID 1, so every server runs at full boost. Edge
+                        regions where in-house deployment isn't practical run on hand-picked infrastructure partners
+                        held to the same hardware bar — never resold scraps. Either way, we can guarantee the quality.
+                    </p>
+
+                    <div class="glass-card" style="padding: 24px; position: relative;">
+                        <div class="performance-chart">
+                            <div
+                                style="display: flex; justify-content: space-between; font-size: 10px; text-transform: none; color: var(--text-muted); margin-bottom: 16px; font-weight: 700;">
+                                <div>
+                                    <div style="color: #60a5fa;">Independent Benchmarks</div>
+                                    <div style="color: var(--text); font-size: 14px;">GeekBench 6 single-core, by host</div>
+                                </div>
+                                <div style="align-self: flex-end;">Higher is better</div>
+                            </div>
+
+                            <div class="chart-rows-container">
+                                {% set graph_data = [
+                                ('Flux', 'AMD Ryzen 9950X', '95%', 'linear-gradient(90deg, #60a5fa, #a855f7)', '3,500',
+                                '$0.9/GB', 'flux-label'),
+                                ('Gravel Host', 'AMD Ryzen 7950X', '82%', '#10b981', '3,000', '$3.00/GB', ''),
+                                ('Pebble Host', 'AMD Ryzen + EPYC', '75%', '#10b981', '2,750', '$2.25/GB', ''),
+                                ('Shockbyte', 'AMD EPYC', '68%', '#f59e0b', '2,450', '$4.00/GB', ''),
+                                ('Bloom Host', 'AMD Ryzen', '65%', '#f59e0b', '2,300', '$3.00/GB', ''),
+                                ('ApexMCHosting', 'Ryzen & Xeon', '62%', '#ef4444', '2,200', '$3.75/GB', '')
+                                ] %}
+
+                                {% for name, cpu, width, bg, score, price, extra_class in graph_data %}
+                                <div class="chart-row">
+                                    <div class="chart-label-group">
+                                        <div class="chart-host {{ extra_class }}">{{ name }}</div>
+                                        <div class="chart-cpu" style="color: {{ bg if name != 'Flux' else '#a855f7' }}">
+                                            {{ cpu }}</div>
+                                    </div>
+                                    <div class="chart-bar-container">
+                                        <div class="chart-bar" style="--bar-width: {{ width }}; background: {{ bg }};">
+                                        </div>
+                                    </div>
+                                    <div class="chart-stats">
+                                        <div class="chart-score">{{ score }}</div>
+                                        <div class="chart-price">{{ price }}</div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <p class="chart-disclaimer">
+                                *CB15 single-core, averaged across SKUs in each host's top Minecraft tier. Price = most
+                                equivalent plan to our Premium, per GB RAM. 10/6/2025.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 32px; text-align: center;">
+                        <a href="/minecraft" class="btn-outline"
+                            style="border-radius: 50px; padding: 12px 28px; font-size: 14px; display: inline-flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03);">
+                            <i class="fas fa-rocket" style="color: #60a5fa;"></i> Click to deploy a server
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Right Column: Image -->
+                <div class="perf-right" data-aos="fade-left">
+                    <img src="{{ url_for('static', filename='images/rack2.webp') }}" alt="Server Rack"
+                        style="width: 100%; max-width: 500px; display: block; margin: 0 auto; filter: drop-shadow(0 20px 50px rgba(96, 165, 250, 0.15)); border-radius: 12px;">
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <style>
+        .performance-chart {
+            width: 100%;
+            text-align: left;
+        }
+
+        .chart-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
+        .chart-label-group {
+            width: 120px;
+            flex-shrink: 0;
+            line-height: 1.2;
+        }
+
+        .chart-host {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .chart-cpu {
+            font-size: 10px;
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        .chart-bar-container {
+            flex: 1;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        .chart-bar {
+            height: 100%;
+            border-radius: 6px;
+            width: 2%;
+            min-width: 4px;
+            transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .chart-bar.animated {
+            width: var(--bar-width);
+        }
+
+        .chart-stats {
+            width: 100px;
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 700;
+            align-items: center;
+        }
+
+        .chart-score {
+            color: var(--text);
+        }
+
+        .chart-price {
+            color: var(--text-muted);
+        }
+
+        .chart-disclaimer {
+            margin-top: 20px;
+            font-size: 9px;
+            color: var(--text-muted);
+            opacity: 0.6;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 991px) {
+            .performance-graph .container>div {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .chart-label-group {
+                width: 90px;
+            }
+
+            .chart-stats {
+                width: 75px;
+                font-size: 10px;
+            }
+
+            .chart-host {
+                font-size: 11px;
+            }
+
+            .chart-cpu {
+                font-size: 9px;
+            }
+        }
+    </style>
+
+    <section class="features-new">
+        <div class="container">
+            <div class="section-header" style="text-align: center; margin-bottom: 60px;">
+                <h2 data-aos="fade-up" style="font-size: 48px; margin-bottom: 16px;">Why <span
+                        class="highlight">Flux</span>?</h2>
+                <p data-aos="fade-up" data-aos-delay="100" style="font-size: 18px; color: var(--text-muted);">
+                    Next-generation features for the ultimate hosting experience.</p>
+            </div>
+
+            <div class="feature-grid">
+                <!-- Versatility -->
+                <div class="feature-card glass-card" data-aos="fade-up" style="--feature-color: #3b82f6;">
+                    <div class="feature-icon-wrapper">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                    <h3>Versatility</h3>
+                    <p>Server splitting, one-click installers, subdomain setups, and more — all designed for effortless
+                        control.</p>
+                </div>
+
+                <!-- Fast & Feature Full -->
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="100" style="--feature-color: #f59e0b;">
+                    <div class="feature-icon-wrapper">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3>Fast & Feature Full</h3>
+                    <p>Top-tier performance with all the tools you need. Whether you're running a small server or a
+                        large network.</p>
+                </div>
+
+                <!-- Priced Right -->
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="200" style="--feature-color: #10b981;">
+                    <div class="feature-icon-wrapper">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <h3>Priced Right</h3>
+                    <p>Excellent service at a fair price. As former server owners, we know the frustrations of
+                        overpriced hosting.</p>
+                </div>
+
+                <!-- Premier Facilities -->
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="300" style="--feature-color: #8b5cf6;">
+                    <div class="feature-icon-wrapper">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <h3>Premier Facilities</h3>
+                    <p>Our own hardware in premier locations like the Dallas Infomart, delivering top-tier reliability
+                        and connectivity.</p>
+                </div>
+
+                <!-- 99.99% Uptime -->
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="400" style="--feature-color: #06b6d4;">
+                    <div class="feature-icon-wrapper">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <h3>99.99% Uptime</h3>
+                    <p>Redundant systems and enterprise-grade hardware back our 99.99% uptime guarantee.</p>
+                </div>
+
+                <!-- Terabit+ DDoS Protection -->
+                <div class="feature-card" data-aos="fade-up" data-aos-delay="500" style="--feature-color: #ef4444;">
+                    <div class="feature-icon-wrapper">
+                        <i class="fas fa-shield-halved"></i>
+                    </div>
+                    <h3>Terabit+ DDoS Protection</h3>
+                    <p>1Tbps+ DDoS protection via GlobalSecureLayer with custom filters across all locations.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel-showcase" style="padding: 100px 0; background: var(--bg);">
+        <div class="container">
+            <div class="section-header" style="margin-bottom: 60px;">
+                <h2 data-aos="fade-up" style="font-size: 48px; margin-bottom: 16px;">An interface that <span
+                        class="highlight">doesn't fight you.</span></h2>
+                <center>
+                    <p data-aos="fade-up" data-aos-delay="100"
+                        style="font-size: 18px; color: var(--text-muted); max-width: 800px;">Console, files, backups,
+                        plugins, mods — everything you need in one fast UI. Built on Fluid Panel.</p>
+                </center>
+            </div>
+
+            <div class="panel-layout">
+                <div class="panel-image-wrapper" data-aos="fade-right"
+                    style="border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
+                    <img src="{{ url_for('static', filename='images/panel.jpg') }}" alt="Panel Interface"
+                        class="panel-img-light" style="width: 100%; display: block; border-radius: 16px;">
+                    <img src="{{ url_for('static', filename='images/paneldark.jpg') }}" alt="Panel Interface Dark"
+                        class="panel-img-dark" style="width: 100%; display: none; border-radius: 16px;">
+                </div>
+
+                <div class="panel-features" data-aos="fade-left">
+                    <style>
+                        html[data-theme="dark"] .panel-img-light {
+                            display: none !important;
+                        }
+
+                        html[data-theme="dark"] .panel-img-dark {
+                            display: block !important;
+                        }
+
+                        .panel-layout {
+                            display: grid;
+                            grid-template-columns: 1fr 400px;
+                            gap: 40px;
+                            align-items: start;
+                        }
+
+                        .panel-feature-item {
+                            display: flex;
+                            align-items: center;
+                            gap: 16px;
+                            padding: 20px;
+                            border: 1px solid var(--border);
+                            border-radius: 16px;
+                            margin-bottom: 16px;
+                            background: rgba(255, 255, 255, 0.02);
+                            transition: all 0.3s ease;
+                        }
+
+                        .panel-feature-item:hover {
+                            background: rgba(255, 255, 255, 0.05);
+                            border-color: var(--primary);
+                            transform: translateX(5px);
+                        }
+
+                        .panel-feature-icon {
+                            width: 40px;
+                            height: 40px;
+                            border-radius: 10px;
+                            background: rgba(255, 255, 255, 0.05);
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            color: var(--text);
+                            font-size: 16px;
+                            border: 1px solid rgba(255, 255, 255, 0.1);
+                        }
+
+                        .panel-feature-content h4 {
+                            margin: 0 0 4px 0;
+                            font-size: 16px;
+                            color: var(--text);
+                            font-weight: 700;
+                        }
+
+                        .panel-feature-content p {
+                            margin: 0;
+                            font-size: 13px;
+                            color: var(--text-muted);
+                        }
+
+                        @media (max-width: 991px) {
+                            .panel-layout {
+                                grid-template-columns: 1fr;
+                            }
+                        }
+                    </style>
+
+                    <div class="panel-feature-item">
+                        <div class="panel-feature-icon"><i class="fas fa-terminal"></i></div>
+                        <div class="panel-feature-content">
+                            <h4>Live console</h4>
+                            <p>Real-time logs with command history & autocomplete.</p>
+                        </div>
+                    </div>
+
+                    <div class="panel-feature-item">
+                        <div class="panel-feature-icon"><i class="fas fa-folder-open"></i></div>
+                        <div class="panel-feature-content">
+                            <h4>Web file manager</h4>
+                            <p>Edit configs, upload jars, manage worlds — no SFTP.</p>
+                        </div>
+                    </div>
+
+                    <div class="panel-feature-item">
+                        <div class="panel-feature-icon"><i class="fas fa-chart-line"></i></div>
+                        <div class="panel-feature-content">
+                            <h4>Resource graphs</h4>
+                            <p>RAM, CPU, disk in real time. Auto-restart on OOM.</p>
+                        </div>
+                    </div>
+
+                    <div class="panel-feature-item">
+                        <div class="panel-feature-icon"><i class="fas fa-users-cog"></i></div>
+                        <div class="panel-feature-content">
+                            <h4>Subuser permissions</h4>
+                            <p>Granular roles for your staff team.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="global-network"
+        style="padding: 100px 0; background: var(--surface); text-align: center; overflow: hidden;">
+        <div class="container">
+            <h2 data-aos="fade-up">Global Network</h2>
+            <p data-aos="fade-up" data-aos-delay="100"
+                style="color: var(--text-muted); max-width: 600px; margin: 0 auto 40px; font-size: 18px;">
+                Low latency gaming with our strategically located enterprise infrastructure in USA, Europe, and
+                Singapore.
+            </p>
+            <div id="globe-container"
+                style="position: relative; width: 100%; max-width: 1000px; height: 500px; margin: 0 auto; overflow: hidden; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); background: #0a0e17; cursor: grab;">
+            </div>
+        </div>
+    </section>
+
+    <section class="faq-section"
+        style="padding: 100px 0; background: var(--bg-alt); position: relative; overflow: hidden;">
+        <div id="starfield"
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; opacity: 0.5;">
+        </div>
+        <div class="container">
+            <div style="text-align: center; margin-bottom: 60px;">
+                <h2 data-aos="fade-up" style="font-size: 36px; margin-bottom: 16px;">Frequently Asked <span
+                        class="highlight">Questions</span></h2>
+                <p data-aos="fade-up" data-aos-delay="100" style="color: var(--text-dim);">Find quick answers to common
+                    questions about our hosting services.</p>
+            </div>
+
+            <div class="faq-accordion" style="max-width: 800px; margin: 0 auto; position: relative; z-index: 2;">
+
+                {% set categories = faqs|map(attribute='category')|list|unique|list %}
+                {% if categories|length > 0 %}
+                <div class="faq-categories"
+                    style="display: flex; justify-content: center; gap: 12px; margin-bottom: 40px; flex-wrap: wrap;"
+                    data-aos="fade-up" data-aos-delay="200">
+                    <button class="faq-cat-btn active" onclick="filterFAQ('all', this)">All ({{ faqs|length }})</button>
+                    {% for cat in categories %}
+                    <button class="faq-cat-btn" onclick="filterFAQ('{{ cat }}', this)">{{ cat }} ({{
+                        faqs|selectattr('category', 'equalto', cat)|list|length }})</button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="faq-items-container">
+                    {% for faq in faqs %}
+                    <div class="faq-item glass-card" data-aos="fade-up" data-aos-delay="{{ loop.index0 * 100 }}"
+                        data-category="{{ faq.category }}" style="margin-bottom: 16px;">
+                        <div class="faq-header"
+                            style="padding: 20px 24px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.3s;">
+                            <h4 style="margin: 0; font-size: 18px;">{{ faq.question }}</h4>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="faq-body-wrapper">
+                            <div class="faq-body" style="background: rgba(255,255,255,0.01);">
+                                <div
+                                    style="padding: 20px 24px; color: var(--text-muted); line-height: 1.6; font-size: 16px;">
+                                    {{ faq.answer|safe }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="faq-contact"
+                    style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-top: 50px;"
+                    data-aos="fade-up">
+                    <span style="color: var(--text-muted); font-size: 15px;">Still have questions?</span>
+                    <a href="https://discord.gg/8PU2DmH6k3" target="_blank" class="faq-contact-btn btn-discord">Ask on
+                        Discord</a>
+                    <a href="/contact" class="faq-contact-btn btn-discord">Open a ticket &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <style>
+        .faq-item {
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .faq-item.active {
+            border-color: var(--primary) !important;
+            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
+        }
+
+        .faq-header:hover {
+            background: rgba(59, 130, 246, 0.04);
+        }
+
+        .faq-item.active .faq-header {
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        .faq-body-wrapper {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .faq-item.active .faq-body-wrapper {
+            grid-template-rows: 1fr;
+        }
+
+        .faq-body {
+            overflow: hidden;
+        }
+
+        .faq-item.active .fa-chevron-down {
+            transform: rotate(180deg) !important;
+            color: var(--primary);
+        }
+
+        .fa-chevron-down {
+            transition: transform 0.3s ease;
+        }
+
+        .faq-cat-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text);
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .faq-cat-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .faq-cat-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #ffffff;
+        }
+
+        .faq-contact-btn {
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .btn-discord {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text);
+        }
+
+        .btn-discord:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+    </style>
+
+    <section class="hero" style="padding: 100px 0 40px; position: relative;">
+        <div class="mesh-bg"></div>
+        <div class="container" style="text-align: center;">
+            <div class="glass-card" style="text-align: center; padding: 60px;">
+                <h2>Ready to start your journey?</h2>
+                <p>Join thousands of players who trust <span class="flux-word">Flux</span> for their gaming needs.</p>
+                <a href="/minecraft" class="button">
+                    <span>Create Your Server</span>
+                    <div class="hoverEffect">
+                        <div></div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+        const globeContainer = document.getElementById('globe-container');
+        if (globeContainer) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        observer.disconnect();
+                        const script = document.createElement('script');
+                        script.src = '/static/js/globe.gl.min.js';
+                        script.onload = function () {
+                            initGlobe(globeContainer);
+                        };
+                        document.body.appendChild(script);
+                    }
+                });
+            }, { rootMargin: '200px' }); // Start loading 200px before it's visible
+            observer.observe(globeContainer);
+        }
+
+        function initGlobe(container) {
+            if (typeof Globe === 'undefined') {
+                console.error('Globe.gl failed to load.');
+                return;
+            }
+
+            const width = container.clientWidth || Math.min(window.innerWidth, 1000);
+
+            const world = Globe()(container)
+                .globeImageUrl('/static/images/earth-blue-marble.jpg')
+                .bumpImageUrl('/static/images/earth-topology.png')
+                .showAtmosphere(true)
+                .atmosphereColor('#3b82f6')
+                .atmosphereAltitude(0.15)
+                .backgroundColor('rgba(0,0,0,0)')
+                .width(width)
+                .height(500)
+                .pointRadius(0.5)
+                .pointAltitude(0.01)
+                .pointColor(() => '#3b82f6')
+                .pointLabel('name')
+                .pointsData([
+                    { lat: 32.7767, lng: -96.7970, name: 'Dallas, USA' },
+                    { lat: 51.5074, lng: -0.1278, name: 'London, UK' },
+                    { lat: 1.3521, lng: 103.8198, name: 'Singapore' }
+                ])
+                .arcsData([
+                    { startLat: 51.5074, startLng: -0.1278, endLat: 32.7767, endLng: -96.7970, color: '#3b82f6' },
+                    { startLat: 51.5074, startLng: -0.1278, endLat: 1.3521, endLng: 103.8198, color: '#3b82f6' },
+                    { startLat: 51.5074, startLng: -0.1278, endLat: 52.5200, endLng: 13.4050, color: '#3b82f6' },
+                    { startLat: 51.5074, startLng: -0.1278, endLat: -33.8688, endLng: 151.2093, color: '#3b82f6' }
+                ])
+                .arcColor('color')
+                .arcDashLength(0.4)
+                .arcDashGap(2)
+                .arcDashAnimateTime(2000)
+                .arcStroke(0.5);
+
+            // Auto-rotation
+            world.controls().autoRotate = true;
+            world.controls().autoRotateSpeed = 0.5;
+
+            // Responsive resize
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    world.width(container.clientWidth);
+                }, 100);
+            });
+        }
+
+        // Robust FAQ Toggle Script
+        const headers = document.querySelectorAll('.faq-header');
+        headers.forEach(header => {
+            header.addEventListener('click', function () {
+                const item = this.closest('.faq-item');
+                const isActive = item.classList.contains('active');
+
+                // Close all others (optional accordion behavior)
+                document.querySelectorAll('.faq-item').forEach(other => {
+                    other.classList.remove('active');
+                });
+
+                // Toggle current
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+
+        // FAQ Category Filtering
+        window.filterFAQ = function (category, btn) {
+            // Update active button
+            document.querySelectorAll('.faq-cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Filter items
+            document.querySelectorAll('.faq-item').forEach(item => {
+                if (category === 'all' || item.dataset.category === category) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        };
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Check Your Email - Flux Servers{% endblock %}
+
+{% block content %}
+<section style="padding: 90px 0; min-height: 70vh; display: flex; align-items: center;">
+    <div class="container" style="max-width: 520px;">
+        <div class="confirm-card">
+            <div class="confirm-icon">
+                <i class="fas fa-paper-plane"></i>
+            </div>
+
+            <h1>Check your email</h1>
+
+            <p class="confirm-lede">
+                We've sent a confirmation link to
+            </p>
+            <p class="confirm-address">{{ email }}</p>
+
+            <p class="confirm-body">
+                Click the link to activate your account. You'll be able to order servers
+                as soon as it's confirmed.
+            </p>
+
+            <div class="confirm-hint">
+                <i class="fas fa-circle-info"></i>
+                <span>Nothing after a minute or two? Check your spam folder — confirmation
+                    mail often lands there the first time.</span>
+            </div>
+
+            <form method="POST" action="{{ url_for('auth.resend_pending_confirmation') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="confirm-resend">
+                    <i class="fas fa-rotate-right"></i> Resend the link
+                </button>
+            </form>
+
+            <p class="confirm-footer">
+                Already confirmed? <a href="{{ url_for('auth.login') }}">Sign in</a>
+            </p>
+        </div>
+    </div>
+</section>
+
+<style>
+    .confirm-card {
+        background: var(--surface, rgba(255, 255, 255, 0.03));
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+        border-radius: 24px;
+        padding: 46px 40px;
+        text-align: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+    }
+
+    .confirm-icon {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary, #3b82f6), #8b5cf6);
+        box-shadow: 0 10px 26px rgba(59, 130, 246, 0.35);
+        animation: confirm-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes confirm-pop {
+        from { transform: scale(0.6); opacity: 0; }
+        to   { transform: scale(1);   opacity: 1; }
+    }
+
+    /* Respect a reduced-motion preference rather than animating regardless. */
+    @media (prefers-reduced-motion: reduce) {
+        .confirm-icon { animation: none; }
+    }
+
+    .confirm-card h1 {
+        font-size: 27px;
+        font-weight: 800;
+        margin: 0 0 14px;
+    }
+
+    .confirm-lede {
+        font-size: 14px;
+        color: var(--text-muted, #94a3b8);
+        margin: 0 0 6px;
+    }
+
+    .confirm-address {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--primary, #3b82f6);
+        margin: 0 0 20px;
+        word-break: break-all;
+    }
+
+    .confirm-body {
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text-muted, #94a3b8);
+        margin: 0 0 24px;
+    }
+
+    .confirm-hint {
+        display: flex;
+        gap: 10px;
+        text-align: left;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: var(--text-muted, #94a3b8);
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: 12px;
+        padding: 13px 15px;
+        margin-bottom: 26px;
+    }
+
+    .confirm-hint i { margin-top: 2px; color: var(--primary, #3b82f6); }
+
+    .confirm-resend {
+        width: 100%;
+        padding: 13px;
+        border-radius: 12px;
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text, inherit);
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .confirm-resend:hover {
+        background: rgba(255, 255, 255, 0.09);
+        border-color: var(--primary, #3b82f6);
+    }
+
+    .confirm-footer {
+        margin: 22px 0 0;
+        font-size: 13px;
+        color: var(--text-muted, #94a3b8);
+    }
+
+    .confirm-footer a {
+        color: var(--primary, #3b82f6);
+        font-weight: 700;
+        text-decoration: none;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,301 @@
+Implement a production-ready Minecraft Server Optimizer feature in Fluid Panels.
+
+First inspect the entire Fluid/Pterodactyl codebase and understand:
+
+- server/egg architecture
+- Wings communication
+- console command execution
+- file read/write APIs
+- server allocations/resources
+- permissions
+- queues/background jobs
+- server software/version detection
+- plugin/mod file handling
+- audit logs
+- frontend design conventions
+
+Do not redesign unrelated functionality.
+
+GOAL
+
+Create a new per-server "Optimizer" section with two systems:
+
+1. Configuration Scanner
+2. Spark Performance Analyzer
+
+
+=====================================
+CONFIGURATION SCANNER
+=====================================
+
+Detect:
+
+- Minecraft version
+- server implementation
+- Java version
+- allocated RAM
+- CPU allocation
+- installed plugins/mods
+
+Support configuration files when applicable:
+
+server.properties
+bukkit.yml
+spigot.yml
+paper-global.yml
+paper-world-defaults.yml
+paper-world.yml
+purpur.yml
+pufferfish.yml
+
+Build a version-aware rules engine.
+
+Each optimization rule must contain:
+
+- rule ID
+- supported server software
+- supported versions
+- configuration file
+- configuration key/path
+- severity
+- problematic condition
+- recommended value/range
+- explanation
+- expected performance impact
+- whether gameplay behaviour changes
+- whether restart is required
+- authoritative reference/source
+
+Never recommend settings solely because they are commonly
+copied from optimization guides.
+
+Only apply rules known to be valid for the detected
+server software/version.
+
+Show findings as:
+
+Critical / High / Medium / Low / Informational.
+
+Allow:
+- Apply recommendation
+- Apply Safe Fixes
+- Ignore recommendation
+- View file
+- View configuration diff
+
+Before modifying files:
+- create a snapshot
+- validate files
+- retain previous values
+
+Allow one-click rollback.
+
+Do not automatically apply recommendations that substantially
+alter gameplay without explicit confirmation.
+
+
+=====================================
+SPARK ANALYZER
+=====================================
+
+Detect Spark.
+
+Important:
+Paper 1.21+ has Spark bundled and MUST NOT require a separate
+Spark plugin installation.
+
+For server implementations without Spark:
+
+Show:
+"Spark is required for advanced performance analysis."
+
+Provide an Install Spark action.
+
+Detect whether the server uses plugins or mods and install
+the official compatible Spark distribution into the correct
+directory.
+
+Never download Spark from an untrusted third-party source.
+
+
+Provide analysis modes:
+
+GENERAL PERFORMANCE
+
+Run a timed Spark profiler, approximately 60-120 seconds.
+
+LAG SPIKES
+
+Use Spark tick monitoring / --only-ticks-over profiling.
+
+MEMORY
+
+Use Spark health/GC/allocation information where appropriate.
+
+
+Fluid must be able to execute the Spark commands through the
+existing Wings/console command system.
+
+Prevent:
+- simultaneous profiles
+- profiling stopped servers
+- excessive repeated profiling
+
+Display profiling progress.
+
+
+=====================================
+SPARK DATA
+=====================================
+
+Do not scrape screenshots of the Spark viewer.
+
+Implement support for Spark's documented raw profiling data.
+
+Spark data uses Protocol Buffers.
+
+Parse the official Spark sampler/health data into an internal
+structured representation.
+
+Store only the information necessary for analysis.
+
+Identify:
+
+- main/server thread utilization
+- plugins/mods consuming significant time
+- expensive scheduler tasks
+- entities
+- block entities
+- chunk generation/loading
+- world saving
+- garbage collection
+- memory allocation pressure
+- disk/I/O
+- datapack/custom function execution
+- main-thread blocking
+
+
+=====================================
+ANALYSIS OUTPUT
+=====================================
+
+Produce findings such as:
+
+HIGH IMPACT
+Plugin: ExamplePlugin
+
+Observed:
+ExamplePlugin accounted for 31.2% of sampled server-thread time.
+
+Hot path:
+ExamplePlugin → PlayerUpdater → updatePlayers()
+
+Recommendation:
+Update/configure ExamplePlugin or investigate this task.
+
+Confidence:
+High
+
+Every diagnosis MUST include evidence from the Spark report.
+
+Do not invent explanations for unknown class/method names.
+
+For uncertain findings, explicitly show low confidence.
+
+
+=====================================
+UI
+=====================================
+
+Add:
+
+Server → Optimizer
+
+Overview:
+
+Performance Score
+Configuration Health
+Spark Analysis
+Memory
+Tick Performance
+
+Actions:
+
+Scan Configuration
+Run Performance Analysis
+Run Lag Spike Analysis
+Apply Safe Fixes
+Run Verification Test
+
+
+=====================================
+BEFORE/AFTER
+=====================================
+
+Store optimizer runs.
+
+Allow comparison of:
+
+TPS
+MSPT median/P95
+CPU
+memory
+GC
+major profiler hotspots
+
+Show whether performance improved after changes.
+
+
+=====================================
+SAFETY
+=====================================
+
+Never:
+- modify worlds
+- delete plugins
+- delete mods
+- change gameplay-affecting settings silently
+- run heap dumps automatically
+- expose Spark/raw diagnostic data belonging to another server
+- allow users to execute arbitrary commands through optimizer APIs
+
+Use existing Fluid authorization rules.
+
+Audit:
+- scans
+- Spark installations
+- profiler runs
+- config changes
+- rollbacks
+
+
+=====================================
+TESTING
+=====================================
+
+Add tests for:
+
+- version detection
+- config parsing
+- rule compatibility
+- malformed config handling
+- safe application
+- rollback
+- Spark built-in detection on Paper 1.21+
+- Spark installation
+- profile execution
+- raw Spark parsing
+- failed/timeout profiles
+- ownership/authorization
+- before/after comparisons
+
+Before editing code:
+
+1. Inspect the relevant architecture.
+2. Produce a concise implementation plan.
+3. Identify migrations/files/components being changed.
+4. Implement incrementally.
+5. Run tests/build/lint.
+6. Fix all regressions.
+
+Do not leave mocked implementations or TODO functionality.
