@@ -263,17 +263,43 @@ def _read_image(field: str) -> str | None:
     return f"data:{mime};base64,{base64.b64encode(data).decode()}"
 
 
+def _read_panel_metadata() -> tuple[list[dict], list[dict]]:
+    client = get_fluid_client()
+    return client.list_nests(), client.list_nodes()
+
+
 def _panel_metadata() -> tuple[list[dict], list[dict]]:
     """Panel nests and nodes, tolerating an unreachable panel."""
     try:
-        client = get_fluid_client()
-        nests = client.list_nests()
-        locations = client.list_nodes()
+        return _read_panel_metadata()
     except (ConfigurationError, PanelError) as exc:
         log.warning("Panel metadata unavailable: %s", exc)
-        nests = [{"attributes": {"id": "General", "name": "General"}}]
-        locations = []
-    return nests, locations
+        return _fallback_panel_metadata()
+
+
+def _fallback_panel_metadata() -> tuple[list[dict], list[dict]]:
+    return [{"attributes": {"id": "General", "name": "General"}}], []
+
+
+def _node_payload(node: dict) -> dict[str, object] | None:
+    attrs = node.get("attributes", {})
+    try:
+        node_id = int(attrs.get("id"))
+    except (TypeError, ValueError):
+        return None
+
+    short = attrs.get("short") or attrs.get("name") or f"Node {node_id}"
+    long_name = attrs.get("long") or attrs.get("description") or attrs.get("location_label") or ""
+    label = f"{short} ({long_name})" if long_name else str(short)
+    return {"id": node_id, "name": short, "location": long_name, "label": label}
+
+
+def _nest_payload(nest: dict) -> dict[str, object] | None:
+    attrs = nest.get("attributes", {})
+    nest_id = attrs.get("id")
+    if nest_id is None:
+        return None
+    return {"id": nest_id, "name": attrs.get("name") or f"Nest {nest_id}"}
 
 
 def _location_label_map(
@@ -306,7 +332,6 @@ def _location_label_map(
 @bp.route("/")
 @admin_required
 def admin_dashboard():
-    nests, locations = _panel_metadata()
     plan_categories = _plan_categories()
     plan_subcategories_by_category = _subcategories_by_category(plan_categories)
     active_tab = (request.args.get("tab") or "users").strip().lower()
@@ -329,6 +354,7 @@ def admin_dashboard():
     plan_items = GamePlan.query.order_by(
         GamePlan.game.asc(), GamePlan.serial_number.asc(), GamePlan.name.asc()
     ).all()
+    nests, locations = _fallback_panel_metadata()
     plans = SimpleNamespace(
         items=plan_items,
         total=len(plan_items),
@@ -343,6 +369,8 @@ def admin_dashboard():
         for node_id in plan.allowed_node_ids:
             if node_id not in known_node_ids:
                 known_node_ids.append(node_id)
+    if not known_node_ids:
+        known_node_ids.append(1)
     location_labels = _location_label_map(locations, known_node_ids)
 
     return render_template(
@@ -385,6 +413,27 @@ def admin_dashboard():
         location_labels=location_labels,
         active_tab=active_tab,
         admin_page_url=_admin_dashboard_page_url,
+    )
+
+
+@bp.route("/api/panel-metadata")
+@admin_required
+def admin_api_panel_metadata():
+    try:
+        nests, locations = _read_panel_metadata()
+    except (ConfigurationError, PanelError) as exc:
+        log.warning("Panel metadata unavailable: %s", exc)
+        return jsonify({"status": "error", "nests": [], "locations": [], "message": "Fluid API unavailable"}), 502
+    except Exception as exc:  # pragma: no cover
+        log.warning("Unexpected panel metadata failure: %s", exc)
+        return jsonify({"status": "error", "nests": [], "locations": []}), 502
+
+    return jsonify(
+        {
+            "status": "success",
+            "nests": [item for item in (_nest_payload(nest) for nest in nests) if item is not None],
+            "locations": [item for item in (_node_payload(node) for node in locations) if item is not None],
+        }
     )
 
 
@@ -468,7 +517,7 @@ def admin_pelican_test():
 def admin_api_eggs(nest_id: str):
     try:
         eggs = get_fluid_client().eggs_for_nest(nest_id)
-    except (ConfigurationError, PanelError):
+    except (ConfigurationError, PanelError, TypeError, ValueError):
         return jsonify([])
     return jsonify([{"id": e["attributes"]["id"], "name": e["attributes"]["name"]} for e in eggs])
 
@@ -569,8 +618,7 @@ def _wants_json() -> bool:
 
 def _render_plan_row(plan: GamePlan) -> str:
     """Render one plans-table row exactly as the dashboard would."""
-    _, locations = _panel_metadata()
-    location_labels = _location_label_map(locations, plan.allowed_node_ids)
+    location_labels = _location_label_map([], plan.allowed_node_ids)
     return render_template("admin/_plan_row.html", plan=plan, location_labels=location_labels)
 
 
@@ -1052,7 +1100,7 @@ def admin_edit_plan(plan_id: int):
         flash(f"Plan {plan.name} updated successfully!", "success")
         return redirect(url_for("admin.admin_dashboard"))
 
-    nests, locations = _panel_metadata()
+    nests, locations = _fallback_panel_metadata()
     location_labels = _location_label_map(locations, plan.allowed_node_ids)
     plan_categories = _plan_categories()
     plan_subcategories_by_category = _subcategories_by_category(plan_categories)

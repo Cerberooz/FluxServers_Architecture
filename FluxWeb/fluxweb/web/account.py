@@ -26,17 +26,6 @@ def user_account():
     user = current_user()
     config = current_app.extensions["flux_config"]
 
-    # Sync is throttled and failure-tolerant: the page renders from the
-    # database even when the panel is down, instead of fanning out four
-    # blocking calls per server on every load (audit P-1).
-    if config.panel_configured:
-        try:
-            server_service.sync_user_servers(
-                user.id, get_fluid_client(), grace_days=config.deletion_grace_days
-            )
-        except PanelError as exc:
-            log.warning("Panel sync skipped for user %s: %s", user.id, exc)
-
     servers = (
         ServerRecord.query.filter(
             ServerRecord.user_id == user.id, ServerRecord.status != ServerStatus.DELETED
@@ -68,7 +57,11 @@ def manual_sync():
     if config.panel_configured:
         try:
             server_service.sync_user_servers(
-                user.id, get_fluid_client(), grace_days=config.deletion_grace_days, force=True
+                user.id,
+                get_fluid_client(),
+                grace_days=config.deletion_grace_days,
+                force=True,
+                max_records=10,
             )
             flash("Servers synced with the panel.", "success")
         except PanelError:

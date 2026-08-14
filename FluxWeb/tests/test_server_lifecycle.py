@@ -19,6 +19,7 @@ class FakePanel:
     def __init__(self, *, server_payload=None, missing=False, failing=False):
         self.suspended: list[int] = []
         self.deleted: list[int] = []
+        self.server_requests: list[int] = []
         self.missing = missing
         self.failing = failing
         self.server_payload = server_payload or {
@@ -34,6 +35,7 @@ class FakePanel:
         }
 
     def get_server(self, panel_server_id, include_allocations=False):
+        self.server_requests.append(panel_server_id)
         if self.failing:
             raise PanelError("panel down", status=502)
         return None if self.missing else self.server_payload
@@ -199,3 +201,43 @@ class TestThrottling:
         panel = FakePanel()
         synced = server_service.sync_user_servers(user.id, panel, grace_days=7, force=True)
         assert synced == 1
+
+    def test_account_sync_limits_panel_round_trips(self, db, user, plan):
+        for index in range(3):
+            db.session.add(
+                ServerRecord(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    plan_name=f"Server {index}",
+                    pelican_server_id=2000 + index,
+                    pelican_server_identifier=f"user{index}",
+                    status=ServerStatus.ACTIVE,
+                )
+            )
+        db.session.commit()
+
+        panel = FakePanel()
+        synced = server_service.sync_user_servers(user.id, panel, grace_days=7, max_records=1)
+
+        assert synced == 1
+        assert len(panel.server_requests) == 1
+
+    def test_account_sync_stops_after_panel_failure(self, db, user, plan):
+        for index in range(3):
+            db.session.add(
+                ServerRecord(
+                    user_id=user.id,
+                    plan_id=plan.id,
+                    plan_name=f"Server {index}",
+                    pelican_server_id=3000 + index,
+                    pelican_server_identifier=f"down{index}",
+                    status=ServerStatus.ACTIVE,
+                )
+            )
+        db.session.commit()
+
+        panel = FakePanel(failing=True)
+        synced = server_service.sync_user_servers(user.id, panel, grace_days=7, max_records=10)
+
+        assert synced == 0
+        assert len(panel.server_requests) == 1

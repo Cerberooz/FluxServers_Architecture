@@ -279,7 +279,7 @@
     }
 
     async function loadEggs(nestId, targetSelectId, currentEggId = null) {
-        if (!nestId) return;
+        if (!nestId || !/^\d+$/.test(String(nestId))) return;
         const resp = await fetch(`/admin/api/eggs/${nestId}`);
         const eggs = await resp.json();
         const select = document.getElementById(targetSelectId);
@@ -294,7 +294,7 @@
     }
 
     async function loadEggs(nestId, targetSelectId, currentEggId = null) {
-        if (!nestId) return;
+        if (!nestId || !/^\d+$/.test(String(nestId))) return;
         const select = document.getElementById(targetSelectId);
         if (!select) return;
         const picker = select.closest('[data-egg-picker]');

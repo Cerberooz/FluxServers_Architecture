@@ -97,6 +97,7 @@ def test_new_routes_registered(app):
         "/verify-email/<token>",
         "/forgot-password",
         "/admin/coupons/delete/<int:coupon_id>",
+        "/admin/api/panel-metadata",
     ):
         assert rule in rules
 

@@ -1,8 +1,8 @@
-# Unified production stack for Flux Servers.
+# Control-plane stack for the VPS that hosts the Panel and its internal data.
 #
-# Public traffic is terminated by the host Nginx/Caddy proxy. The applications
-# therefore bind only to localhost; Wings keeps its own host port (8080).
-name: fluxservers
+# Public traffic should still terminate at host Nginx/Caddy and proxy
+# panel.fluxservers.cloud to 127.0.0.1:18080.
+name: fluxservers-control
 
 services:
   database:
@@ -15,8 +15,6 @@ services:
       MYSQL_PASSWORD: ${PANEL_DB_PASSWORD:?Set PANEL_DB_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${PANEL_MYSQL_ROOT_PASSWORD:?Set PANEL_MYSQL_ROOT_PASSWORD in .env}
     volumes:
-      # Keep the existing production volume name so switching to this root
-      # compose file does not create a blank Panel database.
       - panel_mariadb_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
@@ -85,62 +83,7 @@ services:
       redis:
         condition: service_healthy
 
-  status:
-    build:
-      context: ./Flux Status
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:18081:5000"
-    env_file:
-      - ./Flux Status/.env
-    environment:
-      PANEL_URL: http://panel
-    depends_on:
-      - panel
-
-  web:
-    build:
-      context: ./FluxWeb
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:18082:8000"
-    env_file:
-      - ./FluxWeb/.env.production
-    environment:
-      # Requests stay on Docker's private network instead of hairpinning
-      # through the public TLS proxy.
-      FLUID_URL: http://panel
-      REDIS_URL: redis://redis:6379/1
-      PORT: 8000
-    depends_on:
-      redis:
-        condition: service_healthy
-      panel:
-        condition: service_started
-
-  web-sync:
-    build:
-      context: ./FluxWeb
-    restart: unless-stopped
-    env_file:
-      - ./FluxWeb/.env.production
-    environment:
-      FLUID_URL: http://panel
-      REDIS_URL: redis://redis:6379/1
-      WEB_SYNC_INTERVAL: ${WEB_SYNC_INTERVAL:-300}
-    command:
-      - /bin/sh
-      - -c
-      - 'while true; do flask --app app.py sync-servers; sleep "$${WEB_SYNC_INTERVAL}"; done'
-    depends_on:
-      redis:
-        condition: service_healthy
-      panel:
-        condition: service_started
-
 volumes:
-  # These explicit names are the same names used by the previous Panel stack.
-  # Do not run `docker compose down -v` on production.
   panel_mariadb_data:
     name: fluidpanel_mariadb_data
   panel_redis_data:

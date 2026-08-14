@@ -221,9 +221,7 @@
     <header class="admin-topbar">
         <a href="/admin" class="brand"><i class="fas fa-bolt"></i> Flux Servers <span class="badge">ADMIN</span></a>
         <div class="actions">
-            {% if not nests or not locations %}
-            <span style="color: var(--danger); font-size: 12px; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Fluid API Offline</span>
-            {% endif %}
+            <span id="fluid-api-status" style="color: var(--text-muted); font-size: 12px; font-weight: 600;"><i class="fas fa-circle-notch fa-spin"></i> Checking Fluid</span>
             <button class="btn-action btn-warning" onclick="testPterodactyl()" style="margin-right: 10px;"><i class="fas fa-plug"></i> Test Fluid</button>
             <a href="/"><i class="fas fa-home"></i> Main Site</a>
 
@@ -1280,29 +1278,83 @@
                 `\nClient API: ${data.checks.client.status}` : '';
             alert(`Server -> panel\n  ${data.message}` + checks);
         }
-        async function loadEggs(nestId, targetSelectId, currentEggId = null) {
-            if (!nestId) return;
-            const select = document.getElementById(targetSelectId);
-            try {
-                const resp = await fetch(`/admin/api/eggs/${nestId}`);
-                if (!resp.ok) throw new Error(`Egg request failed (${resp.status})`);
-                const eggs = await resp.json();
-                select.innerHTML = '<option value="">Select Egg</option>';
-                eggs.forEach(egg => {
-                    const opt = document.createElement('option');
-                    opt.value = egg.id;
-                    opt.textContent = `ID ${egg.id} — ${egg.name}`;
-                if (String(currentEggId || '').split(',').includes(String(egg.id))) opt.selected = true;
-                    select.appendChild(opt);
+        let panelMetadata = null;
+
+        function setFluidStatus(ok, text = '') {
+            const status = document.getElementById('fluid-api-status');
+            if (!status) return;
+            status.style.color = ok ? 'var(--success)' : 'var(--danger)';
+            status.innerHTML = ok
+                ? '<i class="fas fa-check-circle"></i> Fluid API Online'
+                : '<i class="fas fa-exclamation-triangle"></i> Fluid API Offline';
+            status.title = text;
+        }
+
+        function replaceSelectOptions(select, options, placeholder) {
+            const current = select.value;
+            select.innerHTML = '';
+            const blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = placeholder;
+            select.appendChild(blank);
+            options.forEach(item => {
+                const option = document.createElement('option');
+                option.value = String(item.id);
+                option.dataset.label = item.label || item.name;
+                option.textContent = item.label || item.name;
+                if (String(current) === String(item.id)) option.selected = true;
+                select.appendChild(option);
+            });
+        }
+
+        function hydratePanelMetadata(data) {
+            panelMetadata = data;
+            const nests = Array.isArray(data.nests) ? data.nests : [];
+            const locations = Array.isArray(data.locations) ? data.locations : [];
+
+            if (nests.length) {
+                document.querySelectorAll('select[name="nest_id"]').forEach(select => {
+                    replaceSelectOptions(select, nests, 'Select Nest');
                 });
+            }
+
+            if (locations.length) {
+                document.querySelectorAll('select[name="location_id"]').forEach(select => {
+                    replaceSelectOptions(select, locations, 'Select Location');
+                });
+                document.querySelectorAll('[data-server-location-select]').forEach(select => {
+                    replaceSelectOptions(select, locations, 'Add server location');
+                });
+                locations.forEach(location => {
+                    document.querySelectorAll(`[data-location-id="${CSS.escape(String(location.id))}"] > span`).forEach(label => {
+                        label.textContent = location.label || location.name;
+                    });
+                });
+            }
+
+            const defaultNest = document.getElementById('add-nest-select');
+            if (defaultNest?.value && /^\d+$/.test(defaultNest.value)) {
+                loadEggs(defaultNest.value, 'add-egg-select');
+            }
+        }
+
+        async function loadPanelMetadata() {
+            try {
+                const res = await fetch('/admin/api/panel-metadata');
+                const data = await res.json();
+                if (!res.ok || data.status !== 'success') {
+                    throw new Error(data.message || `metadata request failed (${res.status})`);
+                }
+                hydratePanelMetadata(data);
+                setFluidStatus(true);
             } catch (error) {
-                select.innerHTML = '<option value="">Could not load eggs — try again</option>';
-                console.error('Could not load Fluid eggs:', error);
+                console.error('Could not load Fluid metadata:', error);
+                setFluidStatus(false, String(error));
             }
         }
 
         async function loadEggs(nestId, targetSelectId, currentEggId = null) {
-            if (!nestId) return;
+            if (!nestId || !/^\d+$/.test(String(nestId))) return;
             const select = document.getElementById(targetSelectId);
             if (!select) return;
             const picker = select.closest('[data-egg-picker]');
@@ -1438,6 +1490,7 @@
                 setupUnitPairs(body);
                 setupServerLocationPickers(body);
                 setupEggPickers(body);
+                if (panelMetadata) hydratePanelMetadata(panelMetadata);
                 if (category && subcategory) {
                     updateSubcategoryOptions('edit-category-select', 'edit-subcategory-select', subcategory.dataset.currentSubcategoryId || subcategory.value);
                 }
@@ -1696,6 +1749,7 @@
             setupTabSearch('maintenance-search', 'maintenance');
             setupTabSearch('faqs-search', 'faqs');
             setupTabSearch('coupons-search', 'coupons');
+            loadPanelMetadata();
         });
     </script>
 </body>

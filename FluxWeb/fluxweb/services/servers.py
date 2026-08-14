@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
+from sqlalchemy import or_
+
 from fluxweb.errors import PanelError
 from fluxweb.extensions import db
 from fluxweb.models import ServerRecord, ServerStatus
@@ -21,6 +23,10 @@ from fluxweb.models.server import utcnow
 log = logging.getLogger(__name__)
 
 SYNC_STALE_AFTER = timedelta(minutes=10)
+
+# Page loads should refresh a small amount of state and then render from the
+# database. The scheduled sync job owns full-fleet reconciliation.
+MAX_USER_SYNC_PER_REQUEST = 1
 
 #: Safety valve on destructive work. See `sync_all_servers`.
 MAX_DELETIONS_PER_RUN = 25
@@ -109,22 +115,33 @@ def apply_lifecycle(record: ServerRecord, client, *, grace_days: int, allow_dele
     return False
 
 
-def sync_user_servers(user_id: int, client, *, grace_days: int, force: bool = False) -> int:
+def sync_user_servers(
+    user_id: int,
+    client,
+    *,
+    grace_days: int,
+    force: bool = False,
+    max_records: int | None = MAX_USER_SYNC_PER_REQUEST,
+) -> int:
     """Sync a single user's servers, skipping ones synced recently.
 
     Used by the account page so the request does not fan out on every load.
     """
-    servers = ServerRecord.query.filter(
-        ServerRecord.user_id == user_id, ServerRecord.status != ServerStatus.DELETED
-    ).all()
     threshold = utcnow() - SYNC_STALE_AFTER
+    query = ServerRecord.query.filter(
+        ServerRecord.user_id == user_id, ServerRecord.status != ServerStatus.DELETED
+    ).order_by(ServerRecord.last_synced_at.is_(None).desc(), ServerRecord.last_synced_at.asc())
+    if not force:
+        query = query.filter(or_(ServerRecord.last_synced_at.is_(None), ServerRecord.last_synced_at <= threshold))
+    if max_records is not None:
+        query = query.limit(max_records)
+    servers = query.all()
     synced = 0
     for record in servers:
-        if not force and record.last_synced_at and record.last_synced_at > threshold:
-            continue
-        if sync_server(record, client):
-            apply_lifecycle(record, client, grace_days=grace_days)
-            synced += 1
+        if not sync_server(record, client):
+            break
+        apply_lifecycle(record, client, grace_days=grace_days)
+        synced += 1
     if synced:
         db.session.commit()
     return synced

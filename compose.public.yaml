@@ -1,0 +1,67 @@
+# Public business stack for the VPS that hosts the website and status page.
+#
+# Public traffic should terminate at host Nginx/Caddy and proxy:
+# - status.fluxservers.cloud to 127.0.0.1:18081
+# - fluxservers.cloud/www.fluxservers.cloud to 127.0.0.1:18082
+#
+# The website keeps using Supabase/Postgres from FluxWeb/.env.production. The
+# local Redis service is only for website cache/rate-limit/sync state.
+name: fluxservers-public
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - web_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  status:
+    build:
+      context: ./Flux Status
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:5000"
+    env_file:
+      - ./Flux Status/.env
+
+  web:
+    build:
+      context: ./FluxWeb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18082:8000"
+    env_file:
+      - ./FluxWeb/.env.production
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      PORT: 8000
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web-sync:
+    build:
+      context: ./FluxWeb
+    restart: unless-stopped
+    env_file:
+      - ./FluxWeb/.env.production
+    environment:
+      REDIS_URL: redis://redis:6379/1
+      WEB_SYNC_INTERVAL: ${WEB_SYNC_INTERVAL:-300}
+    command:
+      - /bin/sh
+      - -c
+      - 'while true; do flask --app app.py sync-servers; sleep "$${WEB_SYNC_INTERVAL}"; done'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  web_redis_data:
+    name: fluxweb_redis_data

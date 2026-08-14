@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import secrets
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeAlias
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -34,8 +34,11 @@ from fluxweb.errors import ConfigurationError, PanelError
 
 log = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT = 10
-LONG_TIMEOUT = 20
+RequestTimeout: TypeAlias = int | float | tuple[float, float]
+
+DEFAULT_TIMEOUT: RequestTimeout = (2, 3)
+METADATA_TIMEOUT: RequestTimeout = (1, 2)
+LONG_TIMEOUT: RequestTimeout = (5, 20)
 
 
 @dataclass(frozen=True)
@@ -57,7 +60,7 @@ class FluidPanelClient:
         api_key: str | None,
         client_key: str | None = None,
         *,
-        timeout: int = DEFAULT_TIMEOUT,
+        timeout: RequestTimeout = DEFAULT_TIMEOUT,
     ) -> None:
         self.base_url = (base_url or "").rstrip("/")
         self.api_key = api_key
@@ -77,8 +80,8 @@ class FluidPanelClient:
         if self._session is None:
             session = requests.Session()
             retry = Retry(
-                total=2,
-                backoff_factor=0.4,
+                total=0,
+                backoff_factor=0,
                 status_forcelist=(429, 502, 503, 504),
                 # Reads only. Retrying a POST is dangerous here: if the panel
                 # creates the server and *then* the gateway returns 502, a
@@ -114,7 +117,7 @@ class FluidPanelClient:
         *,
         client_api: bool = False,
         json_body: dict[str, Any] | None = None,
-        timeout: int | None = None,
+        timeout: RequestTimeout | None = None,
         expected: tuple[int, ...] = (200, 201, 204),
     ) -> Any:
         if not self.configured:
@@ -166,11 +169,13 @@ class FluidPanelClient:
         Fluid follows Pterodactyl's nested API shape: eggs belong to a nest,
         so there is intentionally no global ``/api/application/eggs`` route.
         """
-        payload = self._request("GET", "/api/application/nests", expected=(200,))
+        payload = self._request("GET", "/api/application/nests", expected=(200,), timeout=METADATA_TIMEOUT)
         return payload.get("data", []) if payload else []
 
     def eggs_for_nest(self, nest_id: str | int) -> list[dict[str, Any]]:
-        payload = self._request("GET", f"/api/application/nests/{int(nest_id)}/eggs", expected=(200,))
+        payload = self._request(
+            "GET", f"/api/application/nests/{int(nest_id)}/eggs", expected=(200,), timeout=METADATA_TIMEOUT
+        )
         return payload.get("data", []) if payload else []
 
     def get_egg(self, egg_id: int, *, nest_id: str | int | None = None) -> dict[str, Any]:
@@ -220,9 +225,15 @@ class FluidPanelClient:
 
     def list_nodes(self) -> list[dict[str, Any]]:
         try:
-            payload = self._request("GET", "/api/application/nodes?include=location", expected=(200,))
-        except PanelError:
-            payload = self._request("GET", "/api/application/nodes", expected=(200,))
+            payload = self._request(
+                "GET", "/api/application/nodes?include=location", expected=(200,), timeout=METADATA_TIMEOUT
+            )
+        except PanelError as exc:
+            if exc.status not in (400, 404):
+                raise
+            payload = self._request(
+                "GET", "/api/application/nodes", expected=(200,), timeout=METADATA_TIMEOUT
+            )
         nodes = payload.get("data", []) if payload else []
         for node in nodes:
             attrs = node.get("attributes", {})
