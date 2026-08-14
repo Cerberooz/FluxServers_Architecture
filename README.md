@@ -40,11 +40,9 @@ For FluxWeb production, ensure `FLASK_ENV=production`, `BASE_URL=https://fluxser
 
 ```bash
 cd ~/FluxServers
-sudo docker compose up -d --build
-sudo docker compose exec panel php artisan migrate --force
-sudo docker compose exec panel php artisan optimize
-sudo docker compose exec web flask --app app.py db upgrade
-sudo docker compose ps
+chmod +x scripts/*.sh
+sudo ./scripts/deploy.sh
+sudo ./scripts/verify-stack.sh
 ```
 
 The Web migration uses `DIRECT_URL` from `FluxWeb/.env`; it does not touch the Panel MariaDB database.
