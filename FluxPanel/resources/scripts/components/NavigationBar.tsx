@@ -98,15 +98,6 @@ const PrimaryNavigation = styled.nav`
     }
 `;
 
-const ProfileButton = styled(Dropdown.Button)`
-    ${tw`flex h-10 items-center gap-2 rounded-lg border border-transparent px-2 text-neutral-300 transition-colors duration-150`};
-
-    &:hover,
-    &[aria-expanded='true'] {
-        ${tw`border-neutral-700 bg-neutral-800 text-neutral-100`};
-    }
-`;
-
 type Props = {
     sidebar?: boolean;
 };
@@ -157,12 +148,13 @@ export default ({ sidebar = false }: Props) => {
                     </PrimaryNavigation>
                     <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />
+                        <div className={'hidden h-5 w-px bg-[#17202e] sm:block'} />
                         <Dropdown>
-                            <ProfileButton>
+                            <Dropdown.Button className={'flex h-10 items-center gap-2 rounded-lg border border-transparent px-2 text-neutral-300 transition-colors duration-150 hover:border-neutral-700 hover:bg-neutral-800 hover:text-neutral-100'}>
                                 <Avatar.User size={26} />
                                 <span className={'hidden text-sm font-medium sm:inline'}>{username}</span>
                                 <span className={'text-xs text-neutral-500'}>⌄</span>
-                            </ProfileButton>
+                            </Dropdown.Button>
                             <Dropdown.Item onClick={(event) => { event.preventDefault(); window.location.href = '/account'; }}>Settings</Dropdown.Item>
                             <Dropdown.Item danger onClick={(event) => { event.preventDefault(); onTriggerLogout(); }}>Log out</Dropdown.Item>
                         </Dropdown>

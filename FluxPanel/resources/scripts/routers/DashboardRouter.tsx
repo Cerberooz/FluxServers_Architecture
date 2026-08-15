@@ -16,7 +16,7 @@ export default () => {
         <>
             <NavigationBar />
             <div>
-                {location.pathname.startsWith('/account') && (
+                {location.pathname.startsWith('/account') && !['/account/billing', '/account/support'].includes(location.pathname) && (
                     <SubNavigation>
                         <div>
                             {routes.account
