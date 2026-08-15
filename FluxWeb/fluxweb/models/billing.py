@@ -57,6 +57,8 @@ class Order(db.Model):
     subtotal_cents = db.Column(db.Integer, nullable=False, default=0)
     discount_cents = db.Column(db.Integer, nullable=False, default=0)
     total_cents = db.Column(db.Integer, nullable=False, default=0)
+    gateway_fee_cents = db.Column(db.Integer, nullable=False, default=0)
+    payment_provider = db.Column(db.String(20), nullable=True)
     currency = db.Column(db.String(3), nullable=False, default="USD")
     coupon_code = db.Column(db.String(50), nullable=True)
 

@@ -11,6 +11,8 @@ import os
 import secrets
 from dataclasses import dataclass, field
 
+from fluxweb.money import gateway_fee_cents
+
 # Values that must never reach production. Historical defaults from app.py are
 # listed explicitly so an old .env cannot silently keep working.
 BANNED_SECRETS = {
@@ -138,6 +140,17 @@ class PaymentConfig:
     paypal_secret_key: str | None = None
     paypal_env: str = "sandbox"
     paypal_merchant_id: str | None = None
+    stripe_fee_percent: float = 2.9
+    stripe_fee_fixed_cents: int = 30
+    paypal_fee_percent: float = 3.49
+    paypal_fee_fixed_cents: int = 49
+
+    def gateway_fee_cents(self, provider: str, net_cents: int) -> int:
+        if provider == "stripe":
+            return gateway_fee_cents(net_cents, self.stripe_fee_percent, self.stripe_fee_fixed_cents)
+        if provider == "paypal":
+            return gateway_fee_cents(net_cents, self.paypal_fee_percent, self.paypal_fee_fixed_cents)
+        return 0
 
     @property
     def paypal_api_base(self) -> str:
@@ -189,6 +202,15 @@ class PaymentConfig:
 
         if self.paypal_env not in {"live", "sandbox"}:
             problems.append(f"PAYPAL_ENV must be 'live' or 'sandbox', got {self.paypal_env!r}.")
+
+        for name, percent, fixed in (
+            ("STRIPE", self.stripe_fee_percent, self.stripe_fee_fixed_cents),
+            ("PAYPAL", self.paypal_fee_percent, self.paypal_fee_fixed_cents),
+        ):
+            if percent < 0 or percent >= 100:
+                problems.append(f"{name}_FEE_PERCENT must be between 0 and 100.")
+            if fixed < 0:
+                problems.append(f"{name}_FEE_FIXED_CENTS cannot be negative.")
 
         # Providers must agree about which world they are in.
         if self.stripe_enabled and self.paypal_enabled and self.stripe_is_live != self.paypal_is_live:
@@ -569,6 +591,10 @@ class Config:
             paypal_secret_key=_env("PAYPAL_SECRET_KEY"),
             paypal_env=(_env("PAYPAL_ENV") or "sandbox").lower(),
             paypal_merchant_id=_env("PAYPAL_MERCHANT_ID"),
+            stripe_fee_percent=float(_env("STRIPE_FEE_PERCENT") or "2.9"),
+            stripe_fee_fixed_cents=int(_env("STRIPE_FEE_FIXED_CENTS") or "30"),
+            paypal_fee_percent=float(_env("PAYPAL_FEE_PERCENT") or "3.49"),
+            paypal_fee_fixed_cents=int(_env("PAYPAL_FEE_FIXED_CENTS") or "49"),
         )
         if env != "testing":
             problems.extend(cfg.payments.validate(production=cfg.is_production))

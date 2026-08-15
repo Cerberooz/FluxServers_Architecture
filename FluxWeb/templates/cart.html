@@ -147,6 +147,11 @@
                             <span>-$<span id="summary-discount">{{ "%.2f"|format(discount_amount) }}</span></span>
                         </div>
 
+                        <div class="price-row" id="summary-gateway-fee-row" style="display: none;">
+                            <span><span id="summary-gateway-provider">Payment</span> processing fee</span>
+                            <span>+$<span id="summary-gateway-fee">0.00</span></span>
+                        </div>
+
                         <div class="price-row total-row">
                             <span>Total Due</span>
                             <span>$<span id="summary-total">{{ "%.2f"|format(total) }}</span></span>
@@ -202,13 +207,13 @@
                                     {% if paypal_enabled %}
                                     <div class="pay-option active" id="pay-paypal" onclick="togglePayment('paypal')">
                                         <i class="fab fa-paypal" style="color: #0070ba;"></i>
-                                        <span>PayPal</span>
+                                        <span>PayPal <small id="paypal-fee-label"></small></span>
                                     </div>
                                     {% endif %}
                                     {% if stripe_enabled %}
                                     <div class="pay-option{% if not paypal_enabled %} active{% endif %}" id="pay-stripe" onclick="togglePayment('stripe')">
                                         <i class="fas fa-credit-card"></i>
-                                        <span>Credit Card</span>
+                                        <span>Credit Card <small id="stripe-fee-label"></small></span>
                                     </div>
                                     {% endif %}
                                 </div>
@@ -262,7 +267,27 @@
 
 <script src="https://js.stripe.com/v3/"></script>
 <script>
+    let paymentOptions = {{ payment_options|tojson }};
+    let selectedPayment = {% if paypal_enabled %}'paypal'{% elif stripe_enabled %}'stripe'{% else %}null{% endif %};
     let cartTotal = "{{ '%.2f'|format(total) }}";
+
+    function renderPaymentFees(options) {
+        paymentOptions = options || {};
+        ['paypal', 'stripe'].forEach(function (provider) {
+            const option = paymentOptions[provider];
+            const label = document.getElementById(provider + '-fee-label');
+            if (label) label.textContent = option ? ` (+$${Number(option.fee).toFixed(2)} fee)` : '';
+        });
+        const selected = selectedPayment ? paymentOptions[selectedPayment] : null;
+        const feeRow = document.getElementById('summary-gateway-fee-row');
+        if (feeRow) feeRow.style.display = selected && selected.fee > 0 ? 'flex' : 'none';
+        if (selected) {
+            document.getElementById('summary-gateway-provider').textContent = selectedPayment === 'paypal' ? 'PayPal' : 'Card';
+            document.getElementById('summary-gateway-fee').textContent = Number(selected.fee).toFixed(2);
+            document.getElementById('summary-total').textContent = Number(selected.total).toFixed(2);
+            cartTotal = Number(selected.total).toFixed(2);
+        }
+    }
     function updateSoftware(index, software) {
         fetch(`/update-cart-item/${index}`, {
             method: 'POST',
@@ -285,6 +310,7 @@
         document.getElementById('summary-subtotal').textContent = data.subtotal.toFixed(2);
         document.getElementById('summary-total').textContent = data.total.toFixed(2);
         cartTotal = data.total.toFixed(2);
+        renderPaymentFees(data.payment_options || {});
 
         const discountRow = document.getElementById('summary-discount-row');
         if (data.discount_amount > 0) {
@@ -322,6 +348,7 @@
     }
 
     function togglePayment(method) {
+        selectedPayment = method;
         const paypalContainer = document.getElementById('paypal-container');
         const stripeContainer = document.getElementById('stripe-container');
         const payPaypal = document.getElementById('pay-paypal');
@@ -338,6 +365,7 @@
             if (payStripe) payStripe.classList.add('active');
             if (payPaypal) payPaypal.classList.remove('active');
         }
+        renderPaymentFees(paymentOptions);
     }
 
     let stripe = null;
@@ -513,7 +541,8 @@
         updateCartUI({
             subtotal: parseFloat("{{ subtotal }}"),
             total: parseFloat("{{ total }}"),
-            discount_amount: parseFloat("{{ discount_amount }}")
+            discount_amount: parseFloat("{{ discount_amount }}"),
+            payment_options: {{ payment_options|tojson }}
         });
     });
 

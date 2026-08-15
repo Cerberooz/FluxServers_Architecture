@@ -185,6 +185,31 @@ class TestMoneyRounding:
         assert apply_percentage_discount(1000, 150) == 1000
         assert apply_percentage_discount(1000, -5) == 0
 
+    def test_gateway_fee_gross_up_covers_percentage_and_fixed_fee(self):
+        from fluxweb.money import gateway_fee_cents
+
+        fee = gateway_fee_cents(720, 2.9, 30)
+        assert fee == 53
+        assert (720 + fee) * 0.029 + 30 <= fee + 1
+
+
+class TestGatewayFees:
+    def test_stripe_fee_is_frozen_on_order(self, db, user, plan):
+        order = billing.build_order(
+            user, [CartItem(kind=ItemKind.NEW, plan_id=plan.id)], payment_provider="stripe"
+        )
+        assert order.payment_provider == "stripe"
+        assert order.gateway_fee_cents == 53
+        assert order.total_cents == 773
+
+    def test_paypal_fee_is_frozen_on_order(self, db, user, plan):
+        order = billing.build_order(
+            user, [CartItem(kind=ItemKind.NEW, plan_id=plan.id)], payment_provider="paypal"
+        )
+        assert order.payment_provider == "paypal"
+        assert order.gateway_fee_cents == 77
+        assert order.total_cents == 797
+
 
 class TestOwnershipOnOrders:
     def test_cannot_renew_another_users_server(self, db, other_user, server, plan):

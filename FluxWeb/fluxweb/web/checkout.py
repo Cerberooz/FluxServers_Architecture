@@ -46,7 +46,7 @@ def _payment_description(order: Order) -> str:
     return f"{names[0]} + {len(names) - 1} more"[:250]
 
 
-def _build_order_from_request():
+def _build_order_from_request(payment_provider=None):
     """Freeze the current cart into an Order using server-side prices."""
     user = current_user()
     items = cart_service.get_cart()
@@ -60,6 +60,7 @@ def _build_order_from_request():
         coupon_code=cart_service.get_coupon_code(),
         server_name=server_name,
         node_id=None,
+        payment_provider=payment_provider,
     )
 
 
@@ -113,7 +114,7 @@ def checkout():
 @limiter.limit("20 per hour")
 def create_stripe_checkout():
     try:
-        order = _build_order_from_request()
+        order = _build_order_from_request("stripe")
     except DomainError as exc:
         return jsonify({"error": exc.user_message}), 400
 
@@ -185,7 +186,7 @@ def paypal_create_order():
         return jsonify({"error": "PayPal is not available right now."}), 503
 
     try:
-        order = _build_order_from_request()
+        order = _build_order_from_request("paypal")
     except DomainError as exc:
         return jsonify({"error": exc.user_message}), 400
 

@@ -8,7 +8,7 @@ backwards compatibility, so conversion happens at exactly one boundary.
 
 from __future__ import annotations
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 
 CENTS = Decimal("0.01")
 
@@ -40,3 +40,16 @@ def apply_percentage_discount(subtotal_cents: int, percent: float) -> int:
     pct = Decimal(str(max(0.0, min(100.0, float(percent)))))
     discount = (Decimal(subtotal_cents) * pct / 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
     return int(min(Decimal(subtotal_cents), discount))
+
+
+def gateway_fee_cents(net_cents: int, percent: float, fixed_cents: int) -> int:
+    """Gross up a charge so the merchant still receives ``net_cents``."""
+    net = Decimal(max(0, int(net_cents)))
+    rate = Decimal(str(percent)) / Decimal("100")
+    fixed = Decimal(max(0, int(fixed_cents)))
+    if net == 0:
+        return 0
+    if rate < 0 or rate >= 1:
+        raise ValueError("Gateway fee percentage must be between 0 and 100.")
+    gross = ((net + fixed) / (Decimal("1") - rate)).quantize(Decimal("1"), rounding=ROUND_CEILING)
+    return max(0, int(gross - net))

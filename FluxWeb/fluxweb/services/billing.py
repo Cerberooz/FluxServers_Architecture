@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import logging
 
+from flask import current_app
+
 from sqlalchemy.exc import IntegrityError
 
 from fluxweb.errors import DomainError, PaymentError, ValidationError
@@ -133,6 +135,7 @@ def build_order(
     coupon_code: str | None = None,
     server_name: str | None = None,
     node_id: int | None = None,
+    payment_provider: str | None = None,
 ) -> Order:
     """Freeze the cart into a persisted :class:`Order`.
 
@@ -205,7 +208,16 @@ def build_order(
 
     order.subtotal_cents = subtotal
     order.discount_cents = discount
-    order.total_cents = max(0, subtotal - discount)
+    base_total = max(0, subtotal - discount)
+    gateway_fee = 0
+    if payment_provider:
+        if payment_provider not in {"stripe", "paypal"}:
+            raise ValidationError("That payment method is not supported.")
+        payments = current_app.extensions["flux_config"].payments
+        gateway_fee = payments.gateway_fee_cents(payment_provider, base_total)
+    order.gateway_fee_cents = gateway_fee
+    order.payment_provider = payment_provider
+    order.total_cents = base_total + gateway_fee
     order.coupon_code = coupon.code if coupon else None
 
     db.session.add(order)

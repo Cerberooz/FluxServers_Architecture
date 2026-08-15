@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 from fluxweb.errors import AuthorizationError, DomainError
 from fluxweb.extensions import limiter
@@ -73,11 +73,22 @@ def _country_code_from_location(value: str | None) -> str:
 def _totals_payload() -> dict:
     items = cart_service.get_cart()
     quote = billing.quote(items, cart_service.get_coupon_code())
+    base_total_cents = int(quote["total_cents"])
+    payments = current_app.extensions["flux_config"].payments
+    payment_options = {
+        provider: {
+            "fee": round(payments.gateway_fee_cents(provider, base_total_cents) / 100, 2),
+            "total": round((base_total_cents + payments.gateway_fee_cents(provider, base_total_cents)) / 100, 2),
+        }
+        for provider, enabled in (("paypal", payments.paypal_enabled), ("stripe", payments.stripe_enabled))
+        if enabled
+    }
     return {
         "cart_count": len(items),
         "subtotal": round(int(quote["subtotal_cents"]) / 100, 2),
         "discount_amount": round(int(quote["discount_cents"]) / 100, 2),
         "total": round(int(quote["total_cents"]) / 100, 2),
+        "payment_options": payment_options,
     }
 
 
@@ -241,6 +252,7 @@ def view_cart():
         discount_percent=discount_percent,
         discount_amount=round(int(quote["discount_cents"]) / 100, 2),
         total=round(int(quote["total_cents"]) / 100, 2),
+        payment_options=_totals_payload()["payment_options"],
         coupon_code=quote["coupon_code"],
         requires_verification=bool(current_user() and not current_user().email_verified),
     )
