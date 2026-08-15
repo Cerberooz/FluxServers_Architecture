@@ -13,7 +13,7 @@ import SpinnerOverlay from '@/components/elements/SpinnerOverlay';
 import Tooltip from '@/components/elements/tooltip/Tooltip';
 import Avatar from '@/components/Avatar';
 import { usePersistedState } from '@/plugins/usePersistedState';
-import Dropdown from '@/components/elements/dropdown';
+import { Dropdown } from '@/components/elements/dropdown';
 
 const NavigationGroup = styled.div`
     & > a,
