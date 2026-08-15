@@ -4,6 +4,11 @@ import { createGlobalStyle } from 'styled-components/macro';
 import font from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2';
 
 export default createGlobalStyle`
+    html {
+        /* Keep the viewport width stable when an absolute menu opens. */
+        overflow-y: scroll;
+    }
+
     @font-face {
         font-family: 'IBM Plex Sans';
         font-style: normal;

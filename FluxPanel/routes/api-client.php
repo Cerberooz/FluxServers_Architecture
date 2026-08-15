@@ -20,6 +20,8 @@ use Pterodactyl\Http\Middleware\Api\Client\Server\AuthenticateServerAccess;
 Route::get('/', [Client\ClientController::class, 'index'])->name('api:client.index');
 Route::get('/permissions', [Client\ClientController::class, 'permissions']);
 Route::get('/billing', [Client\BillingController::class, 'index'])->name('api:client.billing');
+Route::get('/support', [Client\SupportController::class, 'index'])->name('api:client.support');
+Route::middleware('throttle:5,10')->post('/support', [Client\SupportController::class, 'store'])->name('api:client.support.store');
 
 Route::prefix('/account')->middleware(AccountSubject::class)->group(function () {
     Route::prefix('/')->withoutMiddleware(RequireTwoFactorAuthentication::class)->group(function () {

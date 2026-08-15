@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
+import { useLocation } from 'react-router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faAngleDoubleLeft, faBars, faCogs, faLayerGroup, faSignOutAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useStoreState } from 'easy-peasy';
@@ -79,22 +80,34 @@ const RightNavigation = styled.div`
 `;
 
 const PrimaryNavigation = styled.nav`
-    ${tw`hidden items-center gap-7 lg:flex`};
+    ${tw`relative hidden items-center gap-7 lg:flex`};
     height: 4.25rem;
 
     & > a {
-        ${tw`relative flex items-center text-sm no-underline text-neutral-400 transition-colors duration-150`};
+        ${tw`my-2 flex items-center rounded-lg px-3 py-2 text-sm no-underline text-neutral-400 transition-all duration-150`};
 
-        &:hover,
-        &.active {
-            ${tw`text-blue-400`};
+        &:hover {
+            ${tw`bg-neutral-700 text-neutral-100`};
         }
 
-        &.active::after {
-            ${tw`absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400`};
-            content: '';
+        &:active,
+        &.active {
+            ${tw`bg-neutral-700 text-neutral-100`};
         }
     }
+`;
+
+const PrimaryNavigationIndicator = styled.span<{ $left: number; $width: number; $visible: boolean }>`
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    width: ${({ $width }) => `${$width}px`};
+    opacity: ${({ $visible }) => ($visible ? 1 : 0)};
+    transform: translateX(${({ $left }) => `${$left}px`});
+    background: ${theme`colors.cyan.500`.toString()};
+    transition: transform 180ms ease-out, width 180ms ease-out, opacity 120ms ease-out;
+    pointer-events: none;
 `;
 
 type Props = {
@@ -110,6 +123,29 @@ export default ({ sidebar = false }: Props) => {
     const profileRef = useRef<HTMLDivElement>(null);
     const [collapsed, setCollapsed] = usePersistedState('layout:sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const location = useLocation();
+    const primaryNavigationRef = useRef<HTMLElement>(null);
+    const [primaryIndicator, setPrimaryIndicator] = useState({ left: 0, width: 0, visible: false });
+
+    useEffect(() => {
+        const activeTab = location.pathname.startsWith('/account/billing')
+            ? 'billing'
+            : location.pathname.startsWith('/account/support')
+              ? 'support'
+              : 'servers';
+
+        const updateIndicator = () => {
+            const navigation = primaryNavigationRef.current;
+            const tab = navigation?.querySelector(`[data-primary-tab="${activeTab}"]`) as HTMLElement | null;
+            if (!navigation || !tab) return;
+
+            setPrimaryIndicator({ left: tab.offsetLeft, width: tab.offsetWidth, visible: true });
+        };
+
+        updateIndicator();
+        window.addEventListener('resize', updateIndicator);
+        return () => window.removeEventListener('resize', updateIndicator);
+    }, [location.pathname]);
 
     const onTriggerLogout = () => {
         setIsLoggingOut(true);
@@ -131,9 +167,9 @@ export default ({ sidebar = false }: Props) => {
 
     if (!sidebar) {
         return (
-            <div className={'w-full bg-[#05070a] border-b border-[#17202e] shadow-md overflow-x-auto'}>
+            <div className={'relative z-50 w-full bg-[#05070a] border-b border-[#17202e] shadow-md overflow-visible'}>
                 <SpinnerOverlay visible={isLoggingOut} />
-                <div className={'mx-auto w-full flex items-center h-[4.25rem] max-w-[1180px] px-4 sm:px-6'}>
+                <div className={'relative mx-auto w-full flex items-center h-[4.25rem] max-w-[1180px] px-4 sm:px-6'}>
                     <div id={'logo'} className={'flex shrink-0 items-center'}>
                         <Link
                             to={'/'}
@@ -150,10 +186,11 @@ export default ({ sidebar = false }: Props) => {
                         </Link>
                     </div>
                     <div className={'mx-7 h-6 w-px shrink-0 bg-[#17202e]'} />
-                    <PrimaryNavigation>
-                        <NavLink to={'/'} exact>Servers</NavLink>
-                        <NavLink to={'/account/billing'}>Billing</NavLink>
-                        <NavLink to={'/account/support'}>Support</NavLink>
+                    <PrimaryNavigation ref={primaryNavigationRef}>
+                        <NavLink to={'/'} exact data-primary-tab={'servers'}>Servers</NavLink>
+                        <NavLink to={'/account/billing'} data-primary-tab={'billing'}>Billing</NavLink>
+                        <NavLink to={'/account/support'} data-primary-tab={'support'}>Support</NavLink>
+                        <PrimaryNavigationIndicator $left={primaryIndicator.left} $width={primaryIndicator.width} $visible={primaryIndicator.visible} />
                     </PrimaryNavigation>
                     <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />

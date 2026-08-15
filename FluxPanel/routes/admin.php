@@ -13,6 +13,7 @@ Route::prefix('subdomains')->group(function () {
     Route::post('/domains/{domain}/toggle', [Admin\SubdomainManagerController::class, 'toggleDomain'])->name('admin.subdomains.domains.toggle');
     Route::post('/{subdomain}/reconcile', [Admin\SubdomainManagerController::class, 'reconcile'])->name('admin.subdomains.reconcile');
 });
+Route::get('/support', [Admin\SupportTicketController::class, 'index'])->name('admin.support');
 
 /*
 |--------------------------------------------------------------------------

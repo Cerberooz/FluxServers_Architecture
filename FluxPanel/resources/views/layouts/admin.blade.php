@@ -107,6 +107,11 @@
                                 <i class="fa fa-link"></i> <span>Subdomain Manager</span>
                             </a>
                         </li>
+                        <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.support') ?: 'active' }}">
+                            <a href="{{ route('admin.support') }}">
+                                <i class="fa fa-life-ring"></i> <span>Support Tickets</span>
+                            </a>
+                        </li>
                         <li class="{{ ! starts_with(Route::currentRouteName(), 'admin.nodes') ?: 'active' }}">
                             <a href="{{ route('admin.nodes') }}">
                                 <i class="fa fa-sitemap"></i> <span>Nodes</span>

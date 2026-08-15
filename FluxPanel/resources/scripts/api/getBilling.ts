@@ -21,10 +21,28 @@ export interface BillingInvoice {
     description: string;
 }
 
+export interface BillingPagination {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+}
+
+export interface BillingPage<T> {
+    items: T[];
+    pagination: BillingPagination;
+}
+
 export interface BillingData {
-    services: BillingService[];
-    invoices: BillingInvoice[];
+    services: BillingPage<BillingService>;
+    invoices: BillingPage<BillingInvoice>;
     summary: { monthly_total_cents: number; next_billing_date: string | null };
 }
 
-export default (): Promise<BillingData> => http.get('/api/client/billing').then(({ data }) => data);
+export interface BillingQuery {
+    services_page: number;
+    invoices_page: number;
+    per_page: number;
+}
+
+export default (query: BillingQuery): Promise<BillingData> => http.get('/api/client/billing', { params: query }).then(({ data }) => data);
