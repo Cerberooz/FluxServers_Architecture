@@ -28,6 +28,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY . .
 COPY --from=frontend /app/public/assets ./public/assets
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
+    && mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views database \
     && chown -R www-data:www-data bootstrap/cache storage database
 
 COPY docker/entrypoint.sh /usr/local/bin/fluidpanel-entrypoint
