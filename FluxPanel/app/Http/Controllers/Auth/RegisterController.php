@@ -28,8 +28,17 @@ class RegisterController extends AbstractLoginController
             'name_last' => $request->input('name_last'),
             'password' => $request->input('password'),
             'root_admin' => false,
+            'email_verified_at' => null,
         ]);
 
-        return $this->sendLoginResponse($user, $request);
+        $user->sendEmailVerificationNotification();
+
+        return new JsonResponse([
+            'data' => [
+                'complete' => false,
+                'verification_required' => true,
+                'intended' => '/auth/login',
+            ],
+        ]);
     }
 }

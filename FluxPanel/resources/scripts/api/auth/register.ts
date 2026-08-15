@@ -41,6 +41,7 @@ export default ({
                 return resolve({
                     complete: response.data.data.complete,
                     intended: response.data.data.intended || undefined,
+                    verificationRequired: response.data.data.verification_required || false,
                     confirmationToken: response.data.data.confirmation_token || undefined,
                 });
             })

@@ -24,7 +24,7 @@ const RegisterContainer = () => {
     const ref = useRef<Reaptcha>(null);
     const [token, setToken] = useState('');
 
-    const { clearFlashes, clearAndAddHttpError } = useFlash();
+    const { clearFlashes, addFlash, clearAndAddHttpError } = useFlash();
     const { enabled: recaptchaEnabled, siteKey } = useStoreState((state) => state.settings.data!.recaptcha);
 
     useEffect(() => {
@@ -47,6 +47,13 @@ const RegisterContainer = () => {
 
         register({ ...values, recaptchaData: token })
             .then((response) => {
+                if (response.verificationRequired) {
+                    addFlash({
+                        type: 'success',
+                        title: 'Check your email',
+                        message: 'Your account was created. Verify your email address before signing in.',
+                    });
+                }
                 // @ts-expect-error this is valid
                 window.location = response.intended || '/';
             })

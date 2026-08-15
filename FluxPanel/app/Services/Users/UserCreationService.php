@@ -32,6 +32,12 @@ class UserCreationService
      */
     public function handle(array $data): User
     {
+        // Accounts created by an administrator are trusted. Public registration
+        // explicitly passes null and must complete email verification first.
+        if (!array_key_exists('email_verified_at', $data)) {
+            $data['email_verified_at'] = now();
+        }
+
         if (array_key_exists('password', $data) && !empty($data['password'])) {
             $data['password'] = $this->hasher->make($data['password']);
         }

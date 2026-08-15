@@ -4,6 +4,7 @@ export interface LoginResponse {
     complete: boolean;
     intended?: string;
     confirmationToken?: string;
+    verificationRequired?: boolean;
 }
 
 export interface LoginData {

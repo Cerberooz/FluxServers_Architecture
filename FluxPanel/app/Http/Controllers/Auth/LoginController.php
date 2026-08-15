@@ -53,6 +53,10 @@ class LoginController extends AbstractLoginController
             $this->sendFailedLoginResponse($request, $user);
         }
 
+        if (!$user->hasVerifiedEmail()) {
+            throw new DisplayException('Please verify your email address before signing in.');
+        }
+
         if (!$user->use_totp) {
             return $this->sendLoginResponse($user, $request);
         }

@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Pterodactyl\Contracts\Models\Identifiable;
 use Pterodactyl\Models\Traits\HasAccessTokens;
 use Illuminate\Auth\Passwords\CanResetPassword;
+use Illuminate\Auth\MustVerifyEmail;
 use Pterodactyl\Traits\Helpers\AvailableLanguages;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\Access\Authorizable;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
+use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Pterodactyl\Notifications\SendPasswordReset as ResetPasswordNotification;
 
 /**
@@ -86,12 +88,14 @@ class User extends Model implements
     AuthenticatableContract,
     AuthorizableContract,
     CanResetPasswordContract,
+    MustVerifyEmailContract,
     Identifiable
 {
     use Authenticatable;
     use Authorizable;
     use AvailableLanguages;
     use CanResetPassword;
+    use MustVerifyEmail;
     /** @use \Pterodactyl\Models\Traits\HasAccessTokens<\Pterodactyl\Models\ApiKey> */
     use HasAccessTokens;
     use Notifiable;
@@ -125,6 +129,7 @@ class User extends Model implements
         'external_id',
         'username',
         'email',
+        'email_verified_at',
         'name_first',
         'name_last',
         'password',
@@ -143,6 +148,7 @@ class User extends Model implements
         'root_admin' => 'boolean',
         'use_totp' => 'boolean',
         'gravatar' => 'boolean',
+        'email_verified_at' => 'datetime',
         'totp_authenticated_at' => 'datetime',
     ];
 
