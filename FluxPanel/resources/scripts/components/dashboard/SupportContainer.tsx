@@ -57,7 +57,7 @@ export default () => {
 
                 <section css={tw`mt-8`}>
                     <div css={tw`flex h-[58px] items-center justify-between`}><h2 css={tw`text-sm font-semibold text-neutral-100`}>Your tickets</h2><span css={tw`text-[10px] text-neutral-500`}>{data?.pagination.total || 0} total</span></div>
-                    {error && <p css={tw`border-y border-neutral-700 py-5 text-sm text-red-300`}>Could not load your tickets.</p>}
+                    {error && <p css={tw`border-t border-b border-neutral-700 py-5 text-sm text-red-300`}>Could not load your tickets.</p>}
                     {!data && !error ? <Spinner centered size={'large'} /> : data && <div css={tw`overflow-x-auto`}>
                         <table css={tw`w-full min-w-[760px] text-left`}><thead><tr css={tw`h-[34px] border-b border-neutral-700 text-[9px] font-medium uppercase tracking-wider text-neutral-400`}><th>Ticket</th><th>Subject</th><th>Status</th><th>Submitted</th></tr></thead><tbody>
                             {data.tickets.map((ticket) => <tr key={ticket.id} css={tw`border-b border-neutral-700 text-[11px]`}><td css={tw`py-4 font-mono text-neutral-400`}>#{ticket.id}</td><td css={tw`py-4 text-neutral-100`}>{ticket.subject}</td><td css={tw`py-4 uppercase text-neutral-300`}>{ticket.status.replace('_', ' ')}</td><td css={tw`py-4 text-neutral-400`}>{new Date(ticket.created_at).toLocaleDateString()}</td></tr>)}
