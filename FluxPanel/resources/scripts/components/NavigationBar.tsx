@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faAngleDoubleLeft, faBars, faCogs, faLayerGroup, faSignOutAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
@@ -13,7 +13,6 @@ import SpinnerOverlay from '@/components/elements/SpinnerOverlay';
 import Tooltip from '@/components/elements/tooltip/Tooltip';
 import Avatar from '@/components/Avatar';
 import { usePersistedState } from '@/plugins/usePersistedState';
-import { Dropdown } from '@/components/elements/dropdown';
 
 const NavigationGroup = styled.div`
     & > a,
@@ -107,6 +106,8 @@ export default ({ sidebar = false }: Props) => {
     const username = useStoreState((state: ApplicationStore) => state.user.data?.username || 'Account');
     const rootAdmin = useStoreState((state: ApplicationStore) => state.user.data!.rootAdmin);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [profileOpen, setProfileOpen] = useState(false);
+    const profileRef = useRef<HTMLDivElement>(null);
     const [collapsed, setCollapsed] = usePersistedState('layout:sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -117,6 +118,14 @@ export default ({ sidebar = false }: Props) => {
             window.location = '/';
         });
     };
+
+    useEffect(() => {
+        const closeProfile = (event: MouseEvent) => {
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) setProfileOpen(false);
+        };
+        document.addEventListener('mousedown', closeProfile);
+        return () => document.removeEventListener('mousedown', closeProfile);
+    }, []);
 
     const navCollapsed = !!collapsed;
 
@@ -149,15 +158,17 @@ export default ({ sidebar = false }: Props) => {
                     <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />
                         <div className={'hidden h-5 w-px bg-[#17202e] sm:block'} />
-                        <Dropdown>
-                            <Dropdown.Button className={'flex h-10 items-center gap-2 rounded-lg border border-transparent px-2 text-neutral-300 transition-colors duration-150 hover:border-neutral-700 hover:bg-neutral-800 hover:text-neutral-100'}>
+                        <div ref={profileRef} className={'relative'}>
+                            <button type={'button'} onClick={() => setProfileOpen((value) => !value)} className={'flex h-10 items-center gap-2 rounded-lg border border-transparent px-2 text-neutral-300 transition-colors duration-150 hover:border-neutral-700 hover:bg-neutral-800 hover:text-neutral-100'} aria-expanded={profileOpen}>
                                 <Avatar.User size={26} />
                                 <span className={'hidden text-sm font-medium sm:inline'}>{username}</span>
                                 <span className={'text-xs text-neutral-500'}>⌄</span>
-                            </Dropdown.Button>
-                            <Dropdown.Item onClick={(event) => { event.preventDefault(); window.location.href = '/account'; }}>Settings</Dropdown.Item>
-                            <Dropdown.Item danger onClick={(event) => { event.preventDefault(); onTriggerLogout(); }}>Log out</Dropdown.Item>
-                        </Dropdown>
+                            </button>
+                            {profileOpen && <div className={'absolute right-0 top-12 z-50 w-48 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-2xl'}>
+                                <Link to={'/account'} onClick={() => setProfileOpen(false)} className={'block rounded px-3 py-2 text-sm text-neutral-300 no-underline hover:bg-neutral-800 hover:text-white'}>Settings</Link>
+                                <button type={'button'} onClick={onTriggerLogout} className={'block w-full rounded px-3 py-2 text-left text-sm text-red-300 hover:bg-neutral-800 hover:text-red-200'}>Log out</button>
+                            </div>}
+                        </div>
                     </RightNavigation>
                 </div>
             </div>
