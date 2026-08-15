@@ -71,7 +71,7 @@ export default () => {
                             {finding.recommendation?.file && <p css={tw`mt-2 text-sm text-blue-200`}>Recommended: {finding.recommendation.file} — {finding.recommendation.key} = {finding.recommendation.value}</p>}
                             {finding.source && <a css={tw`mt-2 inline-block text-xs text-blue-300 hover:text-blue-200`} href={finding.source} target={'_blank'} rel={'noreferrer'}>Authoritative reference</a>}
                         </div>
-                        <div css={tw`flex h-min flex-wrap gap-2`}>
+                        <div css={tw`flex h-auto flex-wrap gap-2`}>
                             <Button size={'xsmall'} color={'grey'} onClick={() => action(`findings/${finding.id}/ignore`)}>Ignore</Button>
                             {finding.recommendation?.file && !finding.gameplay_change && <Button size={'xsmall'} color={'primary'} onClick={() => applyRecommendation(finding)}>Apply recommended setting</Button>}
                         </div>
