@@ -34,7 +34,6 @@ export default ({ server, className }: { server: Server; className?: string }) =
         return () => { if (interval.current) clearInterval(interval.current); };
     }, [server.uuid, server.status, server.isNodeUnderMaintenance]);
 
-    const allocation = server.allocations.find((item) => item.isDefault);
     const online = stats?.status === 'running';
     const status = server.status === 'suspended' ? 'Suspended' : server.isNodeUnderMaintenance ? 'Maintenance' : failed ? 'Unavailable' : stats ? (online ? 'Online' : 'Offline') : 'Loading';
     const cpu = stats ? `${stats.cpuUsagePercent.toFixed(2)}%` : '—';

@@ -15,7 +15,8 @@ const date = (value: string | null) => (value ? new Date(value).toLocaleDateStri
 
 export default () => {
     const { data, error } = useSWR<BillingData>('account-billing', getBilling);
-    const nextBillingDate = data?.summary.next_billing_date;
+    const summary = data?.summary || { monthly_total_cents: 0, next_billing_date: null };
+    const nextBillingDate = summary.next_billing_date;
 
     return (
         <PageContentBlock title={'Billing'}>
@@ -30,14 +31,14 @@ export default () => {
                     <>
                         <section css={tw`grid min-h-[90px] grid-cols-1 border-b border-t border-neutral-700 sm:grid-cols-2`}>
                             <div css={tw`border-b border-neutral-700 px-[22px] py-[18px] sm:border-b-0 sm:border-r`}>
-                                <p css={tw`text-xl font-semibold text-neutral-100`}>{money(data.summary.monthly_total_cents)}</p>
+                                <p css={tw`text-xl font-semibold text-neutral-100`}>{money(summary.monthly_total_cents)}</p>
                                 <p css={tw`mt-1 text-[9px] font-medium uppercase tracking-wider text-neutral-400`}>Current monthly total</p>
                                 <p css={tw`mt-1 text-[9px] text-neutral-600`}>{data.services.length} active services</p>
                             </div>
                             <div css={tw`px-[22px] py-[18px]`}>
                                 <p css={tw`text-xl font-semibold text-neutral-100`}>{nextBillingDate ? new Date(nextBillingDate).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }).toUpperCase() : '—'}</p>
                                 <p css={tw`mt-1 text-[9px] font-medium uppercase tracking-wider text-neutral-400`}>Next billing date</p>
-                                <p css={tw`mt-1 text-[9px] text-neutral-600`}>{money(data.summary.monthly_total_cents)} estimated</p>
+                                <p css={tw`mt-1 text-[9px] text-neutral-600`}>{money(summary.monthly_total_cents)} estimated</p>
                             </div>
                         </section>
 
