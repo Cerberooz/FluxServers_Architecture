@@ -33,8 +33,8 @@ class WebBillingService
                     ip_address, created_at, expires_at
              from server_record
              where user_id = ? and status <> ? order by created_at desc
-             limit ? offset ?',
-            [$user->id, 'Deleted', $perPage, $serviceOffset]
+             limit ' . $perPage . ' offset ' . $serviceOffset,
+            [$user->id, 'Deleted']
         );
 
         $invoiceTotal = (int) ($connection->selectOne(
@@ -45,8 +45,8 @@ class WebBillingService
         $orders = $connection->select(
             'select id, public_id, status, currency, total_cents, created_at, paid_at, payment_provider
              from customer_order where user_id = ? order by created_at desc
-             limit ? offset ?',
-            [$user->id, $perPage, $invoiceOffset]
+             limit ' . $perPage . ' offset ' . $invoiceOffset,
+            [$user->id]
         );
 
         $invoices = collect($orders)->map(function ($order) use ($connection) {

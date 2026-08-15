@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { useLocation } from 'react-router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faAngleDoubleLeft, faBars, faCogs, faLayerGroup, faSignOutAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { useStoreState } from 'easy-peasy';
@@ -92,22 +91,9 @@ const PrimaryNavigation = styled.nav`
 
         &:active,
         &.active {
-            ${tw`bg-neutral-700 text-neutral-100`};
+            ${tw`text-blue-400`};
         }
     }
-`;
-
-const PrimaryNavigationIndicator = styled.span<{ $left: number; $width: number; $visible: boolean }>`
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 2px;
-    width: ${({ $width }) => `${$width}px`};
-    opacity: ${({ $visible }) => ($visible ? 1 : 0)};
-    transform: translateX(${({ $left }) => `${$left}px`});
-    background: ${theme`colors.cyan.500`.toString()};
-    transition: transform 180ms ease-out, width 180ms ease-out, opacity 120ms ease-out;
-    pointer-events: none;
 `;
 
 type Props = {
@@ -123,29 +109,6 @@ export default ({ sidebar = false }: Props) => {
     const profileRef = useRef<HTMLDivElement>(null);
     const [collapsed, setCollapsed] = usePersistedState('layout:sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const location = useLocation();
-    const primaryNavigationRef = useRef<HTMLElement>(null);
-    const [primaryIndicator, setPrimaryIndicator] = useState({ left: 0, width: 0, visible: false });
-
-    useEffect(() => {
-        const activeTab = location.pathname.startsWith('/account/billing')
-            ? 'billing'
-            : location.pathname.startsWith('/account/support')
-              ? 'support'
-              : 'servers';
-
-        const updateIndicator = () => {
-            const navigation = primaryNavigationRef.current;
-            const tab = navigation?.querySelector(`[data-primary-tab="${activeTab}"]`) as HTMLElement | null;
-            if (!navigation || !tab) return;
-
-            setPrimaryIndicator({ left: tab.offsetLeft, width: tab.offsetWidth, visible: true });
-        };
-
-        updateIndicator();
-        window.addEventListener('resize', updateIndicator);
-        return () => window.removeEventListener('resize', updateIndicator);
-    }, [location.pathname]);
 
     const onTriggerLogout = () => {
         setIsLoggingOut(true);
@@ -186,11 +149,10 @@ export default ({ sidebar = false }: Props) => {
                         </Link>
                     </div>
                     <div className={'mx-7 h-6 w-px shrink-0 bg-[#17202e]'} />
-                    <PrimaryNavigation ref={primaryNavigationRef}>
-                        <NavLink to={'/'} exact data-primary-tab={'servers'}>Servers</NavLink>
-                        <NavLink to={'/account/billing'} data-primary-tab={'billing'}>Billing</NavLink>
-                        <NavLink to={'/account/support'} data-primary-tab={'support'}>Support</NavLink>
-                        <PrimaryNavigationIndicator $left={primaryIndicator.left} $width={primaryIndicator.width} $visible={primaryIndicator.visible} />
+                    <PrimaryNavigation>
+                        <NavLink to={'/'} exact>Servers</NavLink>
+                        <NavLink to={'/account/billing'}>Billing</NavLink>
+                        <NavLink to={'/account/support'}>Support</NavLink>
                     </PrimaryNavigation>
                     <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />
