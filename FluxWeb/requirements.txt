@@ -15,6 +15,8 @@ alembic==1.13.3
 Flask-WTF==1.2.1
 WTForms==3.1.2
 Flask-Limiter==3.8.0
+# Flask-Limiter's Redis storage backend requires redis-py at runtime.
+redis==5.2.1
 python-dotenv==1.2.2
 stripe==10.12.0
 psycopg2-binary==2.9.10
