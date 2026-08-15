@@ -41,6 +41,8 @@ docker compose config -q
 if [ "$build" = true ]; then
     # Build one image at a time to avoid simultaneous build memory spikes.
     docker compose build panel
+    docker compose build worker
+    docker compose build scheduler
     docker compose build status
     docker compose build web
 fi
