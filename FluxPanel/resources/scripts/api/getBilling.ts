@@ -8,7 +8,6 @@ export interface BillingService {
     ip_address: string | null;
     created_at: string | null;
     expires_at: string | null;
-    monthly_price: number | null;
 }
 
 export interface BillingInvoice {
@@ -25,7 +24,7 @@ export interface BillingInvoice {
 export interface BillingData {
     services: BillingService[];
     invoices: BillingInvoice[];
-    summary: { monthly_total_cents: number };
+    summary: { monthly_total_cents: number; next_billing_date: string | null };
 }
 
 export default (): Promise<BillingData> => http.get('/api/client/billing').then(({ data }) => data);

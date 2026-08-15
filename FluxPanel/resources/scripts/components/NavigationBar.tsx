@@ -13,6 +13,7 @@ import SpinnerOverlay from '@/components/elements/SpinnerOverlay';
 import Tooltip from '@/components/elements/tooltip/Tooltip';
 import Avatar from '@/components/Avatar';
 import { usePersistedState } from '@/plugins/usePersistedState';
+import Dropdown from '@/components/elements/dropdown';
 
 const NavigationGroup = styled.div`
     & > a,
@@ -78,12 +79,41 @@ const RightNavigation = styled.div`
     }
 `;
 
+const PrimaryNavigation = styled.nav`
+    ${tw`hidden items-center gap-7 lg:flex`};
+    height: 4.25rem;
+
+    & > a {
+        ${tw`relative flex items-center text-sm no-underline text-neutral-400 transition-colors duration-150`};
+
+        &:hover,
+        &.active {
+            ${tw`text-blue-400`};
+        }
+
+        &.active::after {
+            ${tw`absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400`};
+            content: '';
+        }
+    }
+`;
+
+const ProfileButton = styled(Dropdown.Button)`
+    ${tw`flex h-10 items-center gap-2 rounded-lg border border-transparent px-2 text-neutral-300 transition-colors duration-150`};
+
+    &:hover,
+    &[aria-expanded='true'] {
+        ${tw`border-neutral-700 bg-neutral-800 text-neutral-100`};
+    }
+`;
+
 type Props = {
     sidebar?: boolean;
 };
 
 export default ({ sidebar = false }: Props) => {
     const name = useStoreState((state: ApplicationStore) => state.settings.data!.name);
+    const username = useStoreState((state: ApplicationStore) => state.user.data?.username || 'Account');
     const rootAdmin = useStoreState((state: ApplicationStore) => state.user.data!.rootAdmin);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [collapsed, setCollapsed] = usePersistedState('layout:sidebar:collapsed', false);
@@ -101,10 +131,10 @@ export default ({ sidebar = false }: Props) => {
 
     if (!sidebar) {
         return (
-            <div className={'w-full bg-neutral-900 border-b border-neutral-600 shadow-md overflow-x-auto'}>
+            <div className={'w-full bg-[#05070a] border-b border-[#17202e] shadow-md overflow-x-auto'}>
                 <SpinnerOverlay visible={isLoggingOut} />
-                <div className={'mx-auto w-full flex items-center h-[4.25rem] max-w-[1280px] px-4 sm:px-6'}>
-                    <div id={'logo'} className={'flex-1'}>
+                <div className={'mx-auto w-full flex items-center h-[4.25rem] max-w-[1180px] px-4 sm:px-6'}>
+                    <div id={'logo'} className={'flex shrink-0 items-center'}>
                         <Link
                             to={'/'}
                             className={
@@ -119,37 +149,23 @@ export default ({ sidebar = false }: Props) => {
                             <span>{name}</span>
                         </Link>
                     </div>
-                    <div className={'hidden items-center gap-1 lg:flex mr-4'}>
-                        <NavLink to={'/'} className={'px-3 py-2 text-sm text-neutral-300 no-underline hover:text-white'}>Servers</NavLink>
-                        <NavLink to={'/account/billing'} className={'px-3 py-2 text-sm text-neutral-300 no-underline hover:text-white'}>Billing</NavLink>
-                        <NavLink to={'/account/support'} className={'px-3 py-2 text-sm text-neutral-300 no-underline hover:text-white'}>Support</NavLink>
-                    </div>
-                    <RightNavigation className={'flex items-center justify-center gap-2'}>
+                    <div className={'mx-7 h-6 w-px shrink-0 bg-[#17202e]'} />
+                    <PrimaryNavigation>
+                        <NavLink to={'/'} exact>Servers</NavLink>
+                        <NavLink to={'/account/billing'}>Billing</NavLink>
+                        <NavLink to={'/account/support'}>Support</NavLink>
+                    </PrimaryNavigation>
+                    <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />
-                        <Tooltip placement={'bottom'} content={'Dashboard'}>
-                            <NavLink to={'/'} exact>
-                                <FontAwesomeIcon icon={faLayerGroup} />
-                            </NavLink>
-                        </Tooltip>
-                        {rootAdmin && (
-                            <Tooltip placement={'bottom'} content={'Admin'}>
-                                <a href={'/admin'} rel={'noreferrer'}>
-                                    <FontAwesomeIcon icon={faCogs} />
-                                </a>
-                            </Tooltip>
-                        )}
-                        <Tooltip placement={'bottom'} content={'Account Settings'}>
-                            <NavLink to={'/account'}>
-                                <span className={'flex items-center w-5 h-5'}>
-                                    <Avatar.User />
-                                </span>
-                            </NavLink>
-                        </Tooltip>
-                        <Tooltip placement={'bottom'} content={'Sign Out'}>
-                            <button onClick={onTriggerLogout}>
-                                <FontAwesomeIcon icon={faSignOutAlt} />
-                            </button>
-                        </Tooltip>
+                        <Dropdown>
+                            <ProfileButton>
+                                <Avatar.User size={26} />
+                                <span className={'hidden text-sm font-medium sm:inline'}>{username}</span>
+                                <span className={'text-xs text-neutral-500'}>⌄</span>
+                            </ProfileButton>
+                            <Dropdown.Item onClick={(event) => { event.preventDefault(); window.location.href = '/account'; }}>Settings</Dropdown.Item>
+                            <Dropdown.Item danger onClick={(event) => { event.preventDefault(); onTriggerLogout(); }}>Log out</Dropdown.Item>
+                        </Dropdown>
                     </RightNavigation>
                 </div>
             </div>

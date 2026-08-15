@@ -17,28 +17,49 @@ class WebBillingService
         }
 
         $services = $connection->select(
-            'select s.pelican_server_identifier as identifier, s.plan_name, s.node_name, s.status,
-                    s.ip_address, s.created_at, s.expires_at, p.price as monthly_price
-             from server_record s left join game_plan p on p.id = s.plan_id
-             where s.user_id = ? and s.status <> ? order by s.created_at desc',
+            'select pelican_server_identifier as identifier, plan_name, node_name, status,
+                    ip_address, created_at, expires_at
+             from server_record
+             where user_id = ? and status <> ? order by created_at desc',
             [$user->id, 'Deleted']
         );
 
-        $invoices = $connection->select(
-            'select o.public_id, o.status, o.currency, o.total_cents, o.created_at,
-                    o.paid_at, o.payment_provider,
-                    coalesce(string_agg(i.name, \' , \' order by i.id), \'Service\') as description
-             from customer_order o left join customer_order_item i on i.order_id = o.id
-             where o.user_id = ? group by o.id order by o.created_at desc limit 50',
+        $orders = $connection->select(
+            'select id, public_id, status, currency, total_cents, created_at, paid_at, payment_provider
+             from customer_order where user_id = ? order by created_at desc limit 50',
             [$user->id]
         );
 
-        $monthlyTotal = collect($services)->sum(fn ($service) => (float) ($service->monthly_price ?? 0));
+        $invoices = collect($orders)->map(function ($order) use ($connection) {
+            $items = $connection->select(
+                'select name from customer_order_item where order_id = ? order by id',
+                [$order->id]
+            );
+
+            return [
+                'public_id' => $order->public_id,
+                'status' => $order->status,
+                'currency' => $order->currency,
+                'total_cents' => $order->total_cents,
+                'created_at' => $order->created_at,
+                'paid_at' => $order->paid_at,
+                'payment_provider' => $order->payment_provider,
+                'description' => collect($items)->pluck('name')->join(', ') ?: 'Service',
+            ];
+        })->values()->all();
+
+        $monthlyTotal = collect($invoices)
+            ->filter(fn ($invoice) => in_array($invoice['status'], ['paid', 'provisioning', 'completed'], true))
+            ->sum('total_cents');
+        $nextBillingDate = collect($services)->pluck('expires_at')->filter()->sort()->first();
 
         return [
             'services' => $services,
             'invoices' => $invoices,
-            'summary' => ['monthly_total_cents' => (int) round($monthlyTotal * 100)],
+            'summary' => [
+                'monthly_total_cents' => (int) $monthlyTotal,
+                'next_billing_date' => $nextBillingDate,
+            ],
         ];
     }
 }

@@ -20,7 +20,7 @@ export default () => {
                     <SubNavigation>
                         <div>
                             {routes.account
-                                .filter((route) => !!route.name)
+                                .filter((route) => !!route.name && !['Billing', 'Support'].includes(route.name))
                                 .map(({ path, name, exact = false }) => (
                                     <NavLink key={path} to={`/account/${path}`.replace('//', '/')} exact={exact}>
                                         {name}
