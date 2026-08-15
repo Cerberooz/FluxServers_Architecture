@@ -5,7 +5,7 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 
-for env_file in FluxWeb/.env.production "Flux Status/.env"; do
+for env_file in FluxWeb/.env.production FluxStatus/.env; do
     if [ ! -f "$env_file" ]; then
         echo "Missing $env_file. Configure that application before starting the public VPS." >&2
         exit 1
@@ -40,14 +40,14 @@ require_any_env_key() {
     fi
 }
 
-require_env_key "Flux Status/.env" PANEL_URL
-require_env_key "Flux Status/.env" PANEL_API_KEY
+require_env_key "FluxStatus/.env" PANEL_URL
+require_env_key "FluxStatus/.env" PANEL_API_KEY
 require_any_env_key FluxWeb/.env.production FLUID_URL PANEL_URL
 require_any_env_key FluxWeb/.env.production FLUID_API_KEY PANEL_API_KEY
 require_env_key FluxWeb/.env.production DATABASE_URL
 require_env_key FluxWeb/.env.production DIRECT_URL
 
-status_panel_url=$(env_value "Flux Status/.env" PANEL_URL)
+status_panel_url=$(env_value "FluxStatus/.env" PANEL_URL)
 web_panel_url=$(env_value FluxWeb/.env.production FLUID_URL || true)
 if [ -z "$web_panel_url" ]; then
     web_panel_url=$(env_value FluxWeb/.env.production PANEL_URL)
@@ -55,7 +55,7 @@ fi
 
 case "$status_panel_url" in
     http://panel|http://panel/*|http://localhost*|http://127.0.0.1*)
-        echo "Flux Status/.env PANEL_URL must be the public Panel URL on the public VPS." >&2
+        echo "FluxStatus/.env PANEL_URL must be the public Panel URL on the public VPS." >&2
         echo "Use: PANEL_URL=https://panel.fluxservers.cloud" >&2
         exit 1
         ;;

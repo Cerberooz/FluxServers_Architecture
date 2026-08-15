@@ -23,7 +23,7 @@ if [ ! -f .env ]; then
     ./scripts/create-compose-env.sh
 fi
 
-for env_file in FluxPanel/.env FluxWeb/.env.production "Flux Status/.env"; do
+for env_file in FluxPanel/.env FluxWeb/.env.production FluxStatus/.env; do
     if [ ! -f "$env_file" ]; then
         echo "Missing $env_file. Configure it before starting the stack." >&2
         exit 1

@@ -6,7 +6,7 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 
-for env_file in FluxPanel/.env FluxWeb/.env.production "Flux Status/.env"; do
+for env_file in FluxPanel/.env FluxWeb/.env.production FluxStatus/.env; do
     if [ ! -f "$env_file" ]; then
         echo "Missing $env_file. Configure that application before starting it." >&2
         exit 1

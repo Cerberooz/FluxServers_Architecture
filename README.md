@@ -7,7 +7,7 @@ two small VPSes with the role-specific Compose files.
 | Directory | Service | Local-only port | Public hostname |
 | --- | --- | ---: | --- |
 | `FluxPanel` | FluidPanel, worker, scheduler | 18080 | `panel.fluxservers.cloud` |
-| `Flux Status` | status page | 18081 | `status.fluxservers.cloud` |
+| `FluxStatus` | status page | 18081 | `status.fluxservers.cloud` |
 | `FluxWeb` | customer website and billing | 18082 | `fluxservers.cloud` and `www.fluxservers.cloud` |
 | root `compose.yaml` | Panel MariaDB and shared Redis | private Docker network | none |
 
@@ -48,7 +48,7 @@ If you create it manually instead, use `.env.example` and set the root variables
 Keep the three application environment files in their app folders:
 
 - `FluxPanel/.env`
-- `Flux Status/.env`
+- `FluxStatus/.env`
 - `FluxWeb/.env.production`
 
 For FluxWeb production, ensure `FLASK_ENV=production`, `BASE_URL=https://fluxservers.cloud`, its Supabase/Postgres (`DATABASE_URL` and `DIRECT_URL`) values, Supabase Auth values, and its Panel Application API key are configured. FluxWeb does **not** use the internal MariaDB container. In the split-VPS layout, `FLUID_URL` should be `https://panel.fluxservers.cloud`; in the single-VPS layout, Compose overrides it internally.
@@ -88,7 +88,7 @@ sudo ./scripts/setup-public-vps.sh
 sudo ./scripts/verify-public-vps.sh
 ```
 
-On the public VPS, set the Panel URL used by FluxWeb and Flux Status to the
+On the public VPS, set the Panel URL used by FluxWeb and FluxStatus to the
 public Panel hostname because the Panel is no longer on the same Docker network:
 
 ```env
@@ -97,7 +97,7 @@ PANEL_URL=https://panel.fluxservers.cloud
 ```
 
 Put `FLUID_URL` in `FluxWeb/.env.production` and `PANEL_URL` in
-`Flux Status/.env`. `scripts/setup-public-vps.sh` checks those values before it
+`FluxStatus/.env`. `scripts/setup-public-vps.sh` checks those values before it
 starts the public apps.
 
 If you intentionally want all business services on one VPS, use the original

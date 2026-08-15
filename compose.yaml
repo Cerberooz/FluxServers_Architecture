@@ -87,12 +87,12 @@ services:
 
   status:
     build:
-      context: ./Flux Status
+      context: ./FluxStatus
     restart: unless-stopped
     ports:
       - "127.0.0.1:18081:5000"
     env_file:
-      - ./Flux Status/.env
+      - ./FluxStatus/.env
     environment:
       PANEL_URL: http://panel
     depends_on:
