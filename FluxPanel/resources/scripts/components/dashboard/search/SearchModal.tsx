@@ -13,7 +13,6 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import tw from 'twin.macro';
 import Input from '@/components/elements/Input';
-import { ip } from '@/lib/formatters';
 
 type Props = RequiredModalProps;
 
@@ -113,7 +112,7 @@ export default ({ ...props }: Props) => {
                                                 .filter((alloc) => alloc.isDefault)
                                                 .map((allocation) => (
                                                     <span key={allocation.ip + allocation.port.toString()}>
-                                                        {allocation.alias || ip(allocation.ip)}:{allocation.port}
+                                                        {allocation.address}
                                                     </span>
                                                 ))}
                                         </p>

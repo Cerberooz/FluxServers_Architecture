@@ -11,6 +11,7 @@ use Pterodactyl\Models\SubdomainDnsOperation;
 use Pterodactyl\Models\SubdomainDomain;
 use Pterodactyl\Contracts\Repository\SettingsRepositoryInterface;
 use Pterodactyl\Services\Subdomains\DNSProvider;
+use Pterodactyl\Jobs\Subdomains\SyncServerSubdomainJob;
 
 class SubdomainManagerController extends Controller
 {
@@ -42,4 +43,11 @@ class SubdomainManagerController extends Controller
     }
 
     public function toggleDomain(SubdomainDomain $domain): RedirectResponse { $domain->update(['enabled' => !$domain->enabled]); return back()->with('success', 'Domain updated.'); }
+
+    public function reconcile(ServerSubdomain $subdomain): RedirectResponse
+    {
+        SyncServerSubdomainJob::dispatch($subdomain);
+
+        return back()->with('success', "Queued DNS reconciliation for {$subdomain->hostname}.");
+    }
 }

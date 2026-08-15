@@ -8,6 +8,7 @@ export interface Allocation {
     ip: string;
     alias: string | null;
     port: number;
+    address: string;
     notes: string | null;
     isDefault: boolean;
 }

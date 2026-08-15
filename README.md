@@ -53,6 +53,21 @@ Keep the three application environment files in their app folders:
 
 For FluxWeb production, ensure `FLASK_ENV=production`, `BASE_URL=https://fluxservers.cloud`, its Supabase/Postgres (`DATABASE_URL` and `DIRECT_URL`) values, Supabase Auth values, and its Panel Application API key are configured. FluxWeb does **not** use the internal MariaDB container. In the split-VPS layout, `FLUID_URL` should be `https://panel.fluxservers.cloud`; in the single-VPS layout, Compose overrides it internally.
 
+### Minecraft protected ingress and customer subdomains
+
+Set this in `FluxPanel/.env` before starting the Panel:
+
+```env
+MINECRAFT_PUBLIC_HOST=play.fluxservers.cloud
+```
+
+This must be the Sucura-protected Minecraft hostname, never a Wings/node IP.
+Customer allocations are shown as `play.fluxservers.cloud:<port>`. Customer
+subdomains are created as DNS-only SRV records targeting that hostname, so no
+per-customer A record exposes the origin node. In **Admin → Subdomain Manager**,
+store a Cloudflare token with only **Zone:DNS:Edit** and **Zone:Zone:Read** for
+the relevant zones, then register each root domain and its zone ID.
+
 ## Start or update every service
 
 For the recommended two-app-VPS split, run these instead:
@@ -86,14 +101,26 @@ Put `FLUID_URL` in `FluxWeb/.env.production` and `PANEL_URL` in
 starts the public apps.
 
 If you intentionally want all business services on one VPS, use the original
-single-stack command:
+single-stack command. It starts MariaDB, Redis, Panel, worker, scheduler,
+Status, Web, and Web Sync without removing persistent data:
 
 ```bash
 cd ~/FluxServers
 chmod +x scripts/*.sh
-sudo ./scripts/deploy.sh
+sudo ./scripts/start-all.sh --build
 sudo ./scripts/verify-stack.sh
 ```
+
+For ordinary restarts without rebuilding images, run:
+
+```bash
+sudo ./scripts/start-all.sh
+```
+
+The whole stack can technically run on a 1 GB VPS, but it is not a reliable
+production capacity: MariaDB plus three Panel PHP processes, Flask Web/Status,
+and Redis can exhaust memory during builds, migrations, or traffic. Use at
+least 2 GB RAM (4 GB preferred), or add swap as a temporary safeguard.
 
 The Web migration uses `DIRECT_URL` from `FluxWeb/.env.production`; it does not touch the Panel MariaDB database.
 

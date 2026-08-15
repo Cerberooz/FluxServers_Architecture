@@ -193,4 +193,15 @@ return [
     'features' => [
         'new_server_identifiers' => (bool) env('PTERODACTYL_USE_SERVER_IDENTIFIERS', false),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Public Minecraft ingress
+    |--------------------------------------------------------------------------
+    |
+    | This is the protected hostname customers connect to. Allocations retain
+    | their real node IPs internally; client-facing addresses are derived from
+    | this hostname and the allocation port.
+    */
+    'minecraft_public_host' => env('MINECRAFT_PUBLIC_HOST', 'play.fluxservers.cloud'),
 ];

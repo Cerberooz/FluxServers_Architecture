@@ -12,6 +12,7 @@ use Pterodactyl\Models\SubdomainDomain;
 use Pterodactyl\Jobs\Subdomains\SyncServerSubdomainJob;
 use Pterodactyl\Jobs\Subdomains\DeleteServerSubdomainJob;
 use Pterodactyl\Services\Subdomains\SubdomainDnsService;
+use Pterodactyl\Services\Servers\PublicMinecraftAddressService;
 use Pterodactyl\Http\Controllers\Api\Client\ClientApiController;
 
 class SubdomainController extends ClientApiController
@@ -59,6 +60,16 @@ class SubdomainController extends ClientApiController
 
     private function payload(ServerSubdomain $subdomain): array
     {
-        return ['id' => $subdomain->id, 'hostname' => $subdomain->hostname, 'status' => $subdomain->status, 'last_error' => $subdomain->last_error, 'port' => $subdomain->target_port, 'connection_address' => $subdomain->target_port && $subdomain->target_port !== 25565 ? $subdomain->hostname : $subdomain->hostname];
+        $host = app(PublicMinecraftAddressService::class)->host();
+
+        return [
+            'id' => $subdomain->id,
+            'hostname' => $subdomain->hostname,
+            'status' => $subdomain->status,
+            'last_error' => $subdomain->last_error,
+            'port' => $subdomain->target_port,
+            'connection_address' => $subdomain->hostname,
+            'default_address' => $subdomain->target_port ? "{$host}:{$subdomain->target_port}" : null,
+        ];
     }
 }

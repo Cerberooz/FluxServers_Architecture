@@ -14,6 +14,12 @@ class CloudflareDNSProvider implements DNSProvider
     public function createRecord(string $zoneId, array $record): array { return $this->request('post', "/zones/{$zoneId}/dns_records", $record); }
     public function updateRecord(string $zoneId, string $recordId, array $record): array { return $this->request('put', "/zones/{$zoneId}/dns_records/{$recordId}", $record); }
     public function deleteRecord(string $zoneId, string $recordId): void { $this->request('delete', "/zones/{$zoneId}/dns_records/{$recordId}"); }
+    public function findRecord(string $zoneId, string $type, string $name): ?array
+    {
+        $records = $this->request('get', "/zones/{$zoneId}/dns_records", ['type' => $type, 'name' => $name]);
+
+        return $records[0] ?? null;
+    }
     public function testConnection(): void { $this->request('get', '/user/tokens/verify'); }
 
     private function request(string $method, string $path, array $payload = []): array
@@ -23,6 +29,11 @@ class CloudflareDNSProvider implements DNSProvider
         try { $token = Crypt::decryptString($encrypted); } catch (\Throwable) { throw new DisplayException('The Cloudflare token could not be decrypted.'); }
         $response = Http::baseUrl('https://api.cloudflare.com/client/v4')->withToken($token)->acceptJson()->{$method}($path, $payload);
         $data = $response->json();
+        // A managed record can have been manually removed. Treating this as an
+        // idempotent delete lets reconciliation and customer deletion recover.
+        if ($method === 'delete' && $response->status() === 404) {
+            return [];
+        }
         if (!$response->successful() || !($data['success'] ?? false)) {
             throw new DisplayException('Cloudflare DNS request failed: ' . ($data['errors'][0]['message'] ?? $response->status()));
         }

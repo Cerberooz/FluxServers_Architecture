@@ -1,0 +1,1273 @@
+You are working on the **FluxServers hosting panel**.
+
+Your task is to inspect the existing codebase and prepare the panel for a network infrastructure change affecting how Minecraft server connection addresses and customer subdomains are managed.
+
+## New infrastructure
+
+FluxServers will use this architecture:
+
+```text
+Customer
+   ↓
+play.fluxservers.cloud:<allocated-port>
+   ↓
+Sucura Networks protected IP
+   ↓
+HatchHost Minecraft node:<same-port>
+   ↓
+Customer Minecraft server
+```
+
+There will initially be:
+
+* One HatchHost Minecraft hosting node, currently planned as a 48 GB node.
+* One Sucura Networks Minecraft protection endpoint.
+* Sucura provides one protected frontend IP / DNS record and one backend node.
+* Two small VPS instances remain responsible for web, panel, database, and other supporting operations.
+
+The important design change is that **customers should never need the HatchHost node's real public IP as their displayed server address.**
+
+The canonical protected hostname will be:
+
+```text
+play.fluxservers.cloud
+```
+
+It will resolve to the Sucura protected IP.
+
+Each Minecraft server receives its own allocated port from the hosting node.
+
+Example:
+
+```text
+Customer server allocation:
+HatchHostNodeIP:3333
+```
+
+The customer-facing default address should instead be:
+
+```text
+play.fluxservers.cloud:3333
+```
+
+Sucura is expected to forward the connection to:
+
+```text
+HatchHostNodeIP:3333
+```
+
+Do **not** hardcode the HatchHost IP, Sucura IP, or ports into application logic.
+
+---
+
+# Customer custom subdomains
+
+FluxServers already supports or is intended to support customer-managed subdomains.
+
+For example, a customer allocated port:
+
+```text
+3333
+```
+
+may choose:
+
+```text
+james.fluxservers.cloud
+```
+
+The system should NOT create:
+
+```dns
+james.fluxservers.cloud A <Sucura IP>
+```
+
+unless the existing DNS implementation requires an A/CNAME record for some unrelated reason.
+
+Instead, Minecraft custom domains should use an **SRV record**:
+
+```dns
+_minecraft._tcp.james.fluxservers.cloud
+```
+
+with:
+
+```text
+Priority: 0
+Weight: 0
+Port: 3333
+Target: play.fluxservers.cloud
+```
+
+Conceptually:
+
+```text
+james.fluxservers.cloud
+        ↓ Minecraft SRV lookup
+play.fluxservers.cloud:3333
+        ↓
+Sucura protected IP:3333
+        ↓
+HatchHost node:3333
+```
+
+This means **no wildcard ****`*.fluxservers.cloud`**** A record is required for Minecraft customer subdomains.**
+
+---
+
+# Your task
+
+First, inspect the existing repository and determine:
+
+1. How Minecraft nodes are represented.
+2. How Pterodactyl server allocations are stored or retrieved.
+3. How server connection addresses are currently generated.
+4. How customer custom subdomains currently work.
+5. Where DNS records are created/deleted/updated.
+6. Whether Cloudflare or another DNS provider/API is currently being used.
+7. How node IPs are exposed to the frontend.
+8. Whether the database currently stores:
+
+   * node IP
+   * allocation IP
+   * allocation port
+   * custom subdomain
+   * customer-facing connection address
+9. Which backend routes/services handle server provisioning and subdomain management.
+10. Which frontend components display server IP/address information.
+
+Do not start by rewriting large parts of the application.
+
+Understand the current architecture first and make the smallest clean changes necessary.
+
+---
+
+# Desired architecture
+
+Separate these concepts clearly:
+
+### Internal allocation
+
+The actual Pterodactyl allocation:
+
+```text
+<origin-node-ip>:<port>
+```
+
+Example:
+
+```text
+203.0.113.50:3333
+```
+
+This is internal infrastructure information.
+
+It may be needed for:
+
+* Pterodactyl API communication
+* provisioning
+* node administration
+* health checks
+* internal networking
+
+It should generally **not be displayed to customers**.
+
+### Public protected hostname
+
+The externally advertised Minecraft ingress hostname:
+
+```text
+play.fluxservers.cloud
+```
+
+This should be configurable.
+
+Prefer something such as:
+
+```env
+MINECRAFT_PUBLIC_HOST=play.fluxservers.cloud
+```
+
+or an equivalent existing configuration system.
+
+Do not scatter `"play.fluxservers.cloud"` throughout the codebase.
+
+### Public server address
+
+For an allocation on port 3333:
+
+```text
+play.fluxservers.cloud:3333
+```
+
+Generate this from:
+
+```text
+public Minecraft hostname + allocation port
+```
+
+rather than storing a redundant full string unless the existing architecture strongly benefits from doing so.
+
+For example:
+
+```text
+publicAddress = `${MINECRAFT_PUBLIC_HOST}:${allocation.port}`
+```
+
+---
+
+# Custom subdomain behavior
+
+Suppose:
+
+```text
+server allocation port = 3333
+custom subdomain = james
+public host = play.fluxservers.cloud
+```
+
+Creating the custom domain should result in:
+
+```text
+Name:
+_minecraft._tcp.james.fluxservers.cloud
+
+Type:
+SRV
+
+Priority:
+0
+
+Weight:
+0
+
+Port:
+3333
+
+Target:
+play.fluxservers.cloud
+```
+
+The customer should then be shown:
+
+```text
+james.fluxservers.cloud
+```
+
+as their custom connection address.
+
+The UI may additionally show:
+
+```text
+Default address:
+play.fluxservers.cloud:3333
+```
+
+---
+
+# DNS abstraction
+
+Inspect how DNS is currently implemented.
+
+If DNS functionality is tightly coupled to A records, refactor it enough to properly support SRV records.
+
+Prefer a reusable DNS service interface such as conceptually:
+
+```text
+createMinecraftSrvRecord(...)
+deleteMinecraftSrvRecord(...)
+updateMinecraftSrvRecord(...)
+```
+
+or a generic DNS abstraction if one already exists.
+
+Avoid duplicating DNS API calls across controllers/routes.
+
+If Cloudflare is being used, follow its current API integration conventions rather than introducing an entirely separate networking library without reason.
+
+The SRV payload needs to correctly represent:
+
+```text
+service = _minecraft
+proto = _tcp
+name = customer subdomain
+priority = 0
+weight = 0
+port = server allocation port
+target = play.fluxservers.cloud
+```
+
+Pay close attention to the exact DNS provider API format.
+
+---
+
+# Subdomain validation
+
+Review and harden validation while making this change.
+
+Customer-selected subdomains should:
+
+* be normalized to lowercase where appropriate
+* reject spaces
+* reject invalid DNS characters
+* reject dots if customers are only permitted a single label
+* have a reasonable length limit
+* reject already-used names
+* reject reserved FluxServers names
+
+At minimum consider reserving names such as:
+
+```text
+www
+api
+panel
+admin
+billing
+status
+mail
+smtp
+ftp
+sftp
+node
+nodes
+play
+minecraft
+mc
+support
+cdn
+assets
+static
+db
+database
+mysql
+redis
+auth
+```
+
+Reuse existing validation/reservation logic if it already exists.
+
+Do not unnecessarily break existing valid customer subdomains.
+
+---
+
+# Updating an existing custom subdomain
+
+If the customer changes:
+
+```text
+james.fluxservers.cloud
+```
+
+to:
+
+```text
+survival.fluxservers.cloud
+```
+
+the panel should:
+
+1. Validate the new name.
+2. Create/update the appropriate SRV record.
+3. Remove the old SRV record.
+4. Update the database only when DNS changes have succeeded or otherwise preserve a recoverable consistent state.
+5. Return meaningful errors if the DNS provider fails.
+
+Avoid leaving orphaned SRV records.
+
+# Server node migration
+
+The panel must support servers being moved between hosting nodes without leaving stale server, user, allocation, or DNS state.
+
+This is separate from simply being "multi-node ready."
+
+Inspect the existing server migration / node transfer functionality and determine how Pterodactyl server moves are currently initiated and detected.
+
+A server migration may change:
+
+```text
+node_id
+allocation_id
+allocation_ip
+allocation_port
+```
+
+For example:
+
+```text
+Before:
+
+Node A
+Allocation: <node-a-ip>:3333
+Custom domain: james.fluxservers.cloud
+
+After:
+
+Node B
+Allocation: <node-b-ip>:4217
+Custom domain: james.fluxservers.cloud
+```
+
+The public addresses should then become:
+
+```text
+Default:
+play.fluxservers.cloud:4217
+
+Custom:
+james.fluxservers.cloud
+```
+
+and the DNS SRV record must immediately become:
+
+```dns
+_minecraft._tcp.james.fluxservers.cloud
+SRV 0 0 4217 play.fluxservers.cloud.
+```
+
+## Migration synchronization
+
+When a server successfully moves to another node, immediately synchronize all dependent state.
+
+At minimum verify/update:
+
+* server node association
+* Pterodactyl server ID/reference
+* allocation ID
+* allocation port
+* any internally stored allocation IP if required
+* customer-facing public address
+* custom subdomain association
+* DNS SRV record
+* DNS provider record ID
+* server ownership / user associations if the existing schema requires them
+* any cached server/allocation information
+
+Do not change user ownership simply because a server changes nodes.
+
+Instead, ensure all existing server-to-user relationships remain intact and that no migration workflow accidentally leaves stale node-specific user/server references.
+
+The database should have one clear source of truth for:
+
+```text
+server
+→ node
+→ allocation
+→ customer
+→ custom subdomain
+```
+
+Avoid duplicating this relationship unnecessarily.
+
+---
+
+# Immediate DNS synchronization after migration
+
+Do not rely on the reconciliation job for normal server moves.
+
+DNS should be updated as part of the normal migration workflow as soon as the destination allocation is known and the server move has successfully reached the appropriate state.
+
+Conceptually:
+
+```text
+Move requested
+      ↓
+Destination node selected
+      ↓
+Pterodactyl migration
+      ↓
+Destination allocation confirmed
+      ↓
+Persist new node/allocation
+      ↓
+Synchronize SRV record immediately
+      ↓
+Refresh derived public address
+      ↓
+Migration complete
+```
+
+If the server has no custom subdomain, no SRV record needs to be changed.
+
+If it does have one, update its SRV port to the new allocation port.
+
+Use an idempotent synchronization method, conceptually:
+
+```text
+syncMinecraftDnsForServer(serverId)
+```
+
+The same synchronization method should be reusable by:
+
+* subdomain creation
+* subdomain updates
+* allocation changes
+* server node migrations
+* administrator repair actions
+* reconciliation jobs
+
+Do not implement separate slightly-different DNS update logic for each workflow.
+
+---
+
+# DNS reconciliation job
+
+Implement a scheduled reconciliation job that runs **once every hour**.
+
+Its purpose is to detect and repair drift between:
+
+```text
+FluxServers database
+Pterodactyl state
+DNS provider state
+```
+
+This is a safety mechanism.
+
+It should NOT replace immediate synchronization during normal operations.
+
+The architecture should therefore be:
+
+```text
+Normal change
+    ↓
+Immediate synchronization
+
+PLUS
+
+Every hour
+    ↓
+Reconciliation / repair
+```
+
+## Source of truth
+
+Determine which existing system should be authoritative for each field.
+
+Unless the current architecture requires otherwise, prefer:
+
+```text
+Pterodactyl:
+- actual server node
+- actual allocation
+- actual allocation port
+
+FluxServers database:
+- server ownership
+- customer-selected custom subdomain
+- DNS record ID / metadata
+- product/billing relationship
+
+DNS provider:
+- external state that should match the desired state derived from the above
+```
+
+Do not blindly make DNS the source of truth.
+
+---
+
+# Hourly reconciliation algorithm
+
+For every active Minecraft server:
+
+1. Retrieve its current expected Pterodactyl server/node/allocation state.
+
+2. Compare it against the FluxServers database.
+
+3. Repair stale FluxServers node/allocation information where appropriate.
+
+4. Determine the expected customer-facing address:
+
+```text
+MINECRAFT_PUBLIC_HOST:<actual-primary-allocation-port>
+```
+
+5. If there is no custom subdomain:
+
+   * ensure no stale managed SRV record exists for a previously removed subdomain where this can be safely determined.
+
+6. If there is a custom subdomain, calculate the expected SRV record:
+
+```text
+_minecraft._tcp.<subdomain>.fluxservers.cloud
+```
+
+with:
+
+```text
+priority = 0
+weight = 0
+port = actual allocation port
+target = MINECRAFT_PUBLIC_HOST
+```
+
+7. Retrieve or otherwise inspect the corresponding DNS provider record.
+
+8. Compare actual DNS state against expected state.
+
+9. If the record is missing:
+
+   * recreate it.
+
+10. If its target, port, name, priority, or weight is incorrect:
+
+    * update it.
+
+11. If the database contains an invalid/stale DNS record ID:
+
+    * locate the correct managed record if safely possible.
+    * repair the stored record ID.
+
+12. Record the reconciliation result.
+
+The operation should be idempotent.
+
+Running reconciliation multiple times against already-correct state must result in no unnecessary DNS writes.
+
+---
+
+# Reconciliation safety
+
+Do not blindly delete arbitrary DNS records.
+
+Only modify/delete records that FluxServers can confidently identify as records managed by FluxServers.
+
+Prefer identifying records using:
+
+* stored DNS provider record IDs
+* expected `_minecraft._tcp.<customer-subdomain>` names
+* the configured FluxServers DNS zone
+
+Never modify unrelated DNS records in the zone.
+
+---
+
+# Reconciliation concurrency
+
+Prevent multiple application instances from running the same reconciliation concurrently if the panel may run on more than one VPS/process.
+
+Inspect the project's existing scheduler/worker architecture.
+
+Use the existing distributed lock/job system if available.
+
+Otherwise implement an appropriate locking mechanism using the project's existing database or cache infrastructure.
+
+The job must not have two workers simultaneously updating the same DNS records.
+
+Do not introduce Redis solely for this if the project already has a simpler appropriate mechanism.
+
+---
+
+# Reconciliation batching
+
+Design the reconciliation process so it remains safe when FluxServers has hundreds or thousands of servers.
+
+Avoid:
+
+```text
+load every server
+→ fire hundreds of DNS API requests simultaneously
+```
+
+Use reasonable batching/concurrency limits.
+
+Respect DNS provider rate limits.
+
+Only issue DNS writes when drift actually exists.
+
+---
+
+# Reconciliation failures
+
+A DNS or Pterodactyl API failure for one server must not terminate reconciliation for every other server.
+
+Process failures individually.
+
+Record enough information to determine:
+
+```text
+server ID
+customer ID where appropriate
+custom subdomain
+expected port
+actual DNS state
+failure reason
+timestamp
+```
+
+Do not log credentials or secrets.
+
+Consider keeping fields such as:
+
+```text
+last_dns_sync_at
+last_dns_sync_status
+last_dns_sync_error
+```
+
+only if they fit the existing schema and provide operational value.
+
+Do not add them unnecessarily if equivalent observability already exists.
+
+---
+
+# Migration failure handling
+
+Node migrations are multi-step operations and can partially fail.
+
+Do not update DNS to the destination port before the destination allocation is authoritative.
+
+Likewise, do not leave DNS permanently pointing at an old port after a successful migration.
+
+Structure migration state changes carefully.
+
+Conceptually:
+
+```text
+Pterodactyl migration succeeds
+        ↓
+destination allocation confirmed
+        ↓
+Flux database updated
+        ↓
+DNS synchronization attempted
+```
+
+If DNS synchronization fails after the server migration itself succeeded:
+
+* do not incorrectly revert the server's node/allocation database state
+* record the DNS synchronization failure
+* retry using the project's existing retry mechanism if appropriate
+* allow the hourly reconciliation job to repair the DNS record later
+
+This distinction is important:
+
+```text
+server migration state
+```
+
+and:
+
+```text
+DNS synchronization state
+```
+
+must not be treated as one atomic external transaction because Pterodactyl and the DNS provider are independent systems.
+
+---
+
+# Manual reconciliation
+
+If the existing admin architecture makes this straightforward, expose an administrator-only operation to reconcile a single server.
+
+Conceptually:
+
+```text
+Reconcile server networking
+```
+
+It should invoke the same synchronization/reconciliation service used by the automatic job.
+
+Do not duplicate reconciliation logic in the controller.
+
+This is useful when support staff need to immediately repair:
+
+```text
+wrong port
+missing SRV
+stale DNS record
+stale allocation
+```
+
+without waiting for the hourly scheduled job.
+
+---
+
+# Scheduled execution
+
+Run the full reconciliation job once every hour.
+
+Use the project's existing scheduler or worker framework if one exists.
+
+Do not create an external cron dependency if the application already has a reliable job scheduling system.
+
+If cron is the established architecture, the equivalent schedule is:
+
+```cron
+0 * * * *
+```
+
+The implementation must ensure that a temporarily failed hourly run does not corrupt state.
+
+The next successful run should be capable of reconciling any remaining drift.
+
+---
+
+# Tests for migration and reconciliation
+
+Add tests covering at least:
+
+### Server migration
+
+```text
+Node A / port 3333
+→ Node B / port 4217
+
+Expected:
+DB node updated
+DB allocation updated
+public address becomes play.fluxservers.cloud:4217
+SRV becomes port 4217
+customer ownership remains unchanged
+```
+
+### Missing DNS record
+
+```text
+DB:
+james.fluxservers.cloud → port 4217
+
+DNS:
+record missing
+
+Expected:
+reconciliation recreates SRV
+```
+
+### Incorrect DNS port
+
+```text
+DB/Pterodactyl:
+port 4217
+
+DNS:
+port 3333
+
+Expected:
+reconciliation updates 3333 → 4217
+```
+
+### Already synchronized
+
+```text
+DB/Pterodactyl/DNS all match
+
+Expected:
+no DNS write
+```
+
+### Stale DNS record ID
+
+Test recovery where possible without affecting unrelated DNS records.
+
+### DNS API failure
+
+Failure for one server must not stop processing other servers.
+
+### Migration followed by DNS failure
+
+Ensure:
+
+```text
+server remains associated with its successfully migrated destination
+DNS sync is marked/reported as failed
+reconciliation can repair it later
+```
+
+### Concurrent reconciliation
+
+Ensure duplicate workers cannot cause conflicting updates if the application's deployment architecture permits multiple worker instances.
+
+---
+
+# Final implementation expectation
+
+The resulting architecture should follow:
+
+```text
+              ┌──────────────────────┐
+              │    Pterodactyl       │
+              │ node + allocation    │
+              └──────────┬───────────┘
+                         │
+                         ▼
+               FluxServers Database
+                         │
+             desired networking state
+                         │
+              ┌──────────┴─────────┐
+              │                    │
+              ▼                    ▼
+      Immediate DNS Sync     Hourly Reconciler
+              │                    │
+              └──────────┬─────────┘
+                         ▼
+                   DNS Provider
+                         │
+                         ▼
+             _minecraft._tcp records
+```
+
+A normal node move should update DNS **immediately**.
+
+The hourly reconciliation job exists to repair drift and failures, not to introduce up to one hour of normal migration delay.
+
+
+---
+
+# Allocation/port changes
+
+This is important.
+
+If the server's Pterodactyl allocation changes from:
+
+```text
+3333
+```
+
+to:
+
+```text
+4001
+```
+
+and the customer owns:
+
+```text
+james.fluxservers.cloud
+```
+
+then the SRV record must eventually become:
+
+```text
+_minecraft._tcp.james.fluxservers.cloud
+→ play.fluxservers.cloud:4001
+```
+
+Inspect whether the application already has an allocation-change workflow.
+
+If it does, integrate SRV synchronization there.
+
+If it does not, structure the new DNS logic so this can easily be triggered later.
+
+Do not build unnecessary polling infrastructure unless the current system requires it.
+
+---
+
+# Security requirements
+
+The origin HatchHost IP should be treated as sensitive infrastructure information.
+
+Inspect API responses and frontend data models for accidental exposure.
+
+For normal customer-facing server endpoints, prefer returning:
+
+```json
+{
+  "host": "play.fluxservers.cloud",
+  "port": 3333,
+  "address": "play.fluxservers.cloud:3333",
+  "customDomain": "james.fluxservers.cloud"
+}
+```
+
+rather than:
+
+```json
+{
+  "ip": "<real-node-ip>",
+  "port": 3333
+}
+```
+
+However, do **not** blindly remove the internal IP from admin/internal APIs if they genuinely require it.
+
+Keep a clean distinction between:
+
+```text
+internal/origin address
+```
+
+and:
+
+```text
+customer/public address
+```
+
+Do not attempt to implement firewall rules or Sucura configuration from the panel unless equivalent infrastructure automation already exists.
+
+The current scope is preparing the panel's addressing and DNS model.
+
+---
+
+# Multi-node readiness
+
+Although FluxServers currently expects one protected HatchHost backend for this Sucura plan, do not unnecessarily design the code in a way that makes multiple nodes impossible later.
+
+For example, avoid assuming:
+
+```text
+there can only ever be one node in the database
+```
+
+The public ingress hostname can currently be global:
+
+```text
+play.fluxservers.cloud
+```
+
+but node/allocation logic should remain compatible with the panel's existing multi-node architecture.
+
+If a future infrastructure design requires:
+
+```text
+sg1.fluxservers.cloud
+sg2.fluxservers.cloud
+```
+
+we should not need to rewrite the entire server model.
+
+Do not implement this future design now; just avoid making it harder.
+
+---
+
+# Database changes
+
+Before introducing migrations, inspect the current schema.
+
+Prefer using existing fields where appropriate.
+
+Possible useful concepts are:
+
+```text
+custom_subdomain
+dns_record_id
+allocation_port
+node_id
+```
+
+If the DNS provider returns a record ID, storing it can make updates/deletion more reliable.
+
+If there is already a DNS record ID field, reuse it.
+
+Avoid storing redundant values such as:
+
+```text
+play.fluxservers.cloud:3333
+```
+
+when they can safely be derived from:
+
+```text
+configured public host + allocation port
+```
+
+unless there is an established application reason to persist them.
+
+Any migration must be backward-compatible with existing servers where reasonably possible.
+
+---
+
+# Frontend
+
+Inspect all areas where the panel displays an IP or connection address.
+
+Change customer-facing UI from the origin allocation:
+
+```text
+<node-ip>:3333
+```
+
+to:
+
+```text
+play.fluxservers.cloud:3333
+```
+
+When a custom subdomain exists, consider displaying both:
+
+```text
+Custom Address
+james.fluxservers.cloud
+
+Default Address
+play.fluxservers.cloud:3333
+```
+
+Do not show `_minecraft._tcp...` to normal customers; that is an implementation detail.
+
+The customer only needs to know:
+
+```text
+james.fluxservers.cloud
+```
+
+Review:
+
+* server overview
+* server cards
+* manage server pages
+* allocation displays
+* copy-IP buttons
+* provisioning success screens
+* admin views
+* API responses consumed by the frontend
+
+Preserve actual origin information where administrators genuinely need it.
+
+---
+
+# Failure handling
+
+DNS operations can fail independently of database operations.
+
+Do not silently claim a custom domain was created when the DNS provider rejected the SRV record.
+
+Use the project's existing error-handling conventions.
+
+Examples:
+
+```text
+Subdomain is already in use.
+Invalid subdomain.
+Unable to create DNS record.
+DNS provider unavailable.
+Server allocation could not be determined.
+Custom domain is not configured.
+```
+
+Avoid exposing raw provider credentials, API responses, or secrets to the frontend.
+
+Log enough information server-side to diagnose failures.
+
+---
+
+# Configuration
+
+Find the project's existing configuration/environment-variable conventions and add the new setting accordingly.
+
+Conceptually:
+
+```env
+MINECRAFT_PUBLIC_HOST=play.fluxservers.cloud
+```
+
+If there is already a concept such as:
+
+```text
+SERVER_DOMAIN
+PANEL_DOMAIN
+MINECRAFT_DOMAIN
+DEFAULT_SERVER_HOST
+```
+
+reuse or cleanly extend it instead of adding duplicates.
+
+Also update:
+
+* `.env.example`
+* config validation
+* development defaults if appropriate
+* documentation/comments where necessary
+
+Never commit production API tokens or Sucura credentials.
+
+---
+
+# Tests
+
+Add or update tests around the affected behavior if the project has an established test framework.
+
+At minimum validate the equivalent of:
+
+```text
+allocation port 3333
+→ play.fluxservers.cloud:3333
+```
+
+and:
+
+```text
+custom subdomain james
+allocation 3333
+
+→ SRV:
+_minecraft._tcp.james.fluxservers.cloud
+0 0 3333 play.fluxservers.cloud
+```
+
+Also test:
+
+* duplicate subdomains
+* reserved names
+* invalid labels
+* subdomain deletion
+* rename/update
+* allocation port change if supported
+* DNS provider failure
+* no custom subdomain
+* normalization such as `James` → `james` if that matches existing behavior
+
+---
+
+# Important constraints
+
+Do not:
+
+* hardcode Sucura's IP into application logic
+* hardcode the HatchHost origin IP
+* create one A record per customer merely to solve Minecraft port routing
+* use a wildcard A record as the main solution
+* expose the origin IP to customers unnecessarily
+* rewrite unrelated parts of the project
+* introduce a second DNS system if a good abstraction already exists
+* change Pterodactyl allocation behavior unless necessary
+* assume SRV records proxy traffic themselves
+
+Remember:
+
+**DNS SRV does not proxy network traffic.**
+
+It tells the Minecraft client:
+
+```text
+Use play.fluxservers.cloud on this specific port.
+```
+
+Sucura remains the network proxy/protected ingress.
+
+---
+
+# Expected workflow
+
+1. Inspect the repository thoroughly.
+2. Explain the relevant existing architecture you found.
+3. Identify exactly which files/modules need modification.
+4. Identify any schema/configuration changes needed.
+5. Implement the smallest maintainable solution.
+6. Run the relevant build, lint, typecheck, and tests.
+7. Fix any issues caused by your changes.
+8. Review the resulting diff for accidental origin-IP exposure or unrelated changes.
+
+Do not stop after producing a plan unless there is a genuine blocker.
+
+Implement the changes.
+
+---
+
+# Final response
+
+When finished, report:
+
+* how server public addresses worked before
+* how they work now
+* files changed
+* database migrations, if any
+* new environment variables
+* how SRV creation/deletion/update works
+* how origin IP exposure was handled
+* tests/build commands run and their results
+* any remaining assumptions or infrastructure dependencies
+
+Explicitly call out anything that still depends on confirmation from Sucura Networks, particularly whether its protected frontend preserves arbitrary Minecraft destination ports to the single configured backend.
+
+Do not claim that Sucura port passthrough is confirmed merely because the panel has been prepared for it.

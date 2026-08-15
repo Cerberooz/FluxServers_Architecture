@@ -8,7 +8,7 @@ import { ServerContext } from '@/state/server';
 import { useFlashKey } from '@/plugins/useFlash';
 
 type Domain = { id: number; domain: string };
-type Subdomain = { id: number; hostname: string; status: string; last_error?: string; connection_address: string };
+type Subdomain = { id: number; hostname: string; status: string; last_error?: string; connection_address: string; default_address?: string };
 
 export default () => {
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
@@ -73,6 +73,7 @@ export default () => {
                         <div>
                             <p css={tw`font-medium text-neutral-100`}>{subdomain.hostname}</p>
                             <p css={tw`mt-1 text-sm text-neutral-400`}>{subdomain.status}{subdomain.last_error ? ` - ${subdomain.last_error}` : ''}</p>
+                            {subdomain.default_address && <p css={tw`mt-1 text-sm text-neutral-400`}>Default address: {subdomain.default_address}</p>}
                         </div>
                         <div css={tw`flex flex-wrap gap-3`}>
                             <Button color={'grey'} onClick={() => navigator.clipboard.writeText(subdomain.connection_address)}>Copy address</Button>

@@ -15,14 +15,20 @@ class ReconcileSubdomainsCommand extends Command
     public function handle(): int
     {
         $count = 0;
-        ServerSubdomain::query()->whereIn('status', ['pending', 'active', 'updating', 'error'])->cursor()->each(function (ServerSubdomain $subdomain) use (&$count) {
-            SyncServerSubdomainJob::dispatch($subdomain);
-            ++$count;
-        });
-        ServerSubdomain::query()->where('status', ServerSubdomain::STATUS_DELETING)->cursor()->each(function (ServerSubdomain $subdomain) use (&$count) {
-            DeleteServerSubdomainJob::dispatch($subdomain);
-            ++$count;
-        });
+        ServerSubdomain::query()->whereIn('status', ['pending', 'active', 'updating', 'error'])
+            ->orderBy('id')->chunkById(100, function ($subdomains) use (&$count) {
+                foreach ($subdomains as $subdomain) {
+                    SyncServerSubdomainJob::dispatch($subdomain);
+                    ++$count;
+                }
+            });
+        ServerSubdomain::query()->where('status', ServerSubdomain::STATUS_DELETING)
+            ->orderBy('id')->chunkById(100, function ($subdomains) use (&$count) {
+                foreach ($subdomains as $subdomain) {
+                    DeleteServerSubdomainJob::dispatch($subdomain);
+                    ++$count;
+                }
+            });
         $this->info("Queued reconciliation for {$count} subdomain(s).");
         return self::SUCCESS;
     }
