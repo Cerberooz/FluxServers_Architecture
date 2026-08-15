@@ -92,6 +92,24 @@ return [
                 PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT', true),
             ]) : [],
         ],
+
+        // Read-only connection to the FluxWeb/Supabase database. The Panel
+        // keeps its own primary database for Pterodactyl state; this separate
+        // connection is used only for customer-facing billing data.
+        'web_pgsql' => [
+            'driver' => 'pgsql',
+            'url' => env('WEB_DB_URL'),
+            'host' => env('WEB_DB_HOST'),
+            'port' => env('WEB_DB_PORT', '5432'),
+            'database' => env('WEB_DB_DATABASE', 'postgres'),
+            'username' => env('WEB_DB_USERNAME'),
+            'password' => env('WEB_DB_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'schema' => env('WEB_DB_SCHEMA', 'public'),
+            'sslmode' => env('WEB_DB_SSLMODE', 'require'),
+        ],
     ],
 
     /*

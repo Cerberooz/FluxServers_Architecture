@@ -119,6 +119,11 @@ export default ({ sidebar = false }: Props) => {
                             <span>{name}</span>
                         </Link>
                     </div>
+                    <div className={'hidden items-center gap-1 lg:flex mr-4'}>
+                        <NavLink to={'/'} className={'px-3 py-2 text-sm text-neutral-300 no-underline hover:text-white'}>Servers</NavLink>
+                        <NavLink to={'/account/billing'} className={'px-3 py-2 text-sm text-neutral-300 no-underline hover:text-white'}>Billing</NavLink>
+                        <NavLink to={'/account/support'} className={'px-3 py-2 text-sm text-neutral-300 no-underline hover:text-white'}>Support</NavLink>
+                    </div>
                     <RightNavigation className={'flex items-center justify-center gap-2'}>
                         <SearchContainer />
                         <Tooltip placement={'bottom'} content={'Dashboard'}>

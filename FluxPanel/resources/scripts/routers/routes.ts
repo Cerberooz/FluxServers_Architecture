@@ -12,6 +12,8 @@ import AccountOverviewContainer from '@/components/dashboard/AccountOverviewCont
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
 import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';
+import BillingContainer from '@/components/dashboard/BillingContainer';
+import SupportContainer from '@/components/dashboard/SupportContainer';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
 import SubdomainsContainer from '@/components/server/subdomains/SubdomainsContainer';
 import OptimizerContainer from '@/components/server/optimizer/OptimizerContainer';
@@ -67,6 +69,16 @@ export default {
             path: '/activity',
             name: 'Activity',
             component: ActivityLogContainer,
+        },
+        {
+            path: '/billing',
+            name: 'Billing',
+            component: BillingContainer,
+        },
+        {
+            path: '/support',
+            name: 'Support',
+            component: SupportContainer,
         },
     ],
     server: [

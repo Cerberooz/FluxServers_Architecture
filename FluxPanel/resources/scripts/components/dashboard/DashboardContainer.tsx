@@ -52,8 +52,23 @@ export default () => {
         if (!error) clearFlashes('dashboard');
     }, [error]);
 
+    const activeServers = servers?.items.filter((server) => server.status !== 'suspended').length || 0;
+
     return (
-        <PageContentBlock title={'Dashboard'} showFlashKey={'dashboard'}>
+        <PageContentBlock title={'Servers'} showFlashKey={'dashboard'}>
+            <div css={tw`mb-8 flex items-end justify-between`}>
+                <div>
+                    <h1 css={tw`text-3xl font-semibold text-neutral-100`}>Servers</h1>
+                    <p css={tw`mt-2 text-sm text-neutral-400`}>Manage and monitor your game servers.</p>
+                </div>
+            </div>
+            {servers && (
+                <div css={tw`mb-8 grid grid-cols-1 gap-4 md:grid-cols-3`}>
+                    <div css={tw`rounded-xl border border-neutral-700 bg-neutral-800 p-5`}><p css={tw`text-xs uppercase tracking-wider text-neutral-400`}>Your servers</p><p css={tw`mt-3 text-2xl font-semibold text-neutral-100`}>{servers.pagination.total}</p></div>
+                    <div css={tw`rounded-xl border border-neutral-700 bg-neutral-800 p-5`}><p css={tw`text-xs uppercase tracking-wider text-neutral-400`}>Active</p><p css={tw`mt-3 text-2xl font-semibold text-green-400`}>{activeServers}</p></div>
+                    <div css={tw`rounded-xl border border-neutral-700 bg-neutral-800 p-5`}><p css={tw`text-xs uppercase tracking-wider text-neutral-400`}>Panel status</p><p css={tw`mt-3 text-2xl font-semibold text-blue-400`}>Online</p></div>
+                </div>
+            )}
             {rootAdmin && (
                 <div css={tw`mb-2 flex justify-end items-center`}>
                     <p css={tw`uppercase text-xs text-neutral-400 mr-2`}>
