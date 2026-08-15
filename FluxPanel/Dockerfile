@@ -4,7 +4,11 @@
 FROM node:22-alpine AS frontend
 WORKDIR /app
 COPY package.json yarn.lock ./
-RUN corepack enable && yarn install --frozen-lockfile
+# This project deliberately uses a Yarn v1 lockfile. Pin Yarn instead of
+# allowing Corepack to choose a newer major version during image builds.
+RUN corepack enable \
+    && corepack prepare yarn@1.22.22 --activate \
+    && yarn install --frozen-lockfile --network-timeout 600000
 COPY . .
 RUN yarn run build:production
 
