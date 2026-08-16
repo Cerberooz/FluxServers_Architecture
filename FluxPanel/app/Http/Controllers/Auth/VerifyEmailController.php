@@ -18,6 +18,6 @@ class VerifyEmailController extends Controller
             $user->markEmailAsVerified();
         }
 
-        return redirect('/auth/login?verified=1');
+        return redirect('/auth/email/verified');
     }
 }

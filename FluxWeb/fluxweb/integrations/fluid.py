@@ -408,6 +408,23 @@ class FluidPanelClient:
         )
 
     # --- servers --------------------------------------------------------
+    def list_servers(self, *, page: int = 1, per_page: int = 20) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Return the Panel's current server inventory and pagination metadata.
+
+        The Panel is authoritative for deployed instances. The web database
+        only enriches these rows with billing metadata and must not determine
+        whether a server appears in the administrator dashboard.
+        """
+        page = max(1, int(page))
+        per_page = max(1, min(100, int(per_page)))
+        payload = self._request(
+            "GET",
+            f"/api/application/servers?include=user&page={page}&per_page={per_page}",
+            expected=(200,),
+            timeout=METADATA_TIMEOUT,
+        )
+        return (payload or {}).get("data", []), (payload or {}).get("meta", {}).get("pagination", {})
+
     def get_server(self, panel_server_id: int, *, include_allocations: bool = False) -> dict[str, Any] | None:
         suffix = "?include=allocations" if include_allocations else ""
         try:

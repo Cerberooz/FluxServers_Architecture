@@ -10,6 +10,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import math
 import os
 import re
 from types import SimpleNamespace
@@ -233,6 +234,50 @@ def _admin_dashboard_page_url(active_tab: str, page_arg: str, page_num: int) -> 
     return url_for("admin.admin_dashboard", tab=active_tab, **{page_arg: page_num})
 
 
+def _panel_servers_page(page: int, per_page: int = 20) -> tuple[SimpleNamespace, int | None]:
+    """Build the server-table page from FluidPanel, not the billing database."""
+    items, pagination = get_fluid_client().list_servers(page=page, per_page=per_page)
+    panel_ids = [int(item.get("attributes", {}).get("id", 0)) for item in items]
+    records = {
+        record.pelican_server_id: record
+        for record in ServerRecord.query.filter(ServerRecord.pelican_server_id.in_(panel_ids)).all()
+        if record.pelican_server_id is not None
+    } if panel_ids else {}
+
+    servers = []
+    for item in items:
+        attrs = item.get("attributes", {})
+        panel_id = int(attrs.get("id", 0))
+        user = ((attrs.get("relationships") or {}).get("user") or {}).get("attributes") or {}
+        record = records.get(panel_id)
+        owner_name = user.get("username") or user.get("email") or f"Panel user {attrs.get('user', '—')}"
+        servers.append(
+            SimpleNamespace(
+                pelican_server_id=panel_id,
+                pelican_server_identifier=attrs.get("identifier") or str(panel_id),
+                owner=SimpleNamespace(username=owner_name),
+                plan_name=(record.plan_name if record and record.plan_name else "Panel server"),
+                status="Suspended" if attrs.get("suspended") else "Active",
+            )
+        )
+
+    total = int(pagination.get("total", len(servers)) or 0)
+    current_page = int(pagination.get("current_page", page) or page)
+    pages = max(1, int(pagination.get("total_pages", math.ceil(total / per_page) or 1) or 1))
+    pager = SimpleNamespace(
+        items=servers,
+        total=total,
+        page=current_page,
+        pages=pages,
+        has_prev=current_page > 1,
+        has_next=current_page < pages,
+        prev_num=max(1, current_page - 1),
+        next_num=min(pages, current_page + 1),
+        iter_pages=lambda **_: range(1, pages + 1),
+    )
+    return pager, total
+
+
 def _read_image(field: str) -> str | None:
     """Validate and encode an uploaded image, or return None.
 
@@ -348,6 +393,18 @@ def admin_dashboard():
     if active_tab not in valid_tabs:
         active_tab = "users"
 
+    try:
+        servers, panel_server_total = _panel_servers_page(_page_arg("servers_page"), per_page=20)
+    except (ConfigurationError, PanelError) as exc:
+        # Do not silently substitute billing records: that makes a healthy
+        # Panel look empty and turns stale Postgres state into fake inventory.
+        log.warning("Panel server inventory unavailable: %s", exc)
+        servers = SimpleNamespace(
+            items=[], total=0, page=1, pages=1, has_prev=False, has_next=False,
+            prev_num=1, next_num=1, iter_pages=lambda **_: (),
+        )
+        panel_server_total = None
+
     # The plans admin view is a hierarchy, so pagination must not happen at the
     # raw plan-row level. Doing that splits one category across multiple pages
     # and rebuilds a partial tree each time.
@@ -389,15 +446,13 @@ def admin_dashboard():
         coupons=Coupon.query.order_by(Coupon.id.desc()).paginate(
             page=_page_arg("coupons_page"), per_page=20, error_out=False
         ),
-        servers=ServerRecord.query.order_by(ServerRecord.created_at.desc()).paginate(
-            page=_page_arg("servers_page"), per_page=20, error_out=False
-        ),
+        servers=servers,
         all_users=User.query.order_by(User.created_at.desc()).paginate(
             page=_page_arg("users_page"), per_page=20, error_out=False
         ),
         recent_orders=Order.query.order_by(Order.created_at.desc()).limit(PAGE_SIZE).all(),
         stats={
-            "total_servers": ServerRecord.query.count(),
+            "total_servers": panel_server_total,
             "total_users": User.query.count(),
             "total_orders": Order.query.count(),
         },
@@ -1480,12 +1535,12 @@ def admin_user_panel_link(user_id: int):
 @admin_required
 def admin_suspend_server(server_id: int):
     record = ServerRecord.query.filter_by(pelican_server_id=server_id).first()
-    if record is None:
-        return jsonify({"status": "error", "message": "Record not found"}), 404
-
     client = get_fluid_client()
-    suspending = record.status != "Suspended"
     try:
+        panel_server = client.get_server(server_id)
+        if panel_server is None:
+            return jsonify({"status": "error", "message": "Panel server not found"}), 404
+        suspending = not bool(panel_server.get("suspended"))
         if suspending:
             client.suspend_server(server_id)
         else:
@@ -1493,8 +1548,9 @@ def admin_suspend_server(server_id: int):
     except (ConfigurationError, PanelError):
         return jsonify({"status": "error", "message": "The panel rejected that action."}), 502
 
-    record.status = "Suspended" if suspending else "Active"
-    db.session.commit()
+    if record is not None:
+        record.status = "Suspended" if suspending else "Active"
+        db.session.commit()
     return jsonify(
         {"status": "success", "message": "Server suspended" if suspending else "Server unsuspended"}
     )

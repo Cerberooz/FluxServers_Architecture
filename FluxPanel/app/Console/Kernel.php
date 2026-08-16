@@ -13,6 +13,7 @@ use Pterodactyl\Console\Commands\Schedule\ProcessRunnableCommand;
 use Pterodactyl\Console\Commands\Maintenance\PruneOrphanedBackupsCommand;
 use Pterodactyl\Console\Commands\Maintenance\CleanServiceBackupFilesCommand;
 use Pterodactyl\Console\Commands\Subdomains\ReconcileSubdomainsCommand;
+use Pterodactyl\Console\Commands\Optimizer\MonitorOptimizerCommand;
 
 class Kernel extends ConsoleKernel
 {
@@ -36,6 +37,7 @@ class Kernel extends ConsoleKernel
         $schedule->command(ProcessRunnableCommand::class)->everyMinute()->withoutOverlapping();
         $schedule->command(CleanServiceBackupFilesCommand::class)->daily();
         $schedule->command(ReconcileSubdomainsCommand::class)->hourly()->withoutOverlapping();
+        $schedule->command(MonitorOptimizerCommand::class)->everyMinute()->withoutOverlapping();
 
         if (config('backups.prune_age')) {
             // Every 30 minutes, run the backup pruning command so that any abandoned backups can be deleted.

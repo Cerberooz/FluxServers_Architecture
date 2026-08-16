@@ -35,6 +35,29 @@ class DaemonServerRepository extends DaemonRepository
     }
 
     /**
+     * Return the point-in-time resource counters exposed by Wings for a server.
+     *
+     * This is deliberately kept server-side: the optimizer never asks a browser
+     * to connect directly to Wings in order to make an automated decision.
+     *
+     * @throws DaemonConnectionException
+     */
+    public function getResourceUsage(): array
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+
+        try {
+            $response = $this->getHttpClient()->get(
+                sprintf('/api/servers/%s/resources', $this->server->uuid)
+            );
+        } catch (TransferException $exception) {
+            throw new DaemonConnectionException($exception, false);
+        }
+
+        return json_decode($response->getBody()->__toString(), true);
+    }
+
+    /**
      * Creates a new server on the Wings daemon.
      *
      * @throws DaemonConnectionException

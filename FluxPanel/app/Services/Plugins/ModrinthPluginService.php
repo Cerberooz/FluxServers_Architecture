@@ -18,9 +18,7 @@ class ModrinthPluginService
     {
         $name = Str::lower($server->egg->name . ' ' . $server->nest->name);
         $platform = Str::contains($name, 'folia') ? 'folia' : (Str::contains($name, 'purpur') ? 'purpur' : (Str::contains($name, 'paper') ? 'paper' : (Str::contains($name, 'spigot') ? 'spigot' : (Str::contains($name, 'bukkit') ? 'bukkit' : null))));
-        $version = null;
-        foreach ($server->variables as $variable) if (preg_match('/minecraft.*version/i', $variable->name ?? '') && preg_match('/(\d+\.\d+(?:\.\d+)?)/', $variable->server_value ?? '', $match)) $version = $match[1];
-        if (!$version && preg_match('/(\d+\.\d+(?:\.\d+)?)/', $server->egg->name, $match)) $version = $match[1];
+        $version = $this->minecraftVersion($server);
         return ['supported' => (bool) $platform, 'platform' => $platform, 'loaders' => match ($platform) { 'paper' => ['paper', 'spigot', 'bukkit'], 'purpur' => ['purpur', 'paper', 'spigot', 'bukkit'], 'folia' => ['folia', 'paper'], 'spigot' => ['spigot', 'bukkit'], 'bukkit' => ['bukkit'], default => [] }, 'version' => $version, 'directory' => self::DIRECTORY];
     }
 
@@ -115,6 +113,32 @@ class ModrinthPluginService
     public function dependenciesFor(Server $server, string $projectId): array { $release = $this->resolveCompatibleVersion($this->projectId($projectId), $this->context($server)) ?? throw new DisplayException('No compatible release is available.'); return $this->dependencies($release, $this->context($server)); }
 
     private function resolveCompatibleVersion(string $projectId, array $context, bool $compatible = true): ?array { $query = $compatible ? ['loaders' => json_encode($context['loaders']), 'game_versions' => json_encode([$context['version']]), 'featured' => 'true', 'include_changelog' => 'false'] : ['include_changelog' => 'false']; $versions = $this->api("project/{$projectId}/version", $query); return collect($versions)->first(fn ($version) => !empty($version['files'])); }
+    private function minecraftVersion(Server $server): ?string
+    {
+        // EggVariable is joined directly onto Server::variables. Check its
+        // human label *and* environment key because community eggs use names
+        // such as VERSION, MC_VERSION, or MINECRAFT_VERSION interchangeably.
+        foreach ($server->variables as $variable) {
+            $label = implode(' ', [$variable->name ?? '', $variable->env_variable ?? '', $variable->description ?? '']);
+            $value = $variable->server_value ?? $variable->default_value ?? '';
+            if (preg_match('/(?:minecraft|mc)[\s_-]*version|^version$/i', $label)
+                && preg_match('/(\d+\.\d+(?:\.\d+)?)/', $value, $match)) return $match[1];
+        }
+
+        if (preg_match('/(\d+\.\d+(?:\.\d+)?)/', $server->egg->name, $match)) return $match[1];
+
+        // Eggs configured with "latest" have no concrete value to send to
+        // Modrinth. Once the server has run, Paper and most Bukkit forks log
+        // the exact Minecraft version; use that authoritative runtime value.
+        try {
+            $log = $this->files->setServer($server)->getContent('/logs/latest.log', 524288);
+            if (preg_match('/(?:for\s+Minecraft|Minecraft(?:\s+Server)?(?:\s+version)?)[^0-9]*(\d+\.\d+(?:\.\d+)?)/i', $log, $match)) return $match[1];
+        } catch (\Throwable) {
+            // The server may not have started yet or Wings may be unavailable.
+        }
+
+        return null;
+    }
     private function dependencies(array $version, array $context): array { return collect($version['dependencies'] ?? [])->map(function ($dependency) use ($context) { if (($dependency['dependency_type'] ?? '') === 'required' && empty($dependency['version_id']) && !empty($dependency['project_id'])) $dependency['resolved'] = $this->resolveCompatibleVersion($dependency['project_id'], $context); return ['type' => $dependency['dependency_type'] ?? 'required', 'project_id' => $dependency['project_id'] ?? null, 'version_id' => $dependency['version_id'] ?? null, 'resolved' => $dependency['resolved'] ?? null]; })->all(); }
     private function dependencyKey(array $dependency): ?string { return $dependency['project_id'] ?? $dependency['version_id'] ?? null; }
     private function resolveRequired(array $dependencies, array $context, array $confirmed): array { return collect($dependencies)->filter(fn ($dependency) => $dependency['type'] === 'required' && in_array($this->dependencyKey($dependency), $confirmed, true))->map(function ($dependency) { $release = $dependency['resolved'] ?? ($dependency['version_id'] ? $this->api('version/' . $dependency['version_id']) : null); if (!$release) throw new DisplayException('A required dependency has no compatible Modrinth release.'); return $release; })->all(); }

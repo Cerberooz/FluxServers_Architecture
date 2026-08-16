@@ -3,7 +3,9 @@
 namespace Pterodactyl\Services\Optimizer;
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Pterodactyl\Jobs\Optimizer\CollectSparkReportJob;
 use Pterodactyl\Exceptions\DisplayException;
 use Pterodactyl\Models\Server;
 use Pterodactyl\Models\ServerOptimizerFinding;
@@ -62,27 +64,148 @@ class MinecraftOptimizerService
         $snapshot->update(['restored_at' => now()]);
     }
 
-    public function startProfile(Server $server, string $mode): ServerOptimizerRun
+    public function startProfile(Server $server, string $mode, bool $automatic = false, array $trigger = [], bool $flagged = true): ServerOptimizerRun
     {
         $active = $server->optimizerRuns()->where('type', 'like', 'spark_%')->whereIn('status', ['queued', 'running'])->exists();
         if ($active) throw new DisplayException('A performance analysis is already running for this server.');
         $details = $this->servers->setServer($server)->getDetails();
         if (($details['state'] ?? null) !== 'running') throw new DisplayException('The server must be online before starting performance analysis.');
-        $run = $server->optimizerRuns()->create(['type' => "spark_{$mode}", 'status' => 'running', 'started_at' => now(), 'summary' => ['mode' => $mode, 'message' => 'Spark command sent; the report link will appear in the server console.']]);
+        $run = $server->optimizerRuns()->create([
+            'type' => "spark_{$mode}",
+            'status' => 'running',
+            'automatic' => $automatic,
+            'trigger' => $trigger ?: null,
+            'flagged_at' => $automatic && $flagged ? now() : null,
+            'started_at' => now(),
+            'summary' => [
+                'mode' => $mode,
+                'automatic' => $automatic,
+                'network' => $trigger['network'] ?? null,
+                'message' => 'Spark analysis started. Fluid will collect the official report link from the server log automatically.',
+            ],
+        ]);
         $command = match ($mode) {
             'lag_spikes' => 'spark profiler start --only-ticks-over 50 --timeout 120',
             'memory' => 'spark healthreport',
             default => 'spark profiler start --timeout 120',
         };
-        $this->commands->setServer($server)->send($command);
+        try {
+            $this->commands->setServer($server)->send($command);
+            CollectSparkReportJob::dispatch($server->id, $run->id)->delay(now()->addSeconds($mode === 'memory' ? 25 : 130));
+        } catch (\Throwable $exception) {
+            $run->update(['status' => 'failed', 'error' => $exception->getMessage(), 'completed_at' => now()]);
+            throw $exception;
+        }
         return $run;
     }
 
-    public function importReport(Server $server, string $reportUrl): ServerOptimizerRun
+    public function monitor(Server $server): ?ServerOptimizerRun
+    {
+        $details = $this->servers->setServer($server)->getDetails();
+        if (($details['state'] ?? null) !== 'running') {
+            return null;
+        }
+
+        $resource = $this->servers->setServer($server)->getResourceUsage();
+        $metrics = $this->resourceMetrics($server, $resource);
+        $cacheKey = "optimizer:resource-sample:{$server->id}";
+        $previous = Cache::get($cacheKey);
+
+        if ($previous) {
+            $seconds = max(1, now()->diffInSeconds($previous['captured_at'] ?? now()));
+            $metrics['network']['ingress_bytes_per_second'] = max(0, (($metrics['network']['ingress_bytes'] ?? 0) - ($previous['network']['ingress_bytes'] ?? 0)) / $seconds);
+            $metrics['network']['egress_bytes_per_second'] = max(0, (($metrics['network']['egress_bytes'] ?? 0) - ($previous['network']['egress_bytes'] ?? 0)) / $seconds);
+        }
+
+        $networkRate = max($metrics['network']['ingress_bytes_per_second'] ?? 0, $metrics['network']['egress_bytes_per_second'] ?? 0);
+        $signals = [
+            'cpu' => ($metrics['cpu_percent'] ?? 0) >= 85,
+            'memory' => ($metrics['memory_percent'] ?? 0) >= 90,
+            'network' => $networkRate >= 20 * 1024 * 1024,
+        ];
+        $extreme = [
+            'cpu' => ($metrics['cpu_percent'] ?? 0) >= 98,
+            'memory' => ($metrics['memory_percent'] ?? 0) >= 99,
+            'network' => $networkRate >= 100 * 1024 * 1024,
+        ];
+        $streaks = [];
+        foreach ($signals as $signal => $concerning) {
+            $streaks[$signal] = $concerning ? (($previous['streaks'][$signal] ?? 0) + 1) : 0;
+        }
+        $metrics['streaks'] = $streaks;
+        Cache::put($cacheKey, $metrics, now()->addMinutes(10));
+
+        $reasons = [];
+        if ($extreme['cpu']) $reasons[] = 'CPU usage exceeded the emergency threshold of 98%.';
+        elseif ($streaks['cpu'] >= 3) $reasons[] = 'CPU usage remained at or above 85% for three consecutive samples.';
+        if ($extreme['memory']) $reasons[] = 'Memory usage exceeded the emergency threshold of 99% of the server limit.';
+        elseif ($streaks['memory'] >= 3) $reasons[] = 'Memory usage remained at or above 90% of the server limit for three consecutive samples.';
+        if ($extreme['network']) $reasons[] = 'Network traffic exceeded the emergency threshold of 100 MiB/s.';
+        elseif ($streaks['network'] >= 3) $reasons[] = 'Network traffic remained at or above 20 MiB/s for three consecutive samples.';
+        if (!$reasons) {
+            if (!Cache::add("optimizer:health-cooldown:{$server->id}", true, now()->addMinutes(15))) return null;
+            $plugins = $this->listDirectory($server, '/plugins');
+            $mods = $this->listDirectory($server, '/mods');
+            $version = $this->detectVersion('', $server);
+            if (($this->sparkState($server, $plugins, $mods, $version)['available'] ?? false)) {
+                return $this->startProfile($server, 'memory', true, ['reasons' => ['Routine health sample'], 'metrics' => $metrics, 'network' => $metrics['network']], false);
+            }
+
+            return null;
+        }
+
+        if (!Cache::add("optimizer:auto-cooldown:{$server->id}", true, now()->addMinutes(20))) return null;
+
+        $trigger = ['reasons' => $reasons, 'metrics' => $metrics, 'network' => $metrics['network'], 'streaks' => $streaks, 'extreme' => $extreme];
+        $plugins = $this->listDirectory($server, '/plugins');
+        $mods = $this->listDirectory($server, '/mods');
+        $version = $this->detectVersion('', $server);
+
+        if (($this->sparkState($server, $plugins, $mods, $version)['available'] ?? false)) {
+            return $this->startProfile($server, 'lag_spikes', true, $trigger);
+        }
+
+        $run = $server->optimizerRuns()->create([
+            'type' => 'automatic_resource_alert',
+            'status' => 'completed',
+            'automatic' => true,
+            'trigger' => $trigger,
+            'flagged_at' => now(),
+            'started_at' => now(),
+            'completed_at' => now(),
+            'summary' => ['server_health' => $this->healthFromMetrics($metrics), 'network' => $metrics['network'], 'message' => 'Automatic resource alert. Spark is not available on this server, so no profiler report was collected.'],
+        ]);
+        foreach ($reasons as $reason) {
+            $run->findings()->create($this->reportFinding('high', 'Automatic performance alert', $reason, $trigger, 'Install or enable Spark, then run a performance analysis to identify the responsible workload.'));
+        }
+
+        return $run->fresh('findings');
+    }
+
+    public function collectProfile(Server $server, ServerOptimizerRun $run): bool
+    {
+        try {
+            $log = $this->files->setServer($server)->getContent('logs/latest.log', 524288);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        preg_match_all('#https://spark\\.lucko\\.me/([A-Za-z0-9]{5,64})#', $log, $matches);
+        $reportIds = $matches[1] ?? [];
+        $reportId = $reportIds ? end($reportIds) : false;
+        if (!$reportId) return false;
+
+        $this->importReport($server, "https://spark.lucko.me/{$reportId}", $run);
+
+        return true;
+    }
+
+    public function importReport(Server $server, string $reportUrl, ?ServerOptimizerRun $existingRun = null): ServerOptimizerRun
     {
         $reportId = $this->reportId($reportUrl);
-        $server->optimizerRuns()->where('type', 'like', 'spark_%')->where('status', 'running')->update(['status' => 'completed', 'completed_at' => now()]);
-        $run = $server->optimizerRuns()->create(['type' => 'spark_import', 'status' => 'running', 'started_at' => now()]);
+        $run = $existingRun && $existingRun->server_id === $server->id
+            ? $existingRun
+            : $server->optimizerRuns()->create(['type' => 'spark_import', 'status' => 'running', 'started_at' => now()]);
         try {
             // This is Spark's documented parsed representation of its raw Protobuf report.
             // The host and report identifier are deliberately pinned to prevent SSRF.
@@ -91,9 +214,21 @@ class MinecraftOptimizerService
             if (strlen($response->body()) > 25 * 1024 * 1024) throw new DisplayException('This Spark report is too large to import safely.');
             $report = $response->json();
             if (!is_array($report) || !in_array($report['type'] ?? null, ['sampler', 'health'], true)) throw new DisplayException('That link is not a supported Spark sampler or health report.');
-            $summary = $this->summarizeReport($report, $reportId);
-            $run->update(['status' => 'completed', 'summary' => $summary, 'completed_at' => now()]);
+            $summary = $this->summarizeReport($report, $reportId, $run->trigger ?? [], $run->summary ?? []);
+            $update = ['status' => 'completed', 'summary' => $summary, 'completed_at' => now()];
+            if ($run->automatic && !$run->flagged_at && $this->isConcerning($summary)) $update['flagged_at'] = now();
+            $run->update($update);
             foreach ($this->reportFindings($report, $summary) as $finding) $run->findings()->create($finding);
+            if ($run->automatic && $run->type === 'spark_memory' && $this->isConcerning($summary)) {
+                try {
+                    $this->startProfile($server, 'lag_spikes', true, [
+                        'reasons' => ['A routine Spark health sample found concerning TPS or MSPT.'],
+                        'network' => $summary['network'] ?? [],
+                    ]);
+                } catch (\Throwable $exception) {
+                    report($exception);
+                }
+            }
         } catch (\Throwable $exception) {
             $run->update(['status' => 'failed', 'error' => $exception->getMessage(), 'completed_at' => now()]);
             throw $exception;
@@ -124,7 +259,7 @@ class MinecraftOptimizerService
         return $id;
     }
 
-    private function summarizeReport(array $report, string $reportId): array
+    private function summarizeReport(array $report, string $reportId, array $trigger = [], array $existingSummary = []): array
     {
         $metadata = $report['metadata'] ?? [];
         $platform = $metadata['platform'] ?? [];
@@ -132,7 +267,7 @@ class MinecraftOptimizerService
         $system = $metadata['systemStatistics'] ?? [];
         $windows = array_values($report['timeWindowStatistics'] ?? []);
         $latest = $windows ? end($windows) : [];
-        return [
+        $summary = [
             'report_id' => $reportId,
             'report_type' => $report['type'],
             'implementation' => $platform['name'] ?? null,
@@ -147,7 +282,13 @@ class MinecraftOptimizerService
             'entities' => $latest['entities'] ?? data_get($statistics, 'world.totalEntities'),
             'block_entities' => $latest['tileEntities'] ?? null,
             'chunks' => $latest['chunks'] ?? null,
+            'players' => data_get($statistics, 'players.online') ?? data_get($statistics, 'playerCount') ?? data_get($latest, 'players'),
+            'network' => $trigger['network'] ?? $existingSummary['network'] ?? null,
         ];
+        $summary['plugin_usage'] = $this->hotspots($report);
+        $summary['server_health'] = $this->healthFromReport($summary);
+
+        return $summary;
     }
 
     private function reportFindings(array $report, array $summary): array
@@ -156,10 +297,54 @@ class MinecraftOptimizerService
         if (($summary['tps'] ?? 20) < 18) $findings[] = $this->reportFinding('high', 'Low TPS observed', sprintf('Spark recorded TPS of %.2f.', $summary['tps']), ['tps' => $summary['tps']], 'Investigate the profiler hotspots below before changing server settings.');
         if (($summary['mspt_p95'] ?? $summary['mspt_median'] ?? 0) > 50) $findings[] = $this->reportFinding('high', 'Tick time exceeds the 50ms budget', sprintf('Spark reported MSPT median %s and P95 %s.', $summary['mspt_median'] ?? 'unknown', $summary['mspt_p95'] ?? 'unknown'), ['mspt_median' => $summary['mspt_median'] ?? null, 'mspt_p95' => $summary['mspt_p95'] ?? null], 'Use the evidence-backed hotspot list to investigate the responsible code or workload.');
         if (($summary['memory_max'] ?? 0) > 0 && ($summary['memory_used'] / $summary['memory_max']) > .9) $findings[] = $this->reportFinding('medium', 'High heap utilisation', sprintf('Spark recorded %.1f%% of configured heap in use.', 100 * $summary['memory_used'] / $summary['memory_max']), ['memory_used' => $summary['memory_used'], 'memory_max' => $summary['memory_max']], 'Review GC findings and memory-heavy plugins/mods; do not trigger heap dumps automatically.');
-        foreach ($this->hotspots($report) as $hotspot) {
+        foreach ($summary['plugin_usage'] ?? $this->hotspots($report) as $hotspot) {
             $findings[] = $this->reportFinding($hotspot['percent'] >= 25 ? 'high' : 'medium', $hotspot['title'], sprintf('%s accounted for %.1f%% of sampled server-thread time.', $hotspot['source'], $hotspot['percent']), $hotspot, 'Update, configure, or investigate this specific code path. Confidence is based on Spark source attribution.');
         }
+        $network = $summary['network'] ?? [];
+        $networkRate = max((float) ($network['ingress_bytes_per_second'] ?? 0), (float) ($network['egress_bytes_per_second'] ?? 0));
+        if ($networkRate >= 20 * 1024 * 1024) $findings[] = $this->reportFinding('medium', 'High network traffic during performance degradation', sprintf('Fluid observed peak traffic of %.2f MiB/s while this analysis was triggered.', $networkRate / 1024 / 1024), $network, 'Review edge firewall and DDoS telemetry alongside connection logs. Spark cannot prove whether traffic is a DDoS, exploit, or normal player activity.');
+        if (($summary['players'] ?? null) !== null && (($summary['tps'] ?? 20) < 18 || ($summary['mspt_p95'] ?? 0) > 50)) $findings[] = $this->reportFinding('informational', 'Player activity should be reviewed', sprintf('Spark reported %s player(s) while degraded tick performance was observed.', $summary['players']), ['players' => $summary['players']], 'Compare the player count, entities, chunks, and profiler hotspots before attributing lag to player activity.');
         return $findings;
+    }
+
+    private function resourceMetrics(Server $server, array $resource): array
+    {
+        $memory = (float) (data_get($resource, 'memory_bytes') ?? data_get($resource, 'memory.bytes') ?? data_get($resource, 'resources.memory_bytes') ?? 0);
+        $cpu = (float) (data_get($resource, 'cpu_absolute') ?? data_get($resource, 'cpu.absolute') ?? data_get($resource, 'resources.cpu_absolute') ?? 0);
+        $ingress = (float) (data_get($resource, 'network.rx_bytes') ?? data_get($resource, 'network_rx_bytes') ?? data_get($resource, 'resources.network.rx_bytes') ?? 0);
+        $egress = (float) (data_get($resource, 'network.tx_bytes') ?? data_get($resource, 'network_tx_bytes') ?? data_get($resource, 'resources.network.tx_bytes') ?? 0);
+        $limit = $server->memory > 0 ? $server->memory * 1024 * 1024 : null;
+
+        return [
+            'captured_at' => now()->toIso8601String(),
+            'cpu_percent' => $cpu,
+            'memory_bytes' => $memory,
+            'memory_percent' => $limit ? $memory / $limit * 100 : null,
+            'network' => ['ingress_bytes' => $ingress, 'egress_bytes' => $egress],
+        ];
+    }
+
+    private function healthFromMetrics(array $metrics): array
+    {
+        $score = max(0, min(100, 100 - max(0, ($metrics['cpu_percent'] ?? 0) - 65) - max(0, ($metrics['memory_percent'] ?? 0) - 75)));
+        return ['score' => round($score), 'status' => $score >= 80 ? 'healthy' : ($score >= 55 ? 'degraded' : 'concerning')];
+    }
+
+    private function healthFromReport(array $summary): array
+    {
+        $score = 100.0;
+        if (($summary['tps'] ?? 20) < 19) $score -= min(45, (19 - (float) $summary['tps']) * 15);
+        if (($summary['mspt_p95'] ?? $summary['mspt_median'] ?? 0) > 50) $score -= min(35, ((float) ($summary['mspt_p95'] ?? $summary['mspt_median']) - 50) / 2);
+        if (($summary['memory_max'] ?? 0) > 0) $score -= max(0, (($summary['memory_used'] ?? 0) / $summary['memory_max'] * 100) - 85);
+        $score = max(0, min(100, $score));
+        return ['score' => round($score), 'status' => $score >= 80 ? 'healthy' : ($score >= 55 ? 'degraded' : 'concerning')];
+    }
+
+    private function isConcerning(array $summary): bool
+    {
+        return ($summary['server_health']['score'] ?? 100) < 80
+            || ($summary['tps'] ?? 20) < 18
+            || ($summary['mspt_p95'] ?? $summary['mspt_median'] ?? 0) > 50;
     }
 
     private function hotspots(array $report): array
@@ -192,11 +377,13 @@ class MinecraftOptimizerService
     {
         if (preg_match('/^.*(?:minecraft|version).*?([0-9]+\.[0-9]+(?:\.[0-9]+)?)/mi', $properties, $match)) return $match[1];
         foreach ($server->variables as $variable) {
-            if (preg_match('/minecraft.*version/i', $variable->variable->name ?? '') && preg_match('/([0-9]+\.[0-9]+(?:\.[0-9]+)?)/', $variable->variable_value, $match)) return $match[1];
+            $label = implode(' ', [$variable->name ?? '', $variable->env_variable ?? '', $variable->description ?? '']);
+            $value = $variable->server_value ?? $variable->default_value ?? '';
+            if (preg_match('/(?:minecraft|mc)[\s_-]*version|^version$/i', $label) && preg_match('/([0-9]+\.[0-9]+(?:\.[0-9]+)?)/', $value, $match)) return $match[1];
         }
         return preg_match('/([0-9]+\.[0-9]+(?:\.[0-9]+)?)/', $server->egg->name, $match) ? $match[1] : null;
     }
     private function detectJava(string $image): ?string { return preg_match('/java[^0-9]*([0-9]+)/i', $image, $match) ? $match[1] : null; }
-    private function sparkState(Server $server, array $plugins, array $mods, ?string $version): array { $builtIn = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), 'paper') && $version && version_compare($version, '1.21.0', '>='); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
+    private function sparkState(Server $server, array $plugins, array $mods, ?string $version): array { $builtIn = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), 'paper') && (!$version || version_compare($version, '1.21.0', '>=')); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
     private function replaceValue(string $content, string $key, string $value): string { return preg_replace('/^(' . preg_quote($key, '/') . '\s*[=:]\s*).+$/mi', '${1}' . $value, $content, 1) ?? $content; }
 }

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -23,12 +23,13 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import Can from '@/components/elements/Can';
-import Tooltip from '@/components/elements/tooltip/Tooltip';
 import routes from '@/routers/routes';
 import { usePersistedState } from '@/plugins/usePersistedState';
 import { useStoreState } from 'easy-peasy';
 import { ApplicationStore } from '@/state';
+import { ServerContext } from '@/state/server';
 import styled from 'styled-components/macro';
+import http from '@/api/http';
 
 type Props = {
     baseUrl: string;
@@ -95,16 +96,27 @@ const ScrollNavigation = styled.nav`
 
 export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props) => {
     const panelName = useStoreState((state: ApplicationStore) => state.settings.data!.name);
+    const serverUuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const [collapsed, setCollapsed] = usePersistedState('layout:server-sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
     const [toolsOpen, setToolsOpen] = useState(() => ['/subdomains', '/optimizer', '/plugins'].some((path) => location.pathname.endsWith(path)));
     const navigationRef = useRef<HTMLElement>(null);
     const [activeIndicator, setActiveIndicator] = useState({ top: 0, height: 0, visible: false });
+    const [optimizerUnread, setOptimizerUnread] = useState(0);
     const isCollapsed = !!collapsed;
     const to = (path: string) => (path === '/' ? baseUrl : `${baseUrl.replace(/\/*$/, '')}/${path.replace(/^\/+/, '')}`);
     const toolRoutes = routes.server.filter((route) => ['Subdomains', 'Optimizer', 'Plugins'].includes(route.name || ''));
     const navigationRoutes = routes.server.filter((route) => !!route.name && !toolRoutes.includes(route));
+
+    useEffect(() => {
+        let mounted = true;
+        http.get(`/api/client/servers/${serverUuid}/optimizer/notifications`)
+            .then(({ data }) => mounted && setOptimizerUnread(data.data?.unread || 0))
+            .catch(() => mounted && setOptimizerUnread(0));
+
+        return () => { mounted = false; };
+    }, [serverUuid, location.pathname]);
 
     useLayoutEffect(() => {
         const navigation = navigationRef.current;
@@ -140,12 +152,12 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                 activeClassName={'text-neutral-100 font-semibold'}
             >
                 <FontAwesomeIcon icon={icons[route.name!] || faTerminal} />
-                {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>{route.name}</span>}
+                {!isCollapsed && <span className={'ml-3 flex-1 whitespace-nowrap text-sm font-medium'}>{route.name}</span>}
+                {route.name === 'Optimizer' && optimizerUnread > 0 && <span className={'ml-2 h-2 w-2 shrink-0 rounded-full bg-red-500'} aria-label={`${optimizerUnread} unread optimizer alert${optimizerUnread === 1 ? '' : 's'}`} />}
             </NavLink>
         );
 
-        const wrapped = <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={route.name!}>{link}</Tooltip>;
-        return route.permission ? <Can key={route.path} action={route.permission} matchAny>{wrapped}</Can> : <React.Fragment key={route.path}>{wrapped}</React.Fragment>;
+        return route.permission ? <Can key={route.path} action={route.permission} matchAny>{link}</Can> : <React.Fragment key={route.path}>{link}</React.Fragment>;
     };
 
     return (
@@ -227,17 +239,16 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                         {navigationRoutes.map((route) => routeLink(route))}
                         <Can action={['allocation.read', 'file.read-content', 'file.read']} matchAny>
                             <div className={'relative z-10 shrink-0'}>
-                                <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Tools'}>
-                                    <button
-                                        type={'button'}
-                                        onClick={() => setToolsOpen((open) => !open)}
-                                        className={'flex h-11 w-full items-center rounded-xl border border-transparent px-3 text-neutral-300 transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
-                                        aria-expanded={toolsOpen}
-                                    >
-                                        <FontAwesomeIcon icon={faTools} />
-                                        {!isCollapsed && <><span className={'ml-3 flex-1 text-left whitespace-nowrap text-sm font-medium'}>Tools</span><FontAwesomeIcon icon={faChevronDown} className={toolsOpen ? 'transition-transform' : '-rotate-90 transition-transform'} /></>}
-                                    </button>
-                                </Tooltip>
+                                <button
+                                    type={'button'}
+                                    onClick={() => setToolsOpen((open) => !open)}
+                                    className={'flex h-11 w-full items-center rounded-xl border border-transparent px-3 text-neutral-300 transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
+                                    aria-expanded={toolsOpen}
+                                >
+                                    <FontAwesomeIcon icon={faTools} />
+                                    {!isCollapsed && <><span className={'ml-3 flex-1 text-left whitespace-nowrap text-sm font-medium'}>Tools</span>{optimizerUnread > 0 && <span className={'mr-2 h-2 w-2 shrink-0 rounded-full bg-red-500'} aria-label={`${optimizerUnread} unread optimizer alert${optimizerUnread === 1 ? '' : 's'}`} />}<FontAwesomeIcon icon={faChevronDown} className={toolsOpen ? 'transition-transform' : '-rotate-90 transition-transform'} /></>}
+                                    {isCollapsed && optimizerUnread > 0 && <span className={'absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500'} />}
+                                </button>
                                 {toolsOpen && <div className={'mt-1 flex flex-col gap-1'}>{toolRoutes.map((route) => routeLink(route, true))}</div>}
                             </div>
                         </Can>
@@ -246,29 +257,25 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                     <div className={'mt-3 shrink-0 border-t border-neutral-700 pt-3'}>
                         {rootAdmin && (
                             <div>
-                                <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Open admin server view'}>
-                                    <a
-                                        href={`/admin/servers/view/${serverId}`}
-                                        target={'_blank'}
-                                        rel={'noreferrer'}
-                                        className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
-                                    >
-                                        <FontAwesomeIcon icon={faExternalLinkAlt} />
-                                        {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>Admin view</span>}
-                                    </a>
-                                </Tooltip>
+                                <a
+                                    href={`/admin/servers/view/${serverId}`}
+                                    target={'_blank'}
+                                    rel={'noreferrer'}
+                                    className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
+                                >
+                                    <FontAwesomeIcon icon={faExternalLinkAlt} />
+                                    {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>Admin view</span>}
+                                </a>
                             </div>
                         )}
-                        <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'All servers'}>
-                            <Link
-                                to={'/'}
-                                onClick={() => setMobileOpen(false)}
-                                className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
-                            >
-                                <FontAwesomeIcon icon={faAngleDoubleLeft} />
-                                {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>All servers</span>}
-                            </Link>
-                        </Tooltip>
+                        <Link
+                            to={'/'}
+                            onClick={() => setMobileOpen(false)}
+                            className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
+                        >
+                            <FontAwesomeIcon icon={faAngleDoubleLeft} />
+                            {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>All servers</span>}
+                        </Link>
                     </div>
                 </div>
             </aside>

@@ -4,6 +4,7 @@ import LoginContainer from '@/components/auth/LoginContainer';
 import RegisterContainer from '@/components/auth/RegisterContainer';
 import ForgotPasswordContainer from '@/components/auth/ForgotPasswordContainer';
 import ResetPasswordContainer from '@/components/auth/ResetPasswordContainer';
+import EmailVerifiedContainer from '@/components/auth/EmailVerifiedContainer';
 import LoginCheckpointContainer from '@/components/auth/LoginCheckpointContainer';
 import { NotFound } from '@/components/elements/ScreenBlock';
 import { useHistory, useLocation } from 'react-router';
@@ -18,6 +19,7 @@ export default () => {
             <Switch location={location}>
                 <Route path={`${path}/login`} component={LoginContainer} exact />
                 <Route path={`${path}/register`} component={RegisterContainer} exact />
+                <Route path={`${path}/email/verified`} component={EmailVerifiedContainer} exact />
                 <Route path={`${path}/login/checkpoint`} component={LoginCheckpointContainer} />
                 <Route path={`${path}/password`} component={ForgotPasswordContainer} exact />
                 <Route path={`${path}/password/reset/:token`} component={ResetPasswordContainer} />

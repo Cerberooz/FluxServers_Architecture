@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Pterodactyl\Http\Middleware\TrimStrings;
 use Pterodactyl\Http\Middleware\AdminAuthenticate;
 use Pterodactyl\Http\Middleware\RequireTwoFactorAuthentication;
+use Pterodactyl\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 
 class RouteServiceProvider extends ServiceProvider
@@ -37,6 +38,13 @@ class RouteServiceProvider extends ServiceProvider
 
         $this->routes(function () {
             Route::middleware('web')->group(function () {
+                // A verification link can be opened in a browser that is already
+                // signed in as a different account, so it must not inherit the
+                // guest-only middleware used by the rest of /auth.
+                Route::get('/auth/email/verify/{id}/{hash}', VerifyEmailController::class)
+                    ->middleware(['signed', 'throttle:6,1'])
+                    ->name('verification.verify');
+
                 Route::middleware(['auth.session', RequireTwoFactorAuthentication::class])
                     ->group(base_path('routes/base.php'));
 

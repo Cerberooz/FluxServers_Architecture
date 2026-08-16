@@ -385,7 +385,13 @@ footer {
     display: grid;
     gap: 0.85rem;
     margin-top: 1rem;
+    min-width: 0;
     padding-top: 0.95rem;
+}
+
+.capacity-row {
+    min-width: 0;
+    width: 100%;
 }
 
 .capacity-label {
@@ -408,11 +414,14 @@ footer {
 
 .capacity-ticks {
     display: grid;
-    grid-template-columns: repeat(60, 16px);
+    grid-template-columns: repeat(60, minmax(0, 1fr));
     gap: 2px;
     height: 46px;
-    justify-content: center;
+    justify-content: stretch;
+    max-width: 100%;
+    min-width: 0;
     overflow: hidden;
+    width: 100%;
 }
 
 .capacity-tick {
@@ -427,7 +436,6 @@ footer {
 
 @media (max-width: 720px) {
     .capacity-ticks {
-        grid-template-columns: repeat(60, minmax(0, 1fr));
-        justify-content: stretch;
+        gap: 1px;
     }
 }

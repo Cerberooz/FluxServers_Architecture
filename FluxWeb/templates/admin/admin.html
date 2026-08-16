@@ -235,7 +235,7 @@
 
         <!-- Stats -->
         <div class="stats-grid">
-            <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-server"></i></div><div class="stat-info"><h3>{{ stats.total_servers }}</h3><p>Active Servers</p></div></div>
+            <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-server"></i></div><div class="stat-info"><h3>{{ stats.total_servers if stats.total_servers is not none else 'â€”' }}</h3><p>Active Servers</p></div></div>
             <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-users"></i></div><div class="stat-info"><h3>{{ stats.total_users }}</h3><p>Total Users</p></div></div>
             <div class="stat-card"><div class="stat-icon green"><i class="fas fa-globe"></i></div><div class="stat-info"><h3>{{ globe_locations|length }}</h3><p>Locations</p></div></div>
         </div>
@@ -295,7 +295,7 @@
             <div class="section-toolbar">
                 <input type="text" id="servers-search" placeholder="Search servers">
             </div>
-            <div class="table-summary">Showing {{ servers.items|length }} of {{ stats.total_servers }} servers</div>
+            <div class="table-summary">Showing {{ servers.items|length }} of {{ stats.total_servers if stats.total_servers is not none else 'unavailable' }} servers</div>
             <div class="admin-table-container">
                 <table class="admin-table">
                     <thead><tr><th>ID</th><th>Owner</th><th>Plan</th><th>Status</th><th>Control</th></tr></thead>

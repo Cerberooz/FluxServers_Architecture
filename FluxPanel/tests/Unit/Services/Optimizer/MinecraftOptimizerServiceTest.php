@@ -46,5 +46,21 @@ class MinecraftOptimizerServiceTest extends TestCase
         $this->assertSame(18.5, $summary['tps']);
         $this->assertSame(40, $summary['mspt_median']);
         $this->assertSame(55, $summary['mspt_p95']);
+        $this->assertSame('healthy', $summary['server_health']['status']);
+    }
+
+    public function testItPreservesNetworkEvidenceForAutomaticReports(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $method = new \ReflectionMethod($service, 'summarizeReport');
+        $summary = $method->invoke($service, ['type' => 'health', 'metadata' => []], 'abc123', [
+            'network' => ['ingress_bytes_per_second' => 25 * 1024 * 1024, 'egress_bytes_per_second' => 1],
+        ]);
+
+        $this->assertSame(25 * 1024 * 1024, $summary['network']['ingress_bytes_per_second']);
     }
 }

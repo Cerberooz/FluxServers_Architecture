@@ -81,6 +81,8 @@ Route::group([
     Route::middleware('throttle:10,1')->patch('/subdomains/{subdomain}', [Client\Servers\SubdomainController::class, 'update']);
     Route::middleware('throttle:10,1')->delete('/subdomains/{subdomain}', [Client\Servers\SubdomainController::class, 'destroy']);
     Route::get('/optimizer', [Client\Servers\OptimizerController::class, 'index']);
+    Route::get('/optimizer/notifications', [Client\Servers\OptimizerController::class, 'notifications']);
+    Route::post('/optimizer/runs/{run}/read', [Client\Servers\OptimizerController::class, 'read']);
     Route::middleware('throttle:5,1')->post('/optimizer/scan', [Client\Servers\OptimizerController::class, 'scan']);
     Route::middleware('throttle:3,5')->post('/optimizer/profile', [Client\Servers\OptimizerController::class, 'profile']);
     Route::middleware('throttle:5,10')->post('/optimizer/import', [Client\Servers\OptimizerController::class, 'import']);

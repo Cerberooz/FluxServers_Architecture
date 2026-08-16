@@ -23,6 +23,7 @@ interface Values {
 const RegisterContainer = () => {
     const ref = useRef<Reaptcha>(null);
     const [token, setToken] = useState('');
+    const [activationEmail, setActivationEmail] = useState<string>();
 
     const { clearFlashes, addFlash, clearAndAddHttpError } = useFlash();
     const { enabled: recaptchaEnabled, siteKey } = useStoreState((state) => state.settings.data!.recaptcha);
@@ -48,11 +49,9 @@ const RegisterContainer = () => {
         register({ ...values, recaptchaData: token })
             .then((response) => {
                 if (response.verificationRequired) {
-                    addFlash({
-                        type: 'success',
-                        title: 'Check your email',
-                        message: 'Your account was created. Verify your email address before signing in.',
-                    });
+                    setActivationEmail(values.email);
+                    setSubmitting(false);
+                    return;
                 }
                 // @ts-expect-error this is valid
                 window.location = response.intended || '/';
@@ -67,6 +66,18 @@ const RegisterContainer = () => {
                 clearAndAddHttpError({ error });
             });
     };
+
+    if (activationEmail) {
+        return <LoginFormContainer title={'Activate your account'} subtitle={'One more step before you can sign in.'} css={tw`w-full flex`}>
+            <div css={tw`rounded-lg border border-blue-700 bg-blue-900 bg-opacity-30 p-5 text-sm text-blue-100`}>
+                <p css={tw`font-semibold text-blue-100`}>An email has been sent to activate your account.</p>
+                <p css={tw`mt-2 text-blue-200`}>Open the verification link sent to {activationEmail}. Once activated, return here to sign in.</p>
+            </div>
+            <div css={tw`mt-6 text-center`}>
+                <Link to={'/auth/login'} css={tw`text-xs uppercase tracking-wide text-neutral-500 no-underline hover:text-neutral-300`}>Back to sign in</Link>
+            </div>
+        </LoginFormContainer>;
+    }
 
     return (
         <Formik
