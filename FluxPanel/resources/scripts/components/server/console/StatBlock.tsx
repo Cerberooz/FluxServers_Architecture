@@ -16,11 +16,13 @@ interface StatBlockProps {
 }
 
 export default ({ title, copyOnClick, icon, color, className, children }: StatBlockProps) => {
-    const { fontSize, ref } = useFitText({ minFontSize: 8, maxFontSize: 500 });
+    // Resource values must remain compact in the console side panel. A large
+    // maximum lets short values such as "Offline" grow until they dominate a row.
+    const { fontSize, ref } = useFitText({ minFontSize: 8, maxFontSize: 14 });
 
     return (
         <CopyOnClick text={copyOnClick}>
-            <div className={classNames(styles.stat_block, 'bg-gray-600', className)}>
+            <div className={classNames(styles.stat_block, 'fluid-console-stat-block bg-gray-600', className)}>
                 <div className={classNames(styles.status_bar, color || 'bg-gray-700')} />
                 <div className={classNames(styles.icon, color || 'bg-gray-700')}>
                     <Icon
@@ -32,10 +34,10 @@ export default ({ title, copyOnClick, icon, color, className, children }: StatBl
                     />
                 </div>
                 <div className={'flex flex-col justify-center overflow-hidden w-full'}>
-                    <p className={'font-header font-medium leading-tight text-xs md:text-sm text-gray-200'}>{title}</p>
+                    <p className={'font-header font-medium leading-tight text-[10px] text-gray-200'}>{title}</p>
                     <div
                         ref={ref}
-                        className={'h-[1.75rem] w-full font-semibold text-gray-50 truncate'}
+                        className={'h-5 w-full font-semibold leading-5 text-gray-50 truncate'}
                         style={{ fontSize }}
                     >
                         {children}
