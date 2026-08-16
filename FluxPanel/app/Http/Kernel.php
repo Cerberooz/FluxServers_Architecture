@@ -13,6 +13,7 @@ use Pterodactyl\Http\Middleware\Api\IsValidJson;
 use Pterodactyl\Http\Middleware\VerifyCsrfToken;
 use Pterodactyl\Http\Middleware\VerifyReCaptcha;
 use Illuminate\Routing\Middleware\ThrottleRequests;
+use Illuminate\Routing\Middleware\ValidateSignature;
 use Pterodactyl\Http\Middleware\LanguageMiddleware;
 use Pterodactyl\Http\Middleware\SetSecurityHeaders;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
@@ -99,6 +100,7 @@ class Kernel extends HttpKernel
         'guest' => RedirectIfAuthenticated::class,
         'csrf' => VerifyCsrfToken::class,
         'throttle' => ThrottleRequests::class,
+        'signed' => ValidateSignature::class,
         'can' => Authorize::class,
         'bindings' => SubstituteBindings::class,
         'recaptcha' => VerifyReCaptcha::class,
