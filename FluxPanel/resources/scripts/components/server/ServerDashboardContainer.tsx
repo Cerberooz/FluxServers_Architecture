@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { ServerContext } from '@/state/server';
 import ServerContentBlock from '@/components/elements/ServerContentBlock';
+import Spinner from '@/components/elements/Spinner';
 import getServerResourceUsage, { ServerStats } from '@/api/server/getServerResourceUsage';
+import { Server } from '@/api/server/getServer';
 import getServerNodeUptime from '@/api/server/getServerNodeUptime';
 import { useActivityLogs } from '@/api/server/activity';
 import { bytesToString, ip, mbToBytes } from '@/lib/formatters';
@@ -27,8 +29,7 @@ const Usage = ({ label, value, percent }: { label: string; value: string; percen
     </div>
 );
 
-export default () => {
-    const server = ServerContext.useStoreState((state) => state.server.data!);
+const ServerDashboard = ({ server }: { server: Server }) => {
     const status = ServerContext.useStoreState((state) => state.status.value);
     const [stats, setStats] = useState<ServerStats | null>(null);
     const [nodeUptime, setNodeUptime] = useState<number | null>(null);
@@ -133,4 +134,12 @@ export default () => {
             </div>
         </ServerContentBlock>
     );
+};
+
+export default () => {
+    // A direct navigation can render this route while ServerRouter is still
+    // fetching its record. Do not dereference the optional store value yet.
+    const server = ServerContext.useStoreState((state) => state.server.data);
+
+    return server ? <ServerDashboard server={server} /> : <Spinner centered size={'large'} />;
 };
