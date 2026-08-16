@@ -1,7 +1,7 @@
 import tw from 'twin.macro';
 import { createGlobalStyle } from 'styled-components/macro';
 // @ts-expect-error untyped font file
-import font from '@fontsource-variable/ibm-plex-sans/files/ibm-plex-sans-latin-wght-normal.woff2';
+import font from '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2';
 
 export default createGlobalStyle`
     html {
@@ -10,7 +10,7 @@ export default createGlobalStyle`
     }
 
     @font-face {
-        font-family: 'IBM Plex Sans';
+        font-family: 'Inter';
         font-style: normal;
         font-display: swap;
         font-weight: 100 700;
@@ -20,6 +20,7 @@ export default createGlobalStyle`
 
     body {
         ${tw`font-sans bg-neutral-800 text-neutral-200`};
+        font-family: 'Inter', system-ui, sans-serif;
         letter-spacing: 0;
         background:
             linear-gradient(180deg, #0b0d12 0%, #0e1118 42%, #0b0d12 100%);
@@ -81,5 +82,101 @@ export default createGlobalStyle`
 
     ::-webkit-scrollbar-corner {
         background: transparent;
+    }
+
+    .fluid-server-page {
+        color: #ecf1f9;
+    }
+
+    .fluid-server-page__header {
+        min-height: 97px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        border-bottom: 1px solid #17202e;
+        padding: 4px 0 24px;
+    }
+
+    .fluid-server-page__header h1 {
+        margin: 0;
+        color: #ecf1f9;
+        font-size: 24px;
+        font-weight: 600;
+        line-height: 1.2;
+    }
+
+    .fluid-server-page__header p {
+        margin: 10px 0 0;
+        color: #6e83a2;
+        font-size: 10px;
+    }
+
+    .fluid-server-page__header p span { padding: 0 5px; }
+
+    .fluid-server-page__status {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-top: 7px;
+        color: #6e83a2;
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    .fluid-server-page__status i { width: 7px; height: 7px; border-radius: 999px; background: #5a6f91; }
+    .fluid-server-page__status--running { color: #25d281; }
+    .fluid-server-page__status--running i { background: #25d281; }
+    .fluid-server-page__content { padding-top: 20px; }
+
+    .fluid-server-page .fluid-surface,
+    .fluid-server-page .fluid-table {
+        border: 1px solid #17202e;
+        border-radius: 4px;
+        background: #05070a;
+    }
+
+    .fluid-server-page .fluid-table { overflow: hidden; }
+    .fluid-server-page .fluid-table__head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 160px 190px 36px;
+        gap: 16px;
+        align-items: center;
+        min-height: 48px;
+        padding: 0 20px;
+        border-bottom: 1px solid #17202e;
+        color: #4f6280;
+        font-size: 8px;
+        font-weight: 500;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+    }
+
+    .fluid-server-page .fluid-table > .fluid-row,
+    .fluid-server-page .fluid-table > a.fluid-row {
+        border: 0;
+        border-bottom: 1px solid #17202e;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .fluid-server-page .fluid-table > .fluid-row:last-child,
+    .fluid-server-page .fluid-table > a.fluid-row:last-child { border-bottom: 0; }
+    .fluid-server-page .fluid-row { min-height: 58px; padding: 12px 20px; }
+
+    .fluid-server-page .fluid-activity { background: #05070a; }
+    .fluid-server-page .fluid-activity-row {
+        padding: 16px 20px;
+        border-color: #17202e;
+        background: transparent;
+    }
+    .fluid-server-page .fluid-activity-row:hover { background: #080b11; }
+    .fluid-server-page .fluid-activity-row .description { color: #ecf1f9; font-size: 11px; }
+
+    @media (max-width: 640px) {
+        .fluid-server-page__header { min-height: 82px; padding-bottom: 17px; }
+        .fluid-server-page .fluid-table__head { display: none; }
     }
 `;

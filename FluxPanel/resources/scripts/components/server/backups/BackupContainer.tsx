@@ -48,9 +48,14 @@ const BackupContainer = () => {
                             </p>
                         )
                     ) : (
-                        items.map((backup, index) => (
-                            <BackupRow key={backup.uuid} backup={backup} css={index > 0 ? tw`mt-2` : undefined} />
-                        ))
+                        <div className={'fluid-table'}>
+                            <div className={'fluid-table__head'}>
+                                <span>Backup</span><span>Size</span><span>Created</span><span />
+                            </div>
+                            {items.map((backup) => (
+                            <BackupRow key={backup.uuid} backup={backup} />
+                            ))}
+                        </div>
                     )
                 }
             </Pagination>

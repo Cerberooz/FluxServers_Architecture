@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  * @property bool $maintenance_mode
  * @property int $memory
  * @property int $memory_overallocate
+ * @property string|null $cpu_model
+ * @property string|null $memory_type
  * @property int $disk
  * @property int $disk_overallocate
  * @property int $upload_size
@@ -92,7 +94,7 @@ class Node extends Model implements Identifiable
         'memory', 'memory_overallocate', 'disk',
         'disk_overallocate', 'upload_size', 'daemonBase',
         'daemonSFTP', 'daemonListen',
-        'description', 'maintenance_mode',
+        'description', 'maintenance_mode', 'cpu_model', 'memory_type',
     ];
 
     public static array $validationRules = [
@@ -105,6 +107,8 @@ class Node extends Model implements Identifiable
         'behind_proxy' => 'boolean',
         'memory' => 'required|numeric|min:1',
         'memory_overallocate' => 'required|numeric|min:-1',
+        'cpu_model' => 'nullable|string|max:191',
+        'memory_type' => 'nullable|string|max:191',
         'disk' => 'required|numeric|min:1',
         'disk_overallocate' => 'required|numeric|min:-1',
         'daemonBase' => 'sometimes|required|regex:/^([\/][\d\w.\-\/]+)$/',

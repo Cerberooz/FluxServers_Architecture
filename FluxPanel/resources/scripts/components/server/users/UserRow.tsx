@@ -18,7 +18,7 @@ export default ({ subuser }: Props) => {
     const [visible, setVisible] = useState(false);
 
     return (
-        <GreyRowBox css={tw`mb-2`}>
+        <GreyRowBox className={'fluid-row'} css={tw`mb-0`}>
             <EditSubuserModal subuser={subuser} visible={visible} onModalDismissed={() => setVisible(false)} />
             <div css={tw`w-10 h-10 rounded-full bg-white border-2 border-neutral-800 overflow-hidden hidden md:block`}>
                 <img css={tw`w-full h-full`} src={`${subuser.image}?s=400`} />

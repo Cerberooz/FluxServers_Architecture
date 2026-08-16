@@ -1,11 +1,13 @@
 .button {
     @apply px-4 py-2 inline-flex items-center justify-center;
-    @apply rounded-lg text-base font-semibold transition-all duration-100;
+    @apply text-sm font-semibold transition-all duration-100;
+    min-height: 34px;
+    border-radius: 5px;
     @apply focus:ring-[3px] focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-opacity-50;
 
     /* Sizing Controls */
     &.small {
-        @apply px-4 py-0 h-8 font-normal text-sm focus:ring-2;
+        @apply px-3 py-0 h-8 font-normal text-xs focus:ring-2;
     }
 
     &.large {
@@ -34,7 +36,8 @@
 }
 
 .primary {
-    @apply bg-blue-600 text-blue-50;
+    background: #2582ff;
+    color: #ecf1f9;
     @apply hover:bg-blue-500 active:bg-blue-500 focus:ring-blue-400 focus:ring-opacity-75;
 
     &.secondary {
@@ -47,7 +50,9 @@
 }
 
 .text {
-    @apply bg-gray-700 text-gray-50 border border-gray-600;
+    background: #080b11;
+    color: #ecf1f9;
+    border: 1px solid #17202e;
     @apply hover:bg-gray-600 active:bg-gray-600 focus:ring-gray-400 focus:ring-opacity-50;
 
     &.secondary {

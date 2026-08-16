@@ -120,8 +120,16 @@
                                 <span class="input-group-addon">%</span>
                             </div>
                         </div>
+                        <div class="form-group col-md-6">
+                            <label for="pCpuModel" class="form-label">CPU Model</label>
+                            <input type="text" name="cpu_model" class="form-control" id="pCpuModel" value="{{ old('cpu_model') }}" placeholder="e.g. AMD Ryzen 9 7950X" />
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="pMemoryType" class="form-label">Memory System</label>
+                            <input type="text" name="memory_type" class="form-control" id="pMemoryType" value="{{ old('memory_type') }}" placeholder="e.g. DDR5-6000" />
+                        </div>
                         <div class="col-md-12">
-                            <p class="text-muted small">Enter the total amount of memory available for new servers. If you would like to allow overallocation of memory enter the percentage that you want to allow. To disable checking for overallocation enter <code>-1</code> into the field. Entering <code>0</code> will prevent creating new servers if it would put the node over the limit.</p>
+                            <p class="text-muted small">Enter the total amount of memory available for new servers. CPU Model and Memory System are optional display labels and do not affect allocation.</p>
                         </div>
                     </div>
                     <div class="row">

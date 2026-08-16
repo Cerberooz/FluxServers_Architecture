@@ -20,7 +20,8 @@ module.exports = {
     theme: {
         extend: {
             fontFamily: {
-                header: ['"IBM Plex Sans"', '"Roboto"', 'system-ui', 'sans-serif'],
+                sans: ['"Inter"', 'system-ui', 'sans-serif'],
+                header: ['"Inter"', 'system-ui', 'sans-serif'],
             },
             colors: {
                 black: '#07090d',

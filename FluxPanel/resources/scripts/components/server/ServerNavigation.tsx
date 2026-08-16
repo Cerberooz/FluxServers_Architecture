@@ -28,15 +28,18 @@ import routes from '@/routers/routes';
 import { usePersistedState } from '@/plugins/usePersistedState';
 import { useStoreState } from 'easy-peasy';
 import { ApplicationStore } from '@/state';
+import styled from 'styled-components/macro';
 
 type Props = {
     baseUrl: string;
     serverName: string;
+    serverMeta: string;
     serverId: number;
     rootAdmin: boolean;
 };
 
 const icons: Record<string, IconDefinition> = {
+    Dashboard: faLayerGroup,
     Console: faTerminal,
     Files: faFolderOpen,
     Databases: faDatabase,
@@ -52,7 +55,16 @@ const icons: Record<string, IconDefinition> = {
     Activity: faHistory,
 };
 
-export default ({ baseUrl, serverName, serverId, rootAdmin }: Props) => {
+const ScrollNavigation = styled.nav`
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+`;
+
+export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props) => {
     const panelName = useStoreState((state: ApplicationStore) => state.settings.data!.name);
     const [collapsed, setCollapsed] = usePersistedState('layout:server-sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -69,8 +81,8 @@ export default ({ baseUrl, serverName, serverId, rootAdmin }: Props) => {
                 to={to(route.path)}
                 exact={route.exact}
                 onClick={() => setMobileOpen(false)}
-                className={`flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
-                activeClassName={'border-neutral-600 bg-neutral-800 text-neutral-100'}
+                className={`flex h-11 items-center rounded-lg border border-transparent px-3 text-neutral-300 no-underline transition-all hover:bg-neutral-800 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
+                activeClassName={'border-l-2 border-primary-500 bg-neutral-800 text-neutral-100 rounded-l-none'}
             >
                 <FontAwesomeIcon icon={icons[route.name!] || faTerminal} />
                 {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>{route.name}</span>}
@@ -101,10 +113,10 @@ export default ({ baseUrl, serverName, serverId, rootAdmin }: Props) => {
             )}
             <aside
                 className={`fixed inset-y-0 left-0 z-40 flex overflow-hidden border-r border-neutral-600 bg-neutral-900 shadow-2xl transition-[width,transform] duration-200 lg:translate-x-0 ${
-                    isCollapsed ? 'w-20' : 'w-64'
+                    isCollapsed ? 'w-20' : 'w-56'
                 } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
             >
-                <div className={'flex w-full min-w-0 flex-col p-4'}>
+                <div className={'flex h-full w-full min-w-0 flex-col p-4'}>
                     <div className={`flex min-w-0 items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
                         {!isCollapsed && (
                             <div className={'min-w-0'}>
@@ -140,19 +152,14 @@ export default ({ baseUrl, serverName, serverId, rootAdmin }: Props) => {
                         </button>
                     </div>
 
-                    {!isCollapsed && <p className={'mt-6 truncate px-3 text-sm font-semibold text-neutral-400'}>{serverName}</p>}
+                    {!isCollapsed && (
+                        <div className={'mt-6 min-w-0 px-3'}>
+                            <p className={'truncate text-sm font-semibold text-neutral-100'}>{serverName}</p>
+                            {serverMeta && <p className={'mt-1 truncate text-[10px] text-neutral-400'}>{serverMeta}</p>}
+                        </div>
+                    )}
 
-                    <nav className={'mt-3 flex flex-col gap-2'} aria-label={'Server management'}>
-                        <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Dashboard'}>
-                            <Link
-                                to={'/'}
-                                onClick={() => setMobileOpen(false)}
-                                className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
-                            >
-                                <FontAwesomeIcon icon={faLayerGroup} />
-                                {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>Dashboard</span>}
-                            </Link>
-                        </Tooltip>
+                    <ScrollNavigation className={'mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1'} aria-label={'Server management'}>
                         {navigationRoutes.map((route) => routeLink(route))}
                         <Can action={['allocation.read', 'file.read-content', 'file.read']} matchAny>
                             <div>
@@ -170,26 +177,38 @@ export default ({ baseUrl, serverName, serverId, rootAdmin }: Props) => {
                                 {toolsOpen && <div className={'mt-1 flex flex-col gap-1'}>{toolRoutes.map((route) => routeLink(route, true))}</div>}
                             </div>
                         </Can>
-                    </nav>
+                    </ScrollNavigation>
 
-                    {rootAdmin && (
-                        <div className={'mt-auto'}>
-                            <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Open admin server view'}>
-                                <a
-                                    href={`/admin/servers/view/${serverId}`}
-                                    target={'_blank'}
-                                    rel={'noreferrer'}
-                                    className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
-                                >
-                                    <FontAwesomeIcon icon={faExternalLinkAlt} />
-                                    {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>Admin view</span>}
-                                </a>
-                            </Tooltip>
-                        </div>
-                    )}
+                    <div className={'mt-3 shrink-0 border-t border-neutral-700 pt-3'}>
+                        {rootAdmin && (
+                            <div>
+                                <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Open admin server view'}>
+                                    <a
+                                        href={`/admin/servers/view/${serverId}`}
+                                        target={'_blank'}
+                                        rel={'noreferrer'}
+                                        className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
+                                    >
+                                        <FontAwesomeIcon icon={faExternalLinkAlt} />
+                                        {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>Admin view</span>}
+                                    </a>
+                                </Tooltip>
+                            </div>
+                        )}
+                        <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'All servers'}>
+                            <Link
+                                to={'/'}
+                                onClick={() => setMobileOpen(false)}
+                                className={'flex h-11 items-center rounded-xl border border-transparent px-3 text-neutral-300 no-underline transition-all hover:border-neutral-600 hover:bg-neutral-800 hover:text-neutral-100'}
+                            >
+                                <FontAwesomeIcon icon={faAngleDoubleLeft} />
+                                {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>All servers</span>}
+                            </Link>
+                        </Tooltip>
+                    </div>
                 </div>
             </aside>
-            <div className={`hidden shrink-0 transition-[width] duration-200 lg:block ${isCollapsed ? 'w-20' : 'w-64'}`} />
+            <div className={`hidden shrink-0 transition-[width] duration-200 lg:block ${isCollapsed ? 'w-20' : 'w-56'}`} />
         </>
     );
 };

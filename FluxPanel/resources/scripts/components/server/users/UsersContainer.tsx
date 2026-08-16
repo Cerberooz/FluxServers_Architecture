@@ -53,7 +53,12 @@ export default () => {
             {!subusers.length ? (
                 <p css={tw`text-center text-sm text-neutral-300`}>It looks like you don&apos;t have any subusers.</p>
             ) : (
-                subusers.map((subuser) => <UserRow key={subuser.uuid} subuser={subuser} />)
+                <div className={'fluid-table'}>
+                    <div className={'fluid-table__head'}>
+                        <span>User</span><span>Two-factor authentication</span><span>Permissions</span><span />
+                    </div>
+                    {subusers.map((subuser) => <UserRow key={subuser.uuid} subuser={subuser} />)}
+                </div>
             )}
             <Can action={'user.create'}>
                 <div css={tw`flex justify-end mt-6`}>

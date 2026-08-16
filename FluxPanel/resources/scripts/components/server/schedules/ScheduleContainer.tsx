@@ -49,12 +49,17 @@ export default () => {
                             There are no schedules configured for this server.
                         </p>
                     ) : (
-                        schedules.map((schedule) => (
+                        <div className={'fluid-table'}>
+                            <div className={'fluid-table__head'}>
+                                <span>Schedule</span><span>Last run</span><span>Status</span><span />
+                            </div>
+                            {schedules.map((schedule) => (
                             <GreyRowBox
                                 as={'a'}
                                 key={schedule.id}
                                 href={`${match.url}/${schedule.id}`}
-                                css={tw`cursor-pointer mb-2 flex-wrap`}
+                                className={'fluid-row'}
+                                css={tw`cursor-pointer mb-0 flex-wrap`}
                                 onClick={(e: any) => {
                                     e.preventDefault();
                                     history.push(`${match.url}/${schedule.id}`);
@@ -62,7 +67,8 @@ export default () => {
                             >
                                 <ScheduleRow schedule={schedule} />
                             </GreyRowBox>
-                        ))
+                            ))}
+                        </div>
                     )}
                     <Can action={'schedule.create'}>
                         <div css={tw`mt-8 flex justify-end`}>

@@ -49,6 +49,14 @@
                             <textarea name="description" id="description" rows="4" class="form-control">{{ $node->description }}</textarea>
                         </div>
                     </div>
+                    <div class="form-group col-xs-6">
+                        <label for="cpu_model" class="control-label">CPU Model</label>
+                        <input type="text" autocomplete="off" name="cpu_model" id="cpu_model" class="form-control" value="{{ old('cpu_model', $node->cpu_model) }}" placeholder="e.g. AMD Ryzen 9 7950X" />
+                    </div>
+                    <div class="form-group col-xs-6">
+                        <label for="memory_type" class="control-label">Memory System</label>
+                        <input type="text" autocomplete="off" name="memory_type" id="memory_type" class="form-control" value="{{ old('memory_type', $node->memory_type) }}" placeholder="e.g. DDR5-6000" />
+                    </div>
                     <div class="form-group col-xs-12">
                         <label for="name" class="control-label">Location</label>
                         <div>

@@ -41,10 +41,16 @@ const inputStyle = css<Props>`
     resize: none;
     ${tw`appearance-none outline-none w-full min-w-0`};
     ${tw`p-3 border rounded-md text-sm transition-all duration-150`};
-    ${tw`bg-neutral-900 border-neutral-600 hover:border-neutral-500 text-neutral-200 shadow-none focus:ring-0`};
+    background: #080b11;
+    border-color: #17202e;
+    color: #ecf1f9;
+    box-shadow: none;
+
+    &:hover { border-color: #30415c; }
 
     &::placeholder {
-        ${tw`text-neutral-500 opacity-100`};
+        color: #4f6280;
+        opacity: 1;
     }
 
     & + .input-help {

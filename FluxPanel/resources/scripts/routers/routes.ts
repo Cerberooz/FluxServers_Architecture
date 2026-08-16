@@ -18,6 +18,7 @@ import ServerActivityLogContainer from '@/components/server/ServerActivityLogCon
 import SubdomainsContainer from '@/components/server/subdomains/SubdomainsContainer';
 import OptimizerContainer from '@/components/server/optimizer/OptimizerContainer';
 import PluginManagerContainer from '@/components/server/plugins/PluginManagerContainer';
+import ServerDashboardContainer from '@/components/server/ServerDashboardContainer';
 
 // Each of the router files is already code split out appropriately — so
 // all of the items above will only be loaded in when that router is loaded.
@@ -85,9 +86,15 @@ export default {
         {
             path: '/',
             permission: null,
+            name: 'Dashboard',
+            component: ServerDashboardContainer,
+            exact: true,
+        },
+        {
+            path: '/console',
+            permission: null,
             name: 'Console',
             component: ServerConsole,
-            exact: true,
         },
         {
             path: '/files',

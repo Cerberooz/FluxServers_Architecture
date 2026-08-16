@@ -3,12 +3,16 @@
 }
 
 .panel {
-    @apply relative bg-gray-600 rounded max-w-xl w-full mx-auto shadow-lg text-left;
-    @apply ring-4 ring-gray-800 ring-opacity-80;
+    @apply relative max-w-xl w-full mx-auto text-left;
+    background: #0a0e15;
+    border: 1px solid #17202e;
+    border-radius: 6px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
 }
 
 .title {
-    @apply font-header text-xl font-medium mb-2 text-gray-50 pr-4;
+    @apply font-header text-xl font-medium mb-2 pr-4;
+    color: #ecf1f9;
 }
 
 .close_icon {

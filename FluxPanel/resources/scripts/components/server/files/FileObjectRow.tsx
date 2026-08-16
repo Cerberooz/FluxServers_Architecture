@@ -36,7 +36,7 @@ const Clickable: React.FC<{ file: FileObject }> = memo(({ file, children }) => {
 
 const FileObjectRow = ({ file }: { file: FileObject }) => (
     <div
-        className={styles.file_row}
+        className={`${styles.file_row} fluid-row`}
         key={file.name}
         onContextMenu={(e) => {
             e.preventDefault();

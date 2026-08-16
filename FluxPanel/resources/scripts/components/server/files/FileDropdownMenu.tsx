@@ -25,7 +25,7 @@ import tw from 'twin.macro';
 import { FileObject } from '@/api/server/files/loadDirectory';
 import useFileManagerSwr from '@/plugins/useFileManagerSwr';
 import DropdownMenu from '@/components/elements/DropdownMenu';
-import styled from 'styled-components/macro';
+import styled, { css } from 'styled-components/macro';
 import useEventListener from '@/plugins/useEventListener';
 import compressFiles from '@/api/server/files/compressFiles';
 import decompressFiles from '@/api/server/files/decompressFiles';
@@ -37,8 +37,11 @@ type ModalType = 'rename' | 'move' | 'chmod';
 
 const StyledRow = styled.div<{ $danger?: boolean }>`
     ${tw`p-2 flex items-center rounded`};
+    color: #8ca3c2;
     ${(props) =>
-        props.$danger ? tw`hover:bg-red-100 hover:text-red-700` : tw`hover:bg-neutral-100 hover:text-neutral-700`};
+        props.$danger
+            ? css`&:hover { color: #f87171; background: rgba(239, 68, 68, .1); }`
+            : css`&:hover { color: #ecf1f9; background: #17202e; }`};
 `;
 
 interface RowProps extends React.HTMLAttributes<HTMLDivElement> {

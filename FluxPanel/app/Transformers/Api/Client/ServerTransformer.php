@@ -50,6 +50,10 @@ class ServerTransformer extends BaseClientTransformer
             'uuid' => $server->uuid,
             'name' => $server->name,
             'node' => $server->node->name,
+            'node_cpu_model' => $server->node->cpu_model,
+            'node_memory_type' => $server->node->memory_type,
+            'nest_name' => $server->nest->name,
+            'egg_name' => $server->egg->name,
             'is_node_under_maintenance' => $server->node->isUnderMaintenance(),
             'sftp_details' => [
                 'ip' => $server->node->fqdn,

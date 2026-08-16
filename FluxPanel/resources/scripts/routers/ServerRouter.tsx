@@ -25,6 +25,15 @@ export default () => {
 
     const id = ServerContext.useStoreState((state) => state.server.data?.id);
     const serverName = ServerContext.useStoreState((state) => state.server.data?.name || 'Server');
+    const serverMeta = ServerContext.useStoreState((state) => {
+        const server = state.server.data;
+        if (!server) return '';
+
+        const version = server.variables.find((variable) => variable.envVariable === 'MINECRAFT_VERSION')?.serverValue
+            || server.variables.find((variable) => variable.envVariable === 'MINECRAFT_VERSION')?.defaultValue;
+
+        return `${server.nestName} \u00b7 ${server.eggName}${version && version !== 'latest' ? ` ${version}` : ''}`;
+    });
     const uuid = ServerContext.useStoreState((state) => state.server.data?.uuid);
     const inConflictState = ServerContext.useStoreState((state) => state.server.inConflictState);
     const serverId = ServerContext.useStoreState((state) => state.server.data?.internalId);
@@ -60,7 +69,7 @@ export default () => {
 
     return (
         <div key={'server-router'} className={'min-h-screen bg-neutral-900 lg:flex'}>
-            <ServerNavigation baseUrl={match.url} serverName={serverName} serverId={serverId || 0} rootAdmin={rootAdmin} />
+            <ServerNavigation baseUrl={match.url} serverName={serverName} serverMeta={serverMeta} serverId={serverId || 0} rootAdmin={rootAdmin} />
             <div className={'min-w-0 flex-1 pt-16 lg:pt-0 lg:min-h-screen'}>
                 {!uuid || !id ? (
                     error ? (

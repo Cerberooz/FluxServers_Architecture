@@ -22,7 +22,9 @@ export interface ModalProps extends RequiredModalProps {
 
 export const ModalMask = styled.div`
     ${tw`fixed z-50 overflow-auto flex w-full inset-0`};
-    background: rgba(0, 0, 0, 0.7);
+    padding: 2rem 1rem;
+    background: rgba(3, 5, 8, 0.82);
+    backdrop-filter: blur(4px);
 `;
 
 const ModalContainer = styled.div<{ alignTop?: boolean }>`
@@ -32,6 +34,10 @@ const ModalContainer = styled.div<{ alignTop?: boolean }>`
     ${breakpoint('lg')`max-width: 50%`};
 
     ${tw`relative flex flex-col w-full m-auto`};
+    border: 1px solid #17202e;
+    border-radius: 6px;
+    background: #0a0e15;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
     ${(props) =>
         props.alignTop &&
         css`
@@ -42,8 +48,8 @@ const ModalContainer = styled.div<{ alignTop?: boolean }>`
     margin-bottom: auto;
 
     & > .close-icon {
-        ${tw`absolute right-0 p-2 text-white cursor-pointer opacity-50 transition-all duration-150 ease-linear hover:opacity-100`};
-        top: -2.5rem;
+        ${tw`absolute right-3 p-2 text-white cursor-pointer opacity-50 transition-all duration-150 ease-linear hover:opacity-100`};
+        top: 0.35rem;
 
         &:hover {
             ${tw`transform rotate-90`}
@@ -130,7 +136,8 @@ const Modal: React.FC<ModalProps> = ({
                         </Fade>
                     )}
                     <div
-                        css={tw`bg-neutral-800 p-3 sm:p-4 md:p-6 rounded shadow-md overflow-y-scroll transition-all duration-150`}
+                        css={tw`p-5 sm:p-6 overflow-y-auto transition-all duration-150`}
+                        style={{ maxHeight: 'calc(100vh - 8rem)', background: '#0a0e15' }}
                     >
                         {children}
                     </div>

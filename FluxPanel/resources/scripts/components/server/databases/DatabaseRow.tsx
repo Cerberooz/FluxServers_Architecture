@@ -139,7 +139,7 @@ export default ({ database, className }: Props) => {
                     </Button>
                 </div>
             </Modal>
-            <GreyRowBox $hoverable={false} className={className} css={tw`mb-2`}>
+            <GreyRowBox $hoverable={false} className={`${className || ''} fluid-row`} css={tw`mb-0`}>
                 <div css={tw`hidden md:block`}>
                     <FontAwesomeIcon icon={faDatabase} fixedWidth />
                 </div>

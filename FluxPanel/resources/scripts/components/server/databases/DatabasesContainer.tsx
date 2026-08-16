@@ -45,13 +45,17 @@ export default () => {
                 <Fade timeout={150}>
                     <>
                         {databases.length > 0 ? (
-                            databases.map((database, index) => (
+                            <div className={'fluid-table'}>
+                                <div className={'fluid-table__head'}>
+                                    <span>Database</span><span>Endpoint</span><span>Username</span><span />
+                                </div>
+                                {databases.map((database) => (
                                 <DatabaseRow
                                     key={database.id}
                                     database={database}
-                                    className={index > 0 ? 'mt-1' : undefined}
                                 />
-                            ))
+                                ))}
+                            </div>
                         ) : (
                             <p css={tw`text-center text-sm text-neutral-300`}>
                                 {databaseLimit > 0

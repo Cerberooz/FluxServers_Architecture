@@ -10,7 +10,7 @@ import styled from 'styled-components/macro';
 
 const Row = styled(Link)`
     ${tw`grid items-center border-b border-neutral-700 py-4 text-xs no-underline transition-colors hover:bg-neutral-900`};
-    grid-template-columns: minmax(250px, 2.4fr) minmax(120px, 1.2fr) minmax(110px, 1fr) repeat(3, minmax(90px, 0.8fr));
+    grid-template-columns: 340px 150px 140px 100px 160px 160px 130px;
     min-height: 72px;
 `;
 
@@ -43,14 +43,12 @@ export default ({ server, className }: { server: Server; className?: string }) =
     return (
         <Row to={`/server/${server.id}`} className={className}>
             <div css={tw`flex items-center pr-4`}><FontAwesomeIcon icon={faServer} css={tw`mr-3 text-neutral-500`} /><div><p css={tw`font-semibold text-neutral-100`}>{server.name}</p>{server.description && <p css={tw`mt-1 truncate text-[10px] text-neutral-500`}>{server.description}</p>}</div></div>
-            <div css={tw`flex flex-col items-start text-neutral-400`}>
-                <span>—</span>
-                <span css={tw`mt-2 text-blue-400`}>View →</span>
-            </div>
+            <div css={tw`text-neutral-400`}>—</div>
             <div css={tw`text-neutral-300`}><Dot $online={online} />{status}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faMicrochip} css={tw`mr-2 text-neutral-500`} />{cpu}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faMemory} css={tw`mr-2 text-neutral-500`} />{memory}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faHdd} css={tw`mr-2 text-neutral-500`} />{disk}</div>
+            <div css={tw`text-right font-semibold text-blue-400`}>View →</div>
         </Row>
     );
 };

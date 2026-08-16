@@ -72,7 +72,7 @@ export default ({
                         open={open}
                         onClose={onDialogClose}
                     >
-                        <div className={'fixed inset-0 bg-gray-900/50 z-40'} />
+                        <div className={'fixed inset-0 bg-gray-900/50 z-40'} style={{ background: 'rgba(3, 5, 8, 0.82)', backdropFilter: 'blur(4px)' }} />
                         <div className={'fixed inset-0 overflow-y-auto z-50'}>
                             <div
                                 ref={container}
@@ -88,7 +88,7 @@ export default ({
                                     variants={variants}
                                     className={styles.panel}
                                 >
-                                    <div className={'flex p-6 pb-0 overflow-y-auto'}>
+                                    <div className={'flex p-6 pb-0 overflow-y-auto'} style={{ maxHeight: 'calc(100vh - 8rem)' }}>
                                         {iconPosition === 'container' && icon}
                                         <div className={'flex-1 max-h-[70vh] min-w-0'}>
                                             <div className={'flex items-center'}>

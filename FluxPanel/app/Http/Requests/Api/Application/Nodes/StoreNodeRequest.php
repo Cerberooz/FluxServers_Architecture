@@ -28,6 +28,8 @@ class StoreNodeRequest extends ApplicationApiRequest
             'maintenance_mode',
             'memory',
             'memory_overallocate',
+            'cpu_model',
+            'memory_type',
             'disk',
             'disk_overallocate',
             'upload_size',
