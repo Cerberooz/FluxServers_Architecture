@@ -8,6 +8,13 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // An earlier deployment could create this table before failing while
+        // adding its foreign key. Preserve that table and let Laravel record
+        // this migration instead of attempting to create it again.
+        if (Schema::hasTable('support_tickets')) {
+            return;
+        }
+
         Schema::create('support_tickets', function (Blueprint $table) {
             $table->id();
             // Fluid/Pterodactyl's users.id is an UNSIGNED INT created with
