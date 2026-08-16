@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 import random
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from fluxweb.errors import PanelError
 from fluxweb.extensions import db
@@ -252,26 +252,70 @@ def _create(order: Order, item: OrderItem, user, *, client, expiry_days: int) ->
 def ensure_panel_user(user, client) -> int:
     """Return the panel user id for ``user``, creating the account if needed.
 
-    Never adopts a pre-existing panel account by email address. That lookup was
-    the panel-takeover path: registering with someone else's address bound your
-    site account to their panel user (audit C-8).
+    Existing links always win. A verified, unlinked Web account may adopt one
+    exact Panel email match once, then the relationship is frozen by Panel ID
+    and UUID. Unverified accounts are never allowed to claim an existing Panel
+    account by email.
     """
     if user.pelican_user_id:
         existing = client.get_user(user.pelican_user_id)
         if existing is not None:
+            _record_panel_link(user, existing, source=user.panel_link_source or "stored")
+            db.session.commit()
             return user.pelican_user_id
         log.warning("Panel user %s for user %s vanished; creating a new one", user.pelican_user_id, user.id)
         user.pelican_user_id = None
 
+    web_uuid = user.supabase_user_id
+    if web_uuid and hasattr(client, "find_users_by_external_id"):
+        matches = client.find_users_by_external_id(web_uuid)
+        if len(matches) == 1:
+            _record_panel_link(user, matches[0], source="external_id")
+            db.session.commit()
+            return int(matches[0]["id"])
+
+    if user.email_verified and hasattr(client, "find_users_by_email"):
+        matches = client.find_users_by_email(user.email)
+        if len(matches) == 1:
+            _record_panel_link(user, matches[0], source="verified_email")
+            db.session.commit()
+            log.info("Linked existing Panel user %s to Web user %s by verified email", user.pelican_user_id, user.id)
+            return int(matches[0]["id"])
+        if len(matches) > 1:
+            log.error("Ambiguous Panel email match for Web user %s; refusing automatic link", user.id)
+
     username = _panel_username(user)
-    panel_id, password = client.create_user(
-        email=user.email, username=username, first_name=user.username or username
-    )
+    try:
+        panel_id, password = client.create_user(
+            email=user.email,
+            username=username,
+            first_name=user.username or username,
+            external_id=web_uuid,
+        )
+    except TypeError:
+        # Keep older test doubles/integration clients usable during rolling
+        # deployments; the canonical client accepts external_id.
+        panel_id, password = client.create_user(
+            email=user.email, username=username, first_name=user.username or username
+        )
     user.pelican_user_id = panel_id
+    created = client.get_user(panel_id) if hasattr(client, "get_user") else None
+    _record_panel_link(user, created or {}, source="created")
     user.set_pelican_password(password)
     db.session.commit()
     log.info("Created panel user %s for user %s", panel_id, user.id)
     return panel_id
+
+
+def _record_panel_link(user, panel_user: dict, *, source: str) -> None:
+    """Persist immutable Panel identity and current display metadata."""
+    if panel_user.get("id") is not None:
+        user.pelican_user_id = int(panel_user["id"])
+    if panel_user.get("uuid"):
+        user.pelican_user_uuid = panel_user["uuid"]
+    user.pelican_user_email = panel_user.get("email") or user.pelican_user_email or user.email
+    user.panel_link_source = source
+    user.panel_linked_at = user.panel_linked_at or datetime.now(UTC).replace(tzinfo=None)
 
 
 def _panel_username(user) -> str:

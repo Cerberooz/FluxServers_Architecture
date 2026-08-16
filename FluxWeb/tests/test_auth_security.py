@@ -40,16 +40,7 @@ class TestOpenRedirect:
 
 
 class TestPanelAccountTakeover:
-    """C-8: a pre-existing panel user is never adopted by email address."""
-
-    def test_client_has_no_email_lookup(self):
-        import inspect
-
-        from fluxweb.integrations import fluid
-
-        source = inspect.getsource(fluid)
-        # The filter[email] lookup was the takeover primitive.
-        assert "filter[email]" not in source
+    """Panel links are durable and email adoption requires verification."""
 
     def test_ensure_panel_user_creates_rather_than_adopts(self, db, user):
         from fluxweb.services.provisioning import ensure_panel_user
@@ -60,7 +51,13 @@ class TestPanelAccountTakeover:
             def get_user(self, panel_id):
                 calls["fetched"] += 1
 
-            def create_user(self, *, email, username, first_name):
+            def find_users_by_external_id(self, external_id):
+                return []
+
+            def find_users_by_email(self, email):
+                return []
+
+            def create_user(self, *, email, username, first_name, external_id=None):
                 calls["created"] += 1
                 return 4242, "generated-password"
 
@@ -72,6 +69,24 @@ class TestPanelAccountTakeover:
         # but it is NOT the user's site password.
         assert user.pelican_password_decrypted == "generated-password"
         assert not user.check_password("generated-password")
+
+    def test_verified_email_can_link_existing_panel_account(self, db, user):
+        from fluxweb.services.provisioning import ensure_panel_user
+
+        class FakeClient:
+            def find_users_by_external_id(self, external_id):
+                return []
+
+            def find_users_by_email(self, email):
+                return [{"id": 77, "uuid": "panel-uuid-77", "email": email}]
+
+            def get_user(self, panel_id):
+                return {"id": panel_id, "uuid": "panel-uuid-77", "email": user.email}
+
+        assert ensure_panel_user(user, FakeClient()) == 77
+        assert user.pelican_user_id == 77
+        assert user.pelican_user_uuid == "panel-uuid-77"
+        assert user.panel_link_source == "verified_email"
 
 
 class TestPasswordPolicy:

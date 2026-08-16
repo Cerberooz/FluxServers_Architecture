@@ -1,19 +1,27 @@
 <?php
 
-namespace PterodactylServices\Billing;
+namespace Pterodactyl\Services\Billing;
 
 use Illuminate\Support\Facades\DB;
 
 /** Read-only adapter for the FluxWeb/Supabase billing ledger. */
 class WebBillingService
 {
-    public function forEmail(string $email, int $servicesPage = 1, int $invoicesPage = 1, int $perPage = 5): array
+    public function forPanelIdentity(?string $panelUuid, ?int $panelId, string $email, int $servicesPage = 1, int $invoicesPage = 1, int $perPage = 5): array
     {
         $connection = DB::connection('web_pgsql');
         $servicesPage = max(1, $servicesPage);
         $invoicesPage = max(1, $invoicesPage);
         $perPage = min(50, max(1, $perPage));
-        $user = $connection->selectOne('select id from "user" where lower(email) = lower(?) limit 1', [$email]);
+        $user = $panelUuid
+            ? $connection->selectOne('select id from "user" where pelican_user_uuid = ? limit 1', [$panelUuid])
+            : null;
+        $user ??= $panelId
+            ? $connection->selectOne('select id from "user" where pelican_user_id = ? limit 1', [$panelId])
+            : null;
+        // Legacy rows may not be linked yet. Email remains a compatibility
+        // fallback, while the durable Panel UUID is preferred forever after.
+        $user ??= $connection->selectOne('select id from "user" where lower(email) = lower(?) limit 1', [$email]);
 
         if (!$user) {
             return [

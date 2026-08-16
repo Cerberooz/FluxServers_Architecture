@@ -95,6 +95,19 @@
                             </form>
                         </p>
                         {% endif %}
+                        {% if panel_account %}
+                        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+                            <p style="margin: 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 800; letter-spacing: .04em;">
+                                Fluid Panel account
+                            </p>
+                            <p style="margin: 4px 0 0; font-size: 13px; color: var(--text-muted);">
+                                <strong>{{ panel_account.username }}</strong> · {{ panel_account.email }}
+                                {% if panel_account.uuid %}<br><span style="font-size: 11px; opacity: .75;">UUID: {{ panel_account.uuid }}</span>{% endif %}
+                            </p>
+                        </div>
+                        {% elif user.pelican_user_id %}
+                        <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">Fluid Panel account linked</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>

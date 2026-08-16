@@ -36,10 +36,13 @@ class User(db.Model):
     #: must not be offered to it.
     auth_provider = db.Column(db.String(30), nullable=True)
 
-    # Panel linkage. `pelican_user_id` is only ever set for panel accounts this
-    # application created itself; pre-existing accounts are never adopted by
-    # email address (audit C-8).
+    # Durable Web-to-Panel identity. Email is historical/discovery metadata,
+    # never the primary link after the accounts have been matched.
     pelican_user_id = db.Column(db.Integer, nullable=True, index=True)
+    pelican_user_uuid = db.Column(db.String(36), nullable=True, unique=True, index=True)
+    pelican_user_email = db.Column(db.String(100), nullable=True)
+    panel_link_source = db.Column(db.String(32), nullable=True)
+    panel_linked_at = db.Column(db.DateTime, nullable=True)
     pelican_password = db.Column(db.String(500), nullable=True)  # Fernet ciphertext
 
     email_verified_at = db.Column(db.DateTime, nullable=True)

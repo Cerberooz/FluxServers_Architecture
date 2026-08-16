@@ -151,8 +151,8 @@ export default ({ sidebar = false }: Props) => {
                     <div className={'mx-7 h-6 w-px shrink-0 bg-[#17202e]'} />
                     <PrimaryNavigation>
                         <NavLink to={'/'} exact>Servers</NavLink>
-                        <NavLink to={'/account/billing'}>Billing</NavLink>
-                        <NavLink to={'/account/support'}>Support</NavLink>
+                        <NavLink to={'/billing'}>Billing</NavLink>
+                        <NavLink to={'/support'}>Support</NavLink>
                     </PrimaryNavigation>
                     <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />
@@ -165,6 +165,7 @@ export default ({ sidebar = false }: Props) => {
                             </button>
                             {profileOpen && <div className={'absolute right-0 top-12 z-50 w-48 rounded-lg border border-neutral-700 bg-neutral-900 p-1 shadow-2xl'}>
                                 <Link to={'/account'} onClick={() => setProfileOpen(false)} className={'block rounded px-3 py-2 text-sm text-neutral-300 no-underline hover:bg-neutral-800 hover:text-white'}>Settings</Link>
+                                {rootAdmin && <a href={'/admin'} onClick={() => setProfileOpen(false)} className={'block rounded px-3 py-2 text-sm text-neutral-300 no-underline hover:bg-neutral-800 hover:text-white'}>Admin</a>}
                                 <button type={'button'} onClick={onTriggerLogout} className={'block w-full rounded px-3 py-2 text-left text-sm text-red-300 hover:bg-neutral-800 hover:text-red-200'}>Log out</button>
                             </div>}
                         </div>

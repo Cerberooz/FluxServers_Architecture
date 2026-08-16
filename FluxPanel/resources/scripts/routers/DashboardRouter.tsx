@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Route, Switch } from 'react-router-dom';
+import { NavLink, Redirect, Route, Switch } from 'react-router-dom';
 import NavigationBar from '@/components/NavigationBar';
 import DashboardContainer from '@/components/dashboard/DashboardContainer';
 import { NotFound } from '@/components/elements/ScreenBlock';
@@ -8,6 +8,8 @@ import SubNavigation from '@/components/elements/SubNavigation';
 import { useLocation } from 'react-router';
 import Spinner from '@/components/elements/Spinner';
 import routes from '@/routers/routes';
+import BillingContainer from '@/components/dashboard/BillingContainer';
+import SupportContainer from '@/components/dashboard/SupportContainer';
 
 export default () => {
     const location = useLocation();
@@ -35,11 +37,25 @@ export default () => {
                             <Route path={'/'} exact>
                                 <DashboardContainer />
                             </Route>
-                            {routes.account.map(({ path, component: Component }) => (
+                            {routes.account.filter(({ name }) => !['Billing', 'Support'].includes(name || '')).map(({ path, component: Component }) => (
                                 <Route key={path} path={`/account/${path}`.replace('//', '/')} exact>
                                     <Component />
                                 </Route>
                             ))}
+                            {/* Billing and Support are dashboard sections, not account settings. */}
+                            <Route path={'/billing'} exact>
+                                <BillingContainer />
+                            </Route>
+                            <Route path={'/support'} exact>
+                                <SupportContainer />
+                            </Route>
+                            {/* Preserve bookmarks from the previous URL structure. */}
+                            <Route path={'/account/billing'} exact>
+                                <Redirect to={'/billing'} />
+                            </Route>
+                            <Route path={'/account/support'} exact>
+                                <Redirect to={'/support'} />
+                            </Route>
                             <Route path={'*'}>
                                 <NotFound />
                             </Route>

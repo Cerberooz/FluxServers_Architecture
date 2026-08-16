@@ -261,10 +261,24 @@
             <div class="table-summary">Showing {{ all_users.items|length }} of {{ all_users.total }} users</div>
             <div class="admin-table-container">
                 <table class="admin-table">
-                    <thead><tr><th>User</th><th>Email</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>User</th><th>Email</th><th>Panel account</th><th>Actions</th></tr></thead>
                     <tbody>
                         {% for user in all_users.items %}
-                        <tr data-filter-row="users" data-filter-text="{{ (user.username ~ ' ' ~ user.email)|lower }}"><td>{{ user.username }}</td><td>{{ user.email }}</td><td><button class="btn-action btn-primary-admin" onclick="openModal('provision-modal', '{{ user.id }}')">Grant Server</button></td></tr>
+                        <tr data-filter-row="users" data-filter-text="{{ (user.username ~ ' ' ~ user.email)|lower }}">
+                            <td>{{ user.username }}</td><td>{{ user.email }}</td>
+                            <td>
+                                {% if user.pelican_user_id %}
+                                <code>#{{ user.pelican_user_id }}</code>{% if user.pelican_user_uuid %}<br><small>{{ user.pelican_user_uuid }}</small>{% endif %}
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin.admin_user_panel_link', user_id=user.id) }}" style="display:flex;gap:6px;align-items:center;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input name="panel_user_id" type="number" min="1" placeholder="Panel ID" style="width:88px;">
+                                    <button class="btn-action btn-primary-admin" type="submit">Link</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                            <td><button class="btn-action btn-primary-admin" onclick="openModal('provision-modal', '{{ user.id }}')">Grant Server</button></td>
+                        </tr>
                         {% endfor %}
                     </tbody>
                 </table>

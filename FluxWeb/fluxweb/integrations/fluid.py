@@ -16,7 +16,8 @@ What this adds:
 * Uniform timeouts and bounded retries with backoff on transient failures.
 * Typed :class:`~fluxweb.errors.PanelError` instead of ``None``-or-tuple, so a
   panel outage cannot be mistaken for "no servers".
-* No adoption of pre-existing panel users by email address (audit C-8).
+* Verified, one-to-one adoption of pre-existing panel users, followed by UUID
+  based identity matching (unverified accounts are never adopted by email).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from typing import Any, TypeAlias
 
 import requests
 from requests.adapters import HTTPAdapter
+from urllib.parse import quote_plus
 from urllib3.util.retry import Retry
 
 from fluxweb.errors import ConfigurationError, PanelError
@@ -352,13 +354,25 @@ class FluidPanelClient:
             raise
         return payload.get("attributes") if payload else None
 
-    def create_user(self, *, email: str, username: str, first_name: str) -> tuple[int, str]:
+    def find_users_by_email(self, email: str) -> list[dict[str, Any]]:
+        payload = self._request(
+            "GET", f"/api/application/users?filter[email]={quote_plus(email)}", expected=(200,)
+        )
+        return [item.get("attributes", {}) for item in (payload or {}).get("data", [])]
+
+    def find_users_by_external_id(self, external_id: str) -> list[dict[str, Any]]:
+        payload = self._request(
+            "GET", f"/api/application/users?filter[external_id]={quote_plus(external_id)}", expected=(200,)
+        )
+        return [item.get("attributes", {}) for item in (payload or {}).get("data", [])]
+
+    def create_user(
+        self, *, email: str, username: str, first_name: str, external_id: str | None = None
+    ) -> tuple[int, str]:
         """Create a panel user and return ``(panel_user_id, generated_password)``.
 
-        Deliberately does **not** look up existing users by email. The previous
-        implementation adopted any pre-existing panel account sharing the
-        address, which let anyone register with a victim's email and then reset
-        that panel account's password (audit C-8).
+        The optional Web UUID is stored as Panel external_id so reconciliation
+        can recover the relationship without relying on mutable email.
         """
         password = secrets.token_urlsafe(18)
         payload = self._request(
@@ -370,6 +384,7 @@ class FluidPanelClient:
                 "first_name": first_name,
                 "last_name": "Client",
                 "password": password,
+                **({"external_id": external_id} if external_id else {}),
             },
             expected=(201,),
         )

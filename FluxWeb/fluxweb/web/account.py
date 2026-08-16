@@ -34,6 +34,12 @@ def user_account():
         .all()
     )
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(20).all()
+    panel_account = None
+    if user.pelican_user_id and config.panel_configured:
+        try:
+            panel_account = get_fluid_client().get_user(user.pelican_user_id)
+        except (PanelError, IntegrationError):
+            log.info("Panel account details unavailable for Web user %s", user.id)
 
     return render_template(
         "account.html",
@@ -45,6 +51,7 @@ def user_account():
         timedelta=datetime_module.timedelta,
         panel_url=config.panel_url or "",
         email_verified=user.email_verified,
+        panel_account=panel_account,
     )
 
 

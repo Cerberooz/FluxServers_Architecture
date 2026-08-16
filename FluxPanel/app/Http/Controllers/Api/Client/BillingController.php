@@ -18,7 +18,9 @@ class BillingController extends ClientApiController
     public function index(Request $request): JsonResponse
     {
         try {
-            return response()->json($this->billing->forEmail(
+            return response()->json($this->billing->forPanelIdentity(
+                $request->user()->uuid,
+                (int) $request->user()->id,
                 $request->user()->email,
                 (int) $request->query('services_page', 1),
                 (int) $request->query('invoices_page', 1),

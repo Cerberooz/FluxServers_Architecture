@@ -1440,6 +1440,42 @@ def admin_user_provision(user_id: int):
     return jsonify({"status": "success"})
 
 
+@bp.route("/user/<int:user_id>/panel-link", methods=["POST"])
+@admin_required
+def admin_user_panel_link(user_id: int):
+    """Manually link a Panel-first account after its email has changed.
+
+    This is deliberately admin-only: a customer must not be able to claim an
+    arbitrary existing Panel account by supplying its ID.
+    """
+    user = User.query.get(user_id)
+    panel_id = _int("panel_user_id", 0)
+    if user is None or panel_id <= 0:
+        flash("Enter a valid Web user and Panel user ID.", "error")
+        return redirect(url_for("admin.admin_dashboard", tab="users"))
+
+    existing_owner = User.query.filter(User.pelican_user_id == panel_id, User.id != user.id).first()
+    if existing_owner is not None:
+        flash("That Panel account is already linked to another Web customer.", "error")
+        return redirect(url_for("admin.admin_dashboard", tab="users"))
+
+    try:
+        panel_user = get_fluid_client().get_user(panel_id)
+    except PanelError:
+        flash("The Panel account could not be verified.", "error")
+        return redirect(url_for("admin.admin_dashboard", tab="users"))
+    if not panel_user:
+        flash("That Panel user does not exist.", "error")
+        return redirect(url_for("admin.admin_dashboard", tab="users"))
+
+    from fluxweb.services.provisioning import _record_panel_link
+
+    _record_panel_link(user, panel_user, source="admin")
+    db.session.commit()
+    flash(f"Panel account {panel_id} linked to {user.email}.", "success")
+    return redirect(url_for("admin.admin_dashboard", tab="users"))
+
+
 @bp.route("/server/<int:server_id>/suspend", methods=["POST"])
 @admin_required
 def admin_suspend_server(server_id: int):
