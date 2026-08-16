@@ -13,6 +13,8 @@ import SpinnerOverlay from '@/components/elements/SpinnerOverlay';
 import Tooltip from '@/components/elements/tooltip/Tooltip';
 import Avatar from '@/components/Avatar';
 import { usePersistedState } from '@/plugins/usePersistedState';
+import useSWR from 'swr';
+import { getSupport } from '@/api/getSupport';
 
 const NavigationGroup = styled.div`
     & > a,
@@ -109,6 +111,8 @@ export default ({ sidebar = false }: Props) => {
     const profileRef = useRef<HTMLDivElement>(null);
     const [collapsed, setCollapsed] = usePersistedState('layout:sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const { data: supportData } = useSWR('support-notification-count', getSupport, { refreshInterval: 30000, revalidateOnFocus: true });
+    const unreadSupportCount = supportData?.tickets.reduce((total, ticket) => total + (ticket.unread_count || 0), 0) || 0;
 
     const onTriggerLogout = () => {
         setIsLoggingOut(true);
@@ -152,7 +156,7 @@ export default ({ sidebar = false }: Props) => {
                     <PrimaryNavigation>
                         <NavLink to={'/'} exact>Servers</NavLink>
                         <NavLink to={'/billing'}>Billing</NavLink>
-                        <NavLink to={'/support'}>Support</NavLink>
+                        <NavLink to={'/support'} className={'relative'}><span>Support</span>{unreadSupportCount > 0 && <span aria-label={`${unreadSupportCount} unread support messages`} className={'absolute -right-1 top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-[#05070a]'} />}</NavLink>
                     </PrimaryNavigation>
                     <RightNavigation className={'ml-auto flex items-center justify-center gap-3'}>
                         <SearchContainer />

@@ -14,6 +14,9 @@ Route::prefix('subdomains')->group(function () {
     Route::post('/{subdomain}/reconcile', [Admin\SubdomainManagerController::class, 'reconcile'])->name('admin.subdomains.reconcile');
 });
 Route::get('/support', [Admin\SupportTicketController::class, 'index'])->name('admin.support');
+Route::get('/support/{ticket}', [Admin\SupportTicketController::class, 'show'])->name('admin.support.show');
+Route::post('/support/{ticket}/messages', [Admin\SupportTicketController::class, 'message'])->name('admin.support.message');
+Route::patch('/support/{ticket}/status', [Admin\SupportTicketController::class, 'status'])->name('admin.support.status');
 
 /*
 |--------------------------------------------------------------------------

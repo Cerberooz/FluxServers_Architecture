@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLifeRing } from '@fortawesome/free-solid-svg-icons';
-import { createSupportTicket, getSupport, SupportTicketInput } from '@/api/getSupport';
+import { createSupportTicket, getSupport, getSupportThread, replyToSupportTicket, SupportTicket, SupportTicketInput, SupportThread } from '@/api/getSupport';
 import { httpErrorToHuman } from '@/api/http';
 import PageContentBlock from '@/components/elements/PageContentBlock';
 import Spinner from '@/components/elements/Spinner';
 import tw from 'twin.macro';
 
 const emptyForm: SupportTicketInput = { email: '', subject: '', details: '' };
+const formatStatus = (status: string) => status.replace('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
 
 export default () => {
     const { data, error, mutate } = useSWR('support-tickets', getSupport);
@@ -16,6 +17,9 @@ export default () => {
     const [submitting, setSubmitting] = useState(false);
     const [notice, setNotice] = useState<string>();
     const [formError, setFormError] = useState<string>();
+    const [selected, setSelected] = useState<SupportThread>();
+    const [reply, setReply] = useState('');
+    const [replying, setReplying] = useState(false);
 
     const update = (field: keyof SupportTicketInput, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -33,6 +37,31 @@ export default () => {
             setFormError(httpErrorToHuman(submitError));
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const openTicket = async (ticket: SupportTicket) => {
+        setFormError(undefined);
+        try {
+            setSelected(await getSupportThread(ticket.id));
+            await mutate();
+        } catch (threadError) {
+            setFormError(httpErrorToHuman(threadError));
+        }
+    };
+
+    const submitReply = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!selected || !reply.trim()) return;
+        setReplying(true);
+        try {
+            setSelected(await replyToSupportTicket(selected.ticket.id, reply.trim()));
+            setReply('');
+            await mutate();
+        } catch (replyError) {
+            setFormError(httpErrorToHuman(replyError));
+        } finally {
+            setReplying(false);
         }
     };
 
@@ -60,11 +89,22 @@ export default () => {
                     {error && <p css={tw`border-t border-b border-neutral-700 py-5 text-sm text-red-300`}>Could not load your tickets.</p>}
                     {!data && !error ? <Spinner centered size={'large'} /> : data && <div css={tw`overflow-x-auto`}>
                         <table css={tw`w-full min-w-[760px] text-left`}><thead><tr css={tw`h-[34px] border-b border-neutral-700 text-[9px] font-medium uppercase tracking-wider text-neutral-400`}><th>Ticket</th><th>Subject</th><th>Status</th><th>Submitted</th></tr></thead><tbody>
-                            {data.tickets.map((ticket) => <tr key={ticket.id} css={tw`border-b border-neutral-700 text-[11px]`}><td css={tw`py-4 font-mono text-neutral-400`}>#{ticket.id}</td><td css={tw`py-4 text-neutral-100`}>{ticket.subject}</td><td css={tw`py-4 uppercase text-neutral-300`}>{ticket.status.replace('_', ' ')}</td><td css={tw`py-4 text-neutral-400`}>{new Date(ticket.created_at).toLocaleDateString()}</td></tr>)}
+                            {data.tickets.map((ticket) => <tr key={ticket.id} onClick={() => openTicket(ticket)} css={tw`cursor-pointer border-b border-neutral-700 text-[11px] transition-colors hover:bg-neutral-900`}><td css={tw`py-4 font-mono text-neutral-400`}>#{ticket.id}</td><td css={tw`py-4 text-neutral-100`}>{ticket.subject}{ticket.unread_count > 0 && <span css={tw`ml-2 inline-block h-2 w-2 rounded-full bg-red-500 align-middle`} title={'Unread support messages'} />}</td><td css={tw`py-4 text-neutral-300`}>{formatStatus(ticket.status)}</td><td css={tw`py-4 text-neutral-400`}>{new Date(ticket.created_at).toLocaleDateString()}</td></tr>)}
                         </tbody></table>
                         {!data.tickets.length && <p css={tw`border-b border-neutral-700 py-5 text-sm text-neutral-500`}>No support tickets yet.</p>}
                     </div>}
                 </section>
+
+                {selected && <section css={tw`mt-8 border-t border-neutral-700 pt-6`}>
+                    <div css={tw`flex flex-wrap items-center justify-between gap-3`}>
+                        <div><h2 css={tw`text-base font-semibold text-neutral-100`}>#{selected.ticket.id} — {selected.ticket.subject}</h2><p css={tw`mt-1 text-xs text-neutral-500`}>Status: {formatStatus(selected.ticket.status)}</p></div>
+                        <button type={'button'} onClick={() => setSelected(undefined)} css={tw`rounded border-[1px] border-neutral-700 px-3 py-2 text-xs text-neutral-300 hover:bg-neutral-900`}>Close thread</button>
+                    </div>
+                    <div css={tw`mt-5 space-y-3`}>
+                        {selected.messages.map((message) => <div key={message.id} css={message.is_admin ? tw`rounded border-[1px] border-blue-800 bg-blue-950 bg-opacity-30 p-4` : tw`rounded border-[1px] border-neutral-700 bg-neutral-900 p-4`}><div css={tw`flex justify-between gap-3 text-[10px] uppercase tracking-wider text-neutral-500`}><span>{message.author}</span><span>{new Date(message.created_at).toLocaleString()}</span></div><p css={tw`mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-200`}>{message.body}</p></div>)}
+                    </div>
+                    {selected.ticket.status !== 'closed' && <form onSubmit={submitReply} css={tw`mt-5`}><textarea required maxLength={10000} rows={4} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={'Reply to support...'} css={tw`w-full resize rounded border-[1px] border-neutral-700 bg-neutral-900 px-3 py-3 text-sm text-neutral-100 outline-none focus:border-blue-500`} /><button type={'submit'} disabled={replying} css={tw`mt-3 inline-flex h-10 items-center rounded border-[1px] border-blue-500 bg-blue-600 px-5 text-xs font-semibold text-blue-50 hover:bg-blue-500 disabled:opacity-50`}>{replying ? 'Sending...' : 'Send reply'}</button></form>}
+                </section>}
             </div>
         </PageContentBlock>
     );
