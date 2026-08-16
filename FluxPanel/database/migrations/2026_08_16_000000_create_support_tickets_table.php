@@ -10,7 +10,10 @@ return new class extends Migration
     {
         Schema::create('support_tickets', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            // Fluid/Pterodactyl's users.id is an UNSIGNED INT created with
+            // increments(), not Laravel's newer UNSIGNED BIGINT foreignId().
+            $table->unsignedInteger('user_id');
+            $table->foreign('user_id')->references('id')->on('users')->cascadeOnDelete();
             $table->string('email', 191);
             $table->string('subject', 191);
             $table->text('details');
