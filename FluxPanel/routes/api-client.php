@@ -73,6 +73,7 @@ Route::group([
         ->get('/websocket', Client\Servers\WebsocketController::class)
         ->name('api:client:server.ws');
     Route::get('/resources', Client\Servers\ResourceUtilizationController::class)->name('api:client:server.resources');
+    Route::get('/node-uptime', Client\Servers\NodeUptimeController::class)->name('api:client:server.node-uptime');
     Route::get('/activity', Client\Servers\ActivityLogController::class)->name('api:client:server.activity');
     Route::get('/subdomains', [Client\Servers\SubdomainController::class, 'index']);
     Route::get('/subdomains/domains', [Client\Servers\SubdomainController::class, 'domains']);

@@ -4,6 +4,7 @@ import { formatDistanceToNowStrict } from 'date-fns';
 import { ServerContext } from '@/state/server';
 import ServerContentBlock from '@/components/elements/ServerContentBlock';
 import getServerResourceUsage, { ServerStats } from '@/api/server/getServerResourceUsage';
+import getServerNodeUptime from '@/api/server/getServerNodeUptime';
 import { useActivityLogs } from '@/api/server/activity';
 import { bytesToString, ip, mbToBytes } from '@/lib/formatters';
 import UptimeDuration from '@/components/server/UptimeDuration';
@@ -30,13 +31,17 @@ export default () => {
     const server = ServerContext.useStoreState((state) => state.server.data!);
     const status = ServerContext.useStoreState((state) => state.status.value);
     const [stats, setStats] = useState<ServerStats | null>(null);
+    const [nodeUptime, setNodeUptime] = useState<number | null>(null);
     const interval = useRef<Timer>(null) as React.MutableRefObject<Timer>;
     const { data: activity, isValidating: isActivityLoading } = useActivityLogs(
         { page: 1, perPage: 3, sorts: { timestamp: -1 } },
         { revalidateOnMount: true, revalidateOnFocus: false }
     );
 
-    const refresh = () => getServerResourceUsage(server.uuid).then(setStats).catch(() => setStats(null));
+    const refresh = () => {
+        getServerResourceUsage(server.uuid).then(setStats).catch(() => setStats(null));
+        getServerNodeUptime(server.uuid).then(setNodeUptime).catch(() => setNodeUptime(null));
+    };
 
     useEffect(() => {
         refresh();
@@ -86,6 +91,7 @@ export default () => {
                             <Detail label={'Region'}>{server.nodeLocation || 'Not set'}</Detail>
                             <Detail label={'CPU'}>{server.nodeCpuModel || 'Not set'}</Detail>
                             <Detail label={'Memory'}>{server.nodeMemoryType || 'Not set'}</Detail>
+                            <Detail label={'Node uptime'}>{nodeUptime === null ? 'Unavailable' : <UptimeDuration uptime={nodeUptime} />}</Detail>
                         </div>
                     </section>
 
