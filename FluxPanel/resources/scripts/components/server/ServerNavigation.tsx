@@ -96,7 +96,7 @@ const ScrollNavigation = styled.nav`
 
 export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props) => {
     const panelName = useStoreState((state: ApplicationStore) => state.settings.data!.name);
-    const serverUuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
+    const serverUuid = ServerContext.useStoreState((state) => state.server.data?.uuid);
     const [collapsed, setCollapsed] = usePersistedState('layout:server-sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
@@ -110,6 +110,12 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
     const navigationRoutes = routes.server.filter((route) => !!route.name && !toolRoutes.includes(route));
 
     useEffect(() => {
+        if (!serverUuid) {
+            setOptimizerUnread(0);
+
+            return;
+        }
+
         let mounted = true;
         http.get(`/api/client/servers/${serverUuid}/optimizer/notifications`)
             .then(({ data }) => mounted && setOptimizerUnread(data.data?.unread || 0))
