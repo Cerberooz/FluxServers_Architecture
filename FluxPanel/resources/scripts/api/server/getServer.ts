@@ -37,6 +37,9 @@ export interface Server {
     node: string;
     nodeCpuModel: string | null;
     nodeMemoryType: string | null;
+    nodeMemory: number;
+    nodeDisk: number;
+    nodeLocation: string;
     nestName: string;
     eggName: string;
     isNodeUnderMaintenance: boolean;
@@ -78,6 +81,9 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
     node: data.node,
     nodeCpuModel: data.node_cpu_model,
     nodeMemoryType: data.node_memory_type,
+    nodeMemory: data.node_memory,
+    nodeDisk: data.node_disk,
+    nodeLocation: data.node_location,
     nestName: data.nest_name,
     eggName: data.egg_name,
     isNodeUnderMaintenance: data.is_node_under_maintenance,

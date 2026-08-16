@@ -175,6 +175,96 @@ export default createGlobalStyle`
     .fluid-server-page .fluid-activity-row:hover { background: #080b11; }
     .fluid-server-page .fluid-activity-row .description { color: #ecf1f9; font-size: 11px; }
 
+    .fluid-dashboard { color: #ecf1f9; }
+    .fluid-dashboard__header {
+        display: flex; min-height: 97px; align-items: flex-start; justify-content: space-between;
+        padding: 4px 0 24px; border-bottom: 1px solid #17202e;
+    }
+    .fluid-dashboard__header h1 { margin: 0; color: #ecf1f9; font-size: 24px; font-weight: 600; line-height: 1.2; }
+    .fluid-dashboard__header p { margin: 10px 0 0; color: #6e83a2; font-size: 10px; }
+    .fluid-dashboard__header p span { padding: 0 5px; }
+    .fluid-dashboard__status { display: inline-flex; gap: 7px; align-items: center; margin-top: 7px; color: #6e83a2; font-size: 9px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+    .fluid-dashboard__status i { width: 7px; height: 7px; border-radius: 999px; background: #5a6f91; }
+    .fluid-dashboard__status.is-online { color: #25d281; }
+    .fluid-dashboard__status.is-online i { background: #25d281; }
+    .fluid-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+    .fluid-dashboard-card { min-height: 236px; border: 1px solid #17202e; background: #05070a; }
+    .fluid-dashboard-card > header, .fluid-quick-access > header { padding: 15px 17px; border-bottom: 1px solid #17202e; }
+    .fluid-dashboard-card h2, .fluid-quick-access h2 { margin: 0; color: #ecf1f9; font-size: 13px; font-weight: 600; }
+    .fluid-dashboard-card header p, .fluid-quick-access header p { margin: 6px 0 0; color: #6e83a2; font-size: 9px; }
+    .fluid-dashboard-detail { display: grid; grid-template-columns: 136px minmax(0, 1fr); min-height: 35px; align-items: center; padding: 0 17px; border-bottom: 1px solid #17202e; }
+    .fluid-dashboard-detail:last-child { border-bottom: 0; }
+    .fluid-dashboard-detail > span, .fluid-dashboard-usage span { color: #4f6280; font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+    .fluid-dashboard-detail strong { overflow: hidden; color: #ecf1f9; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .fluid-dashboard-activity { min-height: 204px; }
+    .fluid-dashboard-activity__item { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; gap: 10px; align-items: start; min-height: 47px; padding: 10px 16px; border-bottom: 1px solid #17202e; }
+    .fluid-dashboard-activity__item:last-child { border-bottom: 0; }
+    .fluid-dashboard-activity__item > i { width: 6px; height: 6px; margin-top: 5px; border-radius: 999px; background: #25c8e8; }
+    .fluid-dashboard-activity__item strong { display: block; overflow: hidden; color: #ecf1f9; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+    .fluid-dashboard-activity__item p { overflow: hidden; margin: 4px 0 0; color: #6e83a2; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+    .fluid-dashboard-activity__item time { margin-top: 5px; color: #4f6280; font-size: 9px; white-space: nowrap; }
+    .fluid-dashboard-empty { padding: 45px 20px; color: #6e83a2; font-size: 11px; text-align: center; }
+    .fluid-dashboard-usages { padding: 15px 17px; }
+    .fluid-dashboard-usage { margin-bottom: 13px; }
+    .fluid-dashboard-usage:last-child { margin-bottom: 0; }
+    .fluid-dashboard-usage > div:first-child { display: flex; justify-content: space-between; gap: 12px; }
+    .fluid-dashboard-usage strong { color: #ecf1f9; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .fluid-dashboard-usage__track { height: 5px; margin-top: 9px; overflow: hidden; border-radius: 1px; background: #080b11; }
+    .fluid-dashboard-usage__track i { display: block; height: 100%; border-radius: inherit; background: #2582ff; }
+    .fluid-quick-access { margin-top: 22px; border-top: 1px solid #17202e; border-bottom: 1px solid #17202e; }
+    .fluid-quick-access > header { padding: 18px 0; border-bottom: 0; }
+    .fluid-quick-access > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 12px 0 18px; }
+    .fluid-quick-access a { min-height: 76px; padding: 0 18px; border-right: 1px solid #17202e; color: inherit; text-decoration: none; }
+    .fluid-quick-access a:first-child { padding-left: 18px; }
+    .fluid-quick-access a:last-child { border-right: 0; }
+    .fluid-quick-access a:hover { background: #080b11; }
+    .fluid-quick-access strong { display: block; color: #ecf1f9; font-size: 12px; font-weight: 600; }
+    .fluid-quick-access p { min-height: 28px; margin: 8px 0 5px; color: #6e83a2; font-size: 9px; }
+    .fluid-quick-access span { color: #2582ff; font-size: 9px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+
+    @media (max-width: 768px) {
+        .fluid-dashboard-grid, .fluid-quick-access > div { grid-template-columns: 1fr; }
+        .fluid-quick-access a { padding: 14px 0; border-right: 0; border-bottom: 1px solid #17202e; }
+        .fluid-quick-access a:last-child { border-bottom: 0; }
+    }
+
+    .fluid-console-identity { display: grid; grid-template-columns: 2fr .9fr 1.3fr 1.1fr; margin-top: 15px; border-top: 1px solid #17202e; border-bottom: 1px solid #17202e; }
+    .fluid-console-identity > div { min-height: 69px; padding: 16px 18px; border-right: 1px solid #17202e; }
+    .fluid-console-identity > div:last-child { border-right: 0; }
+    .fluid-console-identity span { display: block; color: #4f6280; font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+    .fluid-console-identity strong { display: block; overflow: hidden; margin-top: 7px; color: #ecf1f9; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .fluid-console-layout { display: grid; grid-template-columns: minmax(0, 1fr) 318px; gap: 20px; margin-top: 20px; }
+    .fluid-console-surface { min-height: 414px; overflow: hidden; border: 1px solid #17202e; border-radius: 4px; background: #05070a; }
+    .fluid-console-surface > header { display: flex; min-height: 57px; align-items: center; justify-content: space-between; padding: 0 17px; border-bottom: 1px solid #17202e; }
+    .fluid-console-surface h2 { margin: 0; color: #ecf1f9; font-size: 13px; font-weight: 600; }
+    .fluid-console-surface header p { margin: 5px 0 0; color: #6e83a2; font-size: 9px; }
+    .fluid-console-terminal { height: 355px; }
+    .fluid-console-controls { display: flex; gap: 8px; }
+    .fluid-console-controls button { min-height: 30px; padding: 0 15px; font-size: 10px; }
+    .fluid-console-resources > div { display: grid; grid-template-columns: 1fr; gap: 0; }
+    .fluid-console-resources .stat_block { border-radius: 0; box-shadow: none; }
+    .fluid-console-resources .stat_block:last-child { border-bottom: 0; }
+    .fluid-console-resources .stat_block > .icon { background: #080b11 !important; border: 1px solid #17202e; }
+    .fluid-console-resources .stat_block > .status_bar { display: none; }
+    .fluid-console-graphs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+    .fluid-console-graphs .chart_container h3 { color: #ecf1f9; font-size: 12px; font-weight: 600; }
+    .fluid-console-graphs .chart_container > div:first-child { min-height: 48px; padding: 0 16px; border-bottom: 1px solid #17202e; }
+
+    @media (max-width: 1024px) {
+        .fluid-console-layout { grid-template-columns: 1fr; }
+        .fluid-console-resources > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .fluid-console-resources .stat_block:nth-last-child(-n+2) { border-bottom: 0; }
+        .fluid-console-graphs { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+        .fluid-console-identity { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .fluid-console-identity > div:nth-child(2) { border-right: 0; }
+        .fluid-console-identity > div:nth-child(-n+2) { border-bottom: 1px solid #17202e; }
+        .fluid-console-resources > div { grid-template-columns: 1fr; }
+        .fluid-console-resources .stat_block { border-bottom: 1px solid #17202e !important; }
+        .fluid-console-resources .stat_block:last-child { border-bottom: 0 !important; }
+    }
+
     @media (max-width: 640px) {
         .fluid-server-page__header { min-height: 82px; padding-bottom: 17px; }
         .fluid-server-page .fluid-table__head { display: none; }
