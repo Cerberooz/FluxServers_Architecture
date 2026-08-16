@@ -33,7 +33,7 @@ class SupportTicketController extends Controller
         if ($ticket->status === SupportTicket::STATUS_OPEN) {
             $ticket->update(['status' => SupportTicket::STATUS_IN_PROGRESS]);
         }
-        return redirect()->route('admin.support.show', $ticket)->with('success', 'Reply sent.');
+        return redirect()->route('admin.support.show', ['ticket' => $ticket])->with('success', 'Reply sent.');
     }
 
     public function status(Request $request, SupportTicket $ticket)
@@ -42,6 +42,6 @@ class SupportTicketController extends Controller
             'status' => ['required', 'in:open,in_progress,resolved,closed'],
         ]);
         $ticket->update(['status' => $data['status']]);
-        return redirect()->route('admin.support.show', $ticket)->with('success', 'Ticket status updated.');
+        return redirect()->route('admin.support.show', ['ticket' => $ticket])->with('success', 'Ticket status updated.');
     }
 }

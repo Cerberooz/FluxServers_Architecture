@@ -16,7 +16,7 @@
                         <div style="white-space: pre-wrap; margin-top: 8px;">{{ $message->body }}</div>
                     </div>
                 @endforeach
-                <form method="POST" action="{{ route('admin.support.message', $ticket) }}">
+                <form method="POST" action="{{ route('admin.support.message', ['ticket' => $ticket]) }}">
                     @csrf
                     <div class="form-group"><label for="body">Reply</label><textarea id="body" name="body" class="form-control" rows="6" maxlength="10000" required @if($ticket->status === 'closed') disabled @endif></textarea></div>
                     <button class="btn btn-primary" type="submit" @if($ticket->status === 'closed') disabled @endif>Send reply</button>
@@ -30,7 +30,7 @@
             <div class="box-body">
                 <p><strong>Customer:</strong> {{ $ticket->user?->username }}</p>
                 <p><strong>Email:</strong> {{ $ticket->email }}</p>
-                <form method="POST" action="{{ route('admin.support.status', $ticket) }}">
+                <form method="POST" action="{{ route('admin.support.status', ['ticket' => $ticket]) }}">
                     @csrf @method('PATCH')
                     <label for="status">Status</label>
                     <select id="status" name="status" class="form-control" onchange="this.form.submit()">
