@@ -4,6 +4,7 @@ import Modal from '@/components/elements/Modal';
 import tw from 'twin.macro';
 import Button from '@/components/elements/Button';
 import saveFileContents from '@/api/server/files/saveFileContents';
+import getFileContents from '@/api/server/files/getFileContents';
 import FlashMessageRender from '@/components/FlashMessageRender';
 import useFlash from '@/plugins/useFlash';
 import { SocketEvent, SocketRequest } from '@/components/server/events';
@@ -32,6 +33,26 @@ const EulaModalFeature = () => {
             instance.removeListener(SocketEvent.CONSOLE_OUTPUT, listener);
         };
     }, [connected, instance, status]);
+
+    // The server can be started automatically during provisioning, before the
+    // console listener is attached. Check the file as well so the EULA prompt
+    // is still shown when Wings has already stopped the server.
+    useEffect(() => {
+        if (status === 'running') return;
+
+        let cancelled = false;
+        getFileContents(uuid, 'eula.txt')
+            .then((contents) => {
+                if (!cancelled && /^\s*eula\s*=\s*false\s*$/im.test(contents)) setVisible(true);
+            })
+            .catch(() => {
+                // The file may not exist until the first installation has run.
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [uuid, status]);
 
     const onAcceptEULA = () => {
         setLoading(true);

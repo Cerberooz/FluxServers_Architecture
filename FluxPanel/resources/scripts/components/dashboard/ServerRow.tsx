@@ -4,7 +4,7 @@ import { faHdd, faMemory, faMicrochip, faServer } from '@fortawesome/free-solid-
 import { Link } from 'react-router-dom';
 import { Server } from '@/api/server/getServer';
 import getServerResourceUsage, { ServerStats } from '@/api/server/getServerResourceUsage';
-import { bytesToString, mbToBytes } from '@/lib/formatters';
+import { bytesToString } from '@/lib/formatters';
 import tw from 'twin.macro';
 import styled from 'styled-components/macro';
 
@@ -43,12 +43,14 @@ export default ({ server, className }: { server: Server; className?: string }) =
     return (
         <Row to={`/server/${server.id}`} className={className}>
             <div css={tw`flex items-center pr-4`}><FontAwesomeIcon icon={faServer} css={tw`mr-3 text-neutral-500`} /><div><p css={tw`font-semibold text-neutral-100`}>{server.name}</p>{server.description && <p css={tw`mt-1 truncate text-[10px] text-neutral-500`}>{server.description}</p>}</div></div>
-            <div css={tw`text-neutral-400`}>—</div>
+            <div css={tw`flex flex-col items-start text-neutral-400`}>
+                <span>—</span>
+                <span css={tw`mt-2 text-blue-400`}>View →</span>
+            </div>
             <div css={tw`text-neutral-300`}><Dot $online={online} />{status}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faMicrochip} css={tw`mr-2 text-neutral-500`} />{cpu}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faMemory} css={tw`mr-2 text-neutral-500`} />{memory}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faHdd} css={tw`mr-2 text-neutral-500`} />{disk}</div>
-            <div css={tw`text-right text-blue-400`}>View →</div>
         </Row>
     );
 };
