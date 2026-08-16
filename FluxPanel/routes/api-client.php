@@ -24,6 +24,7 @@ Route::get('/support', [Client\SupportController::class, 'index'])->name('api:cl
 Route::get('/support/{ticket:id}', [Client\SupportController::class, 'show'])->name('api:client.support.show');
 Route::middleware('throttle:5,10')->post('/support', [Client\SupportController::class, 'store'])->name('api:client.support.store');
 Route::middleware('throttle:20,10')->post('/support/{ticket:id}/messages', [Client\SupportController::class, 'message'])->name('api:client.support.message');
+Route::post('/support/{ticket:id}/close', [Client\SupportController::class, 'close'])->name('api:client.support.close');
 
 Route::prefix('/account')->middleware(AccountSubject::class)->group(function () {
     Route::prefix('/')->withoutMiddleware(RequireTwoFactorAuthentication::class)->group(function () {

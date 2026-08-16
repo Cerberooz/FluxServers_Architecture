@@ -89,6 +89,15 @@ class SupportController extends ClientApiController
         return response()->json(['message' => $message, ...$this->ticketPayload($ticket->fresh())]);
     }
 
+    public function close(Request $request, SupportTicket $ticket): JsonResponse
+    {
+        abort_unless($ticket->user_id === $request->user()->id, 404);
+        abort_if($ticket->status === SupportTicket::STATUS_CLOSED, 409, 'This ticket is already closed.');
+
+        $ticket->update(['status' => SupportTicket::STATUS_CLOSED]);
+        return response()->json($this->ticketPayload($ticket->fresh()));
+    }
+
     private function ticketPayload(SupportTicket $ticket): array
     {
         $ticket->load('messages.user');
@@ -101,6 +110,7 @@ class SupportController extends ClientApiController
                 'body' => $message->body,
                 'is_admin' => (bool) $message->is_admin,
                 'author' => $message->user?->username ?? ($message->is_admin ? 'Fluid Support' : 'Customer'),
+                'role' => $message->is_admin ? 'Admin' : 'Customer',
                 'created_at' => $message->created_at,
             ])->values(),
         ];

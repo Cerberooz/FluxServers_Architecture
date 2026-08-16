@@ -41,6 +41,9 @@ class SupportTicketController extends Controller
         $data = $request->validate([
             'status' => ['required', 'in:open,in_progress,resolved,closed'],
         ]);
+        if ($ticket->status === SupportTicket::STATUS_CLOSED && $data['status'] !== SupportTicket::STATUS_CLOSED) {
+            abort(409, 'Closed tickets cannot be reopened.');
+        }
         $ticket->update(['status' => $data['status']]);
         return redirect()->route('admin.support.show', ['ticket' => $ticket])->with('success', 'Ticket status updated.');
     }

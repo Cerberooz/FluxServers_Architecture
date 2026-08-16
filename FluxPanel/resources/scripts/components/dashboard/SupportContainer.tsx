@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useSWR from 'swr';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLifeRing } from '@fortawesome/free-solid-svg-icons';
-import { createSupportTicket, getSupport, getSupportThread, replyToSupportTicket, SupportTicket, SupportTicketInput, SupportThread } from '@/api/getSupport';
+import { closeSupportTicket, createSupportTicket, getSupport, getSupportThread, replyToSupportTicket, SupportTicket, SupportTicketInput, SupportThread } from '@/api/getSupport';
 import { httpErrorToHuman } from '@/api/http';
 import PageContentBlock from '@/components/elements/PageContentBlock';
 import Spinner from '@/components/elements/Spinner';
@@ -20,6 +20,7 @@ export default () => {
     const [selected, setSelected] = useState<SupportThread>();
     const [reply, setReply] = useState('');
     const [replying, setReplying] = useState(false);
+    const [closing, setClosing] = useState(false);
 
     const update = (field: keyof SupportTicketInput, value: string) => setForm((current) => ({ ...current, [field]: value }));
 
@@ -65,6 +66,19 @@ export default () => {
         }
     };
 
+    const closeTicket = async () => {
+        if (!selected || !window.confirm('Close this ticket permanently? Closed tickets cannot be reopened.')) return;
+        setClosing(true);
+        try {
+            setSelected(await closeSupportTicket(selected.ticket.id));
+            await mutate();
+        } catch (closeError) {
+            setFormError(httpErrorToHuman(closeError));
+        } finally {
+            setClosing(false);
+        }
+    };
+
     return (
         <PageContentBlock title={'Support'}>
             <div css={tw`mx-auto max-w-[1180px]`}>
@@ -95,16 +109,17 @@ export default () => {
                     </div>}
                 </section>
 
-                {selected && <section css={tw`mt-8 border-t border-neutral-700 pt-6`}>
+                {selected && <div role={'dialog'} aria-modal={'true'} onClick={(event) => event.target === event.currentTarget && setSelected(undefined)} css={tw`fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4`}><section css={tw`flex max-h-[88vh] w-full max-w-[860px] flex-col overflow-hidden rounded-lg border border-neutral-700 bg-neutral-900 shadow-2xl`}>
                     <div css={tw`flex flex-wrap items-center justify-between gap-3`}>
                         <div><h2 css={tw`text-base font-semibold text-neutral-100`}>#{selected.ticket.id} — {selected.ticket.subject}</h2><p css={tw`mt-1 text-xs text-neutral-500`}>Status: {formatStatus(selected.ticket.status)}</p></div>
-                        <button type={'button'} onClick={() => setSelected(undefined)} css={tw`rounded border-[1px] border-neutral-700 px-3 py-2 text-xs text-neutral-300 hover:bg-neutral-900`}>Close thread</button>
+                        <button type={'button'} onClick={() => setSelected(undefined)} aria-label={'Close dialog'} css={tw`text-xl text-neutral-400 hover:text-white`}>×</button>
                     </div>
-                    <div css={tw`mt-5 space-y-3`}>
-                        {selected.messages.map((message) => <div key={message.id} css={message.is_admin ? tw`rounded border-[1px] border-blue-800 bg-blue-900 bg-opacity-30 p-4` : tw`rounded border-[1px] border-neutral-700 bg-neutral-900 p-4`}><div css={tw`flex justify-between gap-3 text-[10px] uppercase tracking-wider text-neutral-500`}><span>{message.author}</span><span>{new Date(message.created_at).toLocaleString()}</span></div><p css={tw`mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-200`}>{message.body}</p></div>)}
+                    <div css={tw`min-h-0 flex-1 space-y-3 overflow-y-auto p-5`}>
+                        {selected.messages.map((message) => <div key={message.id} css={message.is_admin ? tw`rounded border border-blue-800 bg-blue-900 bg-opacity-30 p-4` : tw`rounded border border-neutral-700 bg-neutral-800 p-4`}><div css={tw`flex justify-between gap-3 text-[10px] uppercase tracking-wider text-neutral-400`}><span>{message.author} <span css={tw`ml-1 rounded bg-neutral-700 px-1.5 py-0.5 text-[9px] text-neutral-200`}>[{message.role}]</span></span><span>{new Date(message.created_at).toLocaleString()}</span></div><p css={tw`mt-2 whitespace-pre-wrap text-sm leading-6 text-neutral-100`}>{message.body}</p></div>)}
                     </div>
-                    {selected.ticket.status !== 'closed' && <form onSubmit={submitReply} css={tw`mt-5`}><textarea required maxLength={10000} rows={4} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={'Reply to support...'} css={tw`w-full resize rounded border-[1px] border-neutral-700 bg-neutral-900 px-3 py-3 text-sm text-neutral-100 outline-none focus:border-blue-500`} /><button type={'submit'} disabled={replying} css={tw`mt-3 inline-flex h-10 items-center rounded border-[1px] border-blue-500 bg-blue-600 px-5 text-xs font-semibold text-blue-50 hover:bg-blue-500 disabled:opacity-50`}>{replying ? 'Sending...' : 'Send reply'}</button></form>}
-                </section>}
+                    {selected.ticket.status !== 'closed' && <form onSubmit={submitReply} css={tw`shrink-0 border-t border-neutral-700 p-5`}><textarea required maxLength={10000} rows={4} value={reply} onChange={(event) => setReply(event.target.value)} placeholder={'Reply to support...'} css={tw`w-full resize rounded border border-neutral-700 bg-neutral-800 px-3 py-3 text-sm text-neutral-100 outline-none focus:border-blue-500`} /><div css={tw`mt-3 flex items-center justify-between gap-3`}><button type={'submit'} disabled={replying} css={tw`inline-flex h-10 items-center rounded border border-blue-500 bg-blue-600 px-5 text-xs font-semibold text-blue-50 hover:bg-blue-500 disabled:opacity-50`}>{replying ? 'Sending...' : 'Send reply'}</button><button type={'button'} onClick={closeTicket} disabled={closing} css={tw`text-xs font-semibold text-red-400 hover:text-red-300 disabled:opacity-50`}>{closing ? 'Closing...' : 'Close ticket'}</button></div></form>}
+                    {selected.ticket.status === 'closed' && <p css={tw`shrink-0 border-t border-neutral-700 p-5 text-sm text-neutral-400`}>This ticket is closed and cannot be reopened or receive new messages.</p>}
+                </section></div>}
             </div>
         </PageContentBlock>
     );

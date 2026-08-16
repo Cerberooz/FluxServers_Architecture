@@ -26,6 +26,7 @@ export interface SupportMessage {
     body: string;
     is_admin: boolean;
     author: string;
+    role: string;
     created_at: string;
 }
 
@@ -44,3 +45,4 @@ export const getSupport = (): Promise<SupportData> => http.get('/api/client/supp
 export const createSupportTicket = (input: SupportTicketInput): Promise<{ ticket: SupportTicket }> => http.post('/api/client/support', input).then(({ data }) => data);
 export const getSupportThread = (id: number): Promise<SupportThread> => http.get(`/api/client/support/${id}`).then(({ data }) => data);
 export const replyToSupportTicket = (id: number, body: string): Promise<SupportThread> => http.post(`/api/client/support/${id}/messages`, { body }).then(({ data }) => data);
+export const closeSupportTicket = (id: number): Promise<SupportThread> => http.post(`/api/client/support/${id}/close`).then(({ data }) => data);
