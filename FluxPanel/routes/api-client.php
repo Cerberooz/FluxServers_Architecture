@@ -21,9 +21,9 @@ Route::get('/', [Client\ClientController::class, 'index'])->name('api:client.ind
 Route::get('/permissions', [Client\ClientController::class, 'permissions']);
 Route::get('/billing', [Client\BillingController::class, 'index'])->name('api:client.billing');
 Route::get('/support', [Client\SupportController::class, 'index'])->name('api:client.support');
-Route::get('/support/{ticket}', [Client\SupportController::class, 'show'])->name('api:client.support.show');
+Route::get('/support/{ticket:id}', [Client\SupportController::class, 'show'])->name('api:client.support.show');
 Route::middleware('throttle:5,10')->post('/support', [Client\SupportController::class, 'store'])->name('api:client.support.store');
-Route::middleware('throttle:20,10')->post('/support/{ticket}/messages', [Client\SupportController::class, 'message'])->name('api:client.support.message');
+Route::middleware('throttle:20,10')->post('/support/{ticket:id}/messages', [Client\SupportController::class, 'message'])->name('api:client.support.message');
 
 Route::prefix('/account')->middleware(AccountSubject::class)->group(function () {
     Route::prefix('/')->withoutMiddleware(RequireTwoFactorAuthentication::class)->group(function () {
