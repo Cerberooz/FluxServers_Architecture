@@ -86,6 +86,7 @@ Route::group([
     Route::post('/optimizer/runs/{run}/read', [Client\Servers\OptimizerController::class, 'read']);
     Route::middleware('throttle:5,1')->post('/optimizer/scan', [Client\Servers\OptimizerController::class, 'scan']);
     Route::middleware('throttle:3,5')->post('/optimizer/profile', [Client\Servers\OptimizerController::class, 'profile']);
+    Route::post('/optimizer/settings', [Client\Servers\OptimizerController::class, 'updateSettings']);
     Route::middleware('throttle:5,10')->post('/optimizer/import', [Client\Servers\OptimizerController::class, 'import']);
     Route::post('/optimizer/findings/{finding}/apply', [Client\Servers\OptimizerController::class, 'apply']);
     Route::post('/optimizer/findings/{finding}/ignore', [Client\Servers\OptimizerController::class, 'ignore']);

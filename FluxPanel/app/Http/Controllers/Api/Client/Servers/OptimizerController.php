@@ -19,10 +19,21 @@ class OptimizerController extends ClientApiController
     {
         $this->mayRead($request, $server);
         $page = max(1, (int) $request->query('page', 1));
-        $runs = $server->optimizerRuns()->with('findings')->latest()->paginate(5, ['*'], 'page', $page);
+        $runs = $server->optimizerRuns()
+            ->where('type', '!=', 'configuration_scan')
+            ->with('findings')
+            ->latest()
+            ->paginate(5, ['*'], 'page', $page);
+        $configuration = $server->optimizerRuns()
+            ->where('type', 'configuration_scan')
+            ->with('findings')
+            ->latest()
+            ->first();
 
         return [
             'data' => $runs->items(),
+            'configuration' => $configuration,
+            'settings' => ['automatic_analysis' => $server->optimizer_auto_analysis],
             'meta' => [
                 'pagination' => [
                     'current_page' => $runs->currentPage(),
@@ -48,8 +59,32 @@ class OptimizerController extends ClientApiController
     }
     public function scan(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); $run = $service->scan($server); Activity::event('server:optimizer.scan')->subject($server)->log(); return new JsonResponse(['attributes' => $run], 201); }
     public function profile(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); abort_unless($request->user()->can(Permission::ACTION_CONTROL_CONSOLE, $server), 403); $mode = $request->validate(['mode' => 'required|in:general,lag_spikes,memory'])['mode']; $run = $service->startProfile($server, $mode); Activity::event('server:optimizer.profile')->subject($server)->property('mode', $mode)->log(); return new JsonResponse(['attributes' => $run], 202); }
+    public function updateSettings(Request $request, Server $server): JsonResponse
+    {
+        $this->mayRead($request, $server);
+        abort_unless($request->user()->can(Permission::ACTION_CONTROL_CONSOLE, $server), 403);
+
+        $data = $request->validate(['automatic_analysis' => 'required|boolean']);
+        $server->update(['optimizer_auto_analysis' => $data['automatic_analysis']]);
+
+        Activity::event('server:optimizer.auto_analysis')->subject($server)->property('enabled', $server->optimizer_auto_analysis)->log();
+
+        return new JsonResponse(['attributes' => ['automatic_analysis' => $server->optimizer_auto_analysis]]);
+    }
     public function import(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); $data = $request->validate(['url' => 'required|string|max:255']); $run = $service->importReport($server, $data['url']); Activity::event('server:optimizer.import')->subject($server)->property('report_id', $run->summary['report_id'] ?? null)->log(); return new JsonResponse(['attributes' => $run], 201); }
-    public function apply(Request $request, Server $server, ServerOptimizerFinding $finding, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); abort_unless($request->user()->can(Permission::ACTION_FILE_UPDATE, $server) && $finding->run->server_id === $server->id, 403); $snapshot = $service->apply($finding); Activity::event('server:optimizer.apply')->subject($server, $finding)->property('snapshot_id', $snapshot->id)->log(); return new JsonResponse(['attributes' => $snapshot], 201); }
+    public function apply(Request $request, Server $server, ServerOptimizerFinding $finding, MinecraftOptimizerService $service): JsonResponse
+    {
+        $this->mayRead($request, $server);
+        abort_unless($request->user()->can(Permission::ACTION_FILE_UPDATE, $server) && $finding->run->server_id === $server->id, 403);
+
+        $data = $request->validate(['value' => ['nullable']]);
+        $hasSelectedValue = array_key_exists('value', $data);
+        $snapshot = $service->apply($finding, $data['value'] ?? null, $hasSelectedValue);
+
+        Activity::event('server:optimizer.apply')->subject($server, $finding)->property('snapshot_id', $snapshot->id)->log();
+
+        return new JsonResponse(['attributes' => $snapshot], 201);
+    }
     public function rollback(Request $request, Server $server, ServerOptimizerSnapshot $snapshot, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); abort_unless($request->user()->can(Permission::ACTION_FILE_UPDATE, $server) && $snapshot->server_id === $server->id, 403); $service->rollback($snapshot); Activity::event('server:optimizer.rollback')->subject($server, $snapshot)->log(); return new JsonResponse([], 204); }
     public function ignore(Request $request, Server $server, ServerOptimizerFinding $finding): JsonResponse { $this->mayRead($request, $server); abort_unless($finding->run->server_id === $server->id, 403); $finding->update(['ignored' => true]); return new JsonResponse([], 204); }
 }

@@ -26,12 +26,44 @@ class ModrinthPluginService
     {
         $context = $this->context($server);
         if (!$context['supported'] || !$context['version']) return ['context' => $context, 'projects' => []];
-        $facets = json_encode([['project_type:plugin'], ['server_side:required'], ["versions:{$context['version']}"]]);
-        $data = $this->api('search', ['query' => $query, 'facets' => $facets, 'limit' => 20]);
-        $projects = collect($data['hits'] ?? [])->map(function (array $project) use ($context) {
-            $version = $this->resolveCompatibleVersion($project['project_id'], $context);
-            return ['id' => $project['project_id'], 'name' => $project['title'], 'author' => $project['author'], 'description' => $project['description'], 'icon' => $project['icon_url'] ?? null, 'downloads' => $project['downloads'] ?? 0, 'versions' => $project['versions'] ?? [], 'platforms' => $project['categories'] ?? [], 'compatible' => (bool) $version, 'reason' => $version ? null : 'No compatible release exists for this Minecraft version and server platform.', 'version' => $version];
-        })->values()->all();
+        // The search index can filter plugins by their Bukkit-family loader. This
+        // keeps Fabric/Forge/NeoForge mods out of the Plugin Manager entirely.
+        // Loader facets in the same group are ORed by Modrinth, so a Paper server
+        // can still find Bukkit and Spigot plugins where appropriate.
+        $facets = json_encode([
+            ['project_type:plugin'],
+            ['server_side:required'],
+            ["versions:{$context['version']}"],
+            array_map(fn (string $loader) => "categories:{$loader}", $context['loaders']),
+        ]);
+        $data = $this->api('search', ['query' => trim($query), 'facets' => $facets, 'limit' => 12]);
+
+        // Do not resolve a release for every hit here. That used to add one
+        // sequential HTTP request per result and made typing a search feel slow.
+        // Install/download still resolve the exact release server-side, so this
+        // remains safe if Modrinth's search index is briefly stale.
+        $projects = collect($data['hits'] ?? [])
+            ->filter(fn (array $project) => ($project['project_type'] ?? null) === 'plugin')
+            ->filter(function (array $project) use ($context) {
+                $categories = array_map('strtolower', $project['categories'] ?? []);
+
+                return !empty(array_intersect($context['loaders'], $categories));
+            })
+            ->map(fn (array $project) => [
+                'id' => $project['project_id'],
+                'name' => $project['title'],
+                'author' => $project['author'],
+                'description' => $project['description'],
+                'icon' => $project['icon_url'] ?? null,
+                'downloads' => $project['downloads'] ?? 0,
+                'versions' => $project['versions'] ?? [],
+                'platforms' => $project['categories'] ?? [],
+                'compatible' => true,
+                'reason' => null,
+                'version' => null,
+            ])
+            ->values()
+            ->all();
         return compact('context', 'projects');
     }
 
@@ -45,11 +77,23 @@ class ModrinthPluginService
             $filename = $entry['name'] ?? '';
             if (!preg_match('/\.jar(?:\.disabled)?$/i', $filename) || str_contains($filename, '/') || str_contains($filename, '\\')) continue;
             $disabled = Str::endsWith(Str::lower($filename), '.disabled');
-            $hash = null; $known = null;
-            try { $hash = hash('sha512', $this->files->setServer($server)->getContent(self::DIRECTORY . '/' . $filename, 104857600)); $known = $this->api('version_file/' . $hash, ['algorithm' => 'sha512']); } catch (\Throwable) { }
-            $project = $known['project_id'] ?? $managed->get($filename)?->project_id;
-            $latest = $project && $context['version'] ? $this->resolveCompatibleVersion($project, $context) : null;
-            $items[] = ['filename' => $filename, 'disabled' => $disabled, 'sha512' => $hash, 'project_id' => $project, 'version_id' => $known['id'] ?? $managed->get($filename)?->version_id, 'name' => $known['name'] ?? preg_replace('/\.jar(?:\.disabled)?$/i', '', $filename), 'status' => $disabled ? 'disabled' : ($project ? 'recognized' : 'external'), 'latest' => $latest, 'update_available' => $latest && ($known['id'] ?? null) !== $latest['id']];
+            $known = $managed->get($filename);
+
+            // Do not download and hash every JAR, then make two Modrinth API calls
+            // per file, just to render the Installed tab. The panel records
+            // Modrinth-managed plugins when it installs them; other JARs remain
+            // visible as external plugins without delaying the entire page.
+            $items[] = [
+                'filename' => $filename,
+                'disabled' => $disabled,
+                'sha512' => $known?->sha512,
+                'project_id' => $known?->project_id,
+                'version_id' => $known?->version_id,
+                'name' => preg_replace('/\.jar(?:\.disabled)?$/i', '', $filename),
+                'status' => $disabled ? 'disabled' : ($known?->project_id ? 'managed' : 'external'),
+                'latest' => null,
+                'update_available' => false,
+            ];
         }
         return ['context' => $context, 'plugins' => $items];
     }

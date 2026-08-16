@@ -137,6 +137,7 @@ class Server extends Model implements Identifiable
     protected $attributes = [
         'status' => self::STATUS_INSTALLING,
         'oom_disabled' => true,
+        'optimizer_auto_analysis' => true,
         'installed_at' => null,
     ];
 
@@ -181,6 +182,7 @@ class Server extends Model implements Identifiable
     protected $casts = [
         'node_id' => 'integer',
         'skip_scripts' => 'boolean',
+        'optimizer_auto_analysis' => 'boolean',
         'owner_id' => 'integer',
         'memory' => 'integer',
         'swap' => 'integer',

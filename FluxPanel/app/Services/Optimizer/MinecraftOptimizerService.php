@@ -5,6 +5,7 @@ namespace Pterodactyl\Services\Optimizer;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Pterodactyl\Jobs\Optimizer\CaptureOptimizerNetworkSampleJob;
 use Pterodactyl\Jobs\Optimizer\CollectSparkReportJob;
 use Pterodactyl\Exceptions\DisplayException;
 use Pterodactyl\Models\Server;
@@ -17,7 +18,23 @@ use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 
 class MinecraftOptimizerService
 {
-    private const FILES = ['server.properties', 'bukkit.yml', 'spigot.yml', 'paper-global.yml', 'paper-world-defaults.yml', 'paper-world.yml', 'purpur.yml', 'pufferfish.yml'];
+    /**
+     * The common, server-wide Minecraft configuration files. Paper 1.19+
+     * stores its files below config/, while older Paper/Purpur installations
+     * commonly keep them in the server root, so both layouts are supported.
+     */
+    private const FILES = [
+        'server.properties',
+        'bukkit.yml',
+        'spigot.yml',
+        'config/paper-global.yml',
+        'config/paper-world-defaults.yml',
+        'paper-global.yml',
+        'paper-world-defaults.yml',
+        'paper-world.yml',
+        'purpur.yml',
+        'pufferfish.yml',
+    ];
 
     public function __construct(private DaemonFileRepository $files, private DaemonCommandRepository $commands, private DaemonServerRepository $servers) {}
 
@@ -60,14 +77,21 @@ class MinecraftOptimizerService
         return $run->fresh('findings');
     }
 
-    public function apply(ServerOptimizerFinding $finding): ServerOptimizerSnapshot
+    public function apply(ServerOptimizerFinding $finding, mixed $selectedValue = null, bool $hasSelectedValue = false): ServerOptimizerSnapshot
     {
         $recommendation = $finding->recommendation;
-        if (!$recommendation || !isset($recommendation['file'], $recommendation['key'], $recommendation['value']) || ($finding->gameplay_change ?? false)) throw new DisplayException('This recommendation requires manual review and cannot be applied automatically.');
+        if (!$recommendation || !isset($recommendation['file'], $recommendation['key'], $recommendation['value'])) throw new DisplayException('This finding does not contain an applicable configuration recommendation.');
+        $options = $recommendation['options'] ?? [];
+        if (($finding->gameplay_change ?? false) && !$hasSelectedValue) throw new DisplayException('Choose one of the listed configuration profiles before applying this gameplay-affecting setting.');
+        if ($hasSelectedValue) {
+            $option = collect($options)->first(fn (array $candidate) => json_encode($candidate['value'] ?? null) === json_encode($selectedValue));
+            if (!$option) throw new DisplayException('The selected configuration profile is not available for this finding. Scan again before applying it.');
+            $selectedValue = $option['value'];
+        }
         $server = $finding->run->server;
         $path = $recommendation['file'];
         $content = $this->files->setServer($server)->getContent($path, 524288);
-        $value = $recommendation['value'];
+        $value = $hasSelectedValue ? $selectedValue : $recommendation['value'];
         $replacement = $this->replaceValue($content, $recommendation['key'], is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
         if ($replacement === $content) throw new DisplayException('The expected configuration value was not found. Scan again before applying this recommendation.');
         $snapshot = ServerOptimizerSnapshot::query()->create(['server_id' => $server->id, 'finding_id' => $finding->id, 'path' => $path, 'contents' => $content]);
@@ -105,11 +129,26 @@ class MinecraftOptimizerService
         $command = match ($mode) {
             'lag_spikes' => 'spark profiler start --only-ticks-over 50 --timeout 120',
             'memory' => 'spark healthreport',
-            default => 'spark profiler start --timeout 120',
+            default => 'spark profiler start --timeout 60',
         };
         try {
+            // Spark writes Java Flight Recorder data below plugins/spark/tmp. Paper's
+            // bundled Spark does not always create this folder itself, which otherwise
+            // makes a profiler command fail before it can publish a report URL.
+            if ($mode !== 'memory') {
+                $this->ensureSparkTemporaryDirectory($server);
+            }
+            $this->captureNetworkSample($server, $run);
             $this->commands->setServer($server)->send($command);
-            CollectSparkReportJob::dispatch($server->id, $run->id)->delay(now()->addSeconds($mode === 'memory' ? 25 : 130));
+            $duration = match ($mode) {
+                'memory' => 25,
+                'general' => 60,
+                default => 120,
+            };
+            foreach (range(15, $duration, 15) as $seconds) {
+                CaptureOptimizerNetworkSampleJob::dispatch($server->id, $run->id)->delay(now()->addSeconds($seconds));
+            }
+            CollectSparkReportJob::dispatch($server->id, $run->id)->delay(now()->addSeconds($duration + 10));
         } catch (\Throwable $exception) {
             $run->update(['status' => 'failed', 'error' => $exception->getMessage(), 'completed_at' => now()]);
             throw $exception;
@@ -117,8 +156,67 @@ class MinecraftOptimizerService
         return $run;
     }
 
+    /**
+     * Record a small, panel-side network sample while a Spark report is running.
+     * Wings exposes cumulative counters, so the rate is calculated between each
+     * sample and stored with the report for the customer-facing chart.
+     */
+    public function captureNetworkSample(Server $server, ServerOptimizerRun $run): void
+    {
+        try {
+            $metrics = $this->resourceMetrics($server, $this->servers->setServer($server)->getResourceUsage());
+            $summary = $run->summary ?? [];
+            $network = $summary['network'] ?? [];
+            $samples = array_values($network['samples'] ?? []);
+            $previous = end($samples) ?: null;
+            $sample = [
+                'captured_at' => $metrics['captured_at'],
+                'ingress_bytes' => $metrics['network']['ingress_bytes'] ?? 0,
+                'egress_bytes' => $metrics['network']['egress_bytes'] ?? 0,
+            ];
+
+            if ($previous) {
+                $elapsed = max(1, now()->diffInSeconds($previous['captured_at'] ?? now()));
+                $sample['ingress_bytes_per_second'] = max(0, ($sample['ingress_bytes'] - (float) ($previous['ingress_bytes'] ?? 0)) / $elapsed);
+                $sample['egress_bytes_per_second'] = max(0, ($sample['egress_bytes'] - (float) ($previous['egress_bytes'] ?? 0)) / $elapsed);
+            }
+
+            $samples[] = $sample;
+            $network['samples'] = array_slice($samples, -12);
+            $summary['network'] = $network;
+            $run->update(['summary' => $summary]);
+        } catch (\Throwable) {
+            // Network evidence is helpful but must not prevent Spark collection.
+        }
+    }
+
+    /**
+     * Ensure the directory required by Spark's async-profiler exists before asking
+     * Spark to create a JFR file. This is done through Wings, so it works on every
+     * node without any host-level access or a manual mkdir step.
+     */
+    private function ensureSparkTemporaryDirectory(Server $server): void
+    {
+        try {
+            $files = $this->files->setServer($server);
+            foreach ($files->getDirectory('/plugins/spark') as $entry) {
+                if (($entry['name'] ?? null) === 'tmp') {
+                    return;
+                }
+            }
+
+            $files->createDirectory('tmp', '/plugins/spark');
+        } catch (\Throwable $exception) {
+            throw new DisplayException('Fluid could not prepare Spark\'s temporary profiling folder. Ensure Spark is installed and that the panel can write to plugins/spark, then try again.');
+        }
+    }
+
     public function monitor(Server $server): ?ServerOptimizerRun
     {
+        if (!$server->optimizer_auto_analysis) {
+            return null;
+        }
+
         $details = $this->servers->setServer($server)->getDetails();
         if (($details['state'] ?? null) !== 'running') {
             return null;
@@ -202,6 +300,8 @@ class MinecraftOptimizerService
 
     public function collectProfile(Server $server, ServerOptimizerRun $run): bool
     {
+        $this->captureNetworkSample($server, $run);
+
         try {
             $log = $this->files->setServer($server)->getContent('logs/latest.log', 524288);
         } catch (\Throwable) {
@@ -256,28 +356,90 @@ class MinecraftOptimizerService
 
     private function rules(Server $server, ?string $version, array $configs): array
     {
-        $paper = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), ['paper', 'pufferfish', 'purpur']);
+        $name = Str::lower($server->egg->name . ' ' . $server->nest->name);
+        $paper = Str::contains($name, ['paper', 'pufferfish', 'purpur']);
+        $bukkit = $paper || Str::contains($name, ['spigot', 'bukkit', 'craftbukkit']);
         $rules = [];
-        if ($paper && isset($configs['server.properties']) && preg_match('/^view-distance=(\d+)/m', $configs['server.properties'], $match) && (int) $match[1] > 12) {
-            $rules[] = $this->finding('view-distance', 'medium', 'High view distance', 'server.properties', 'view-distance', $match[1], 10, 'A high view distance increases chunks sent and loaded for every player. UltraServers recommends starting at 7; 10 is a more conservative review point.', 'medium', true, true, 'https://docs.ultraservers.com/minecraft/server-management/optimize-your-minecraft-server');
+        $properties = $configs['server.properties'] ?? '';
+        $bukkitConfig = $configs['bukkit.yml'] ?? '';
+        $spigot = $configs['spigot.yml'] ?? '';
+        $paperGlobalPath = isset($configs['config/paper-global.yml']) ? 'config/paper-global.yml' : 'paper-global.yml';
+        $paperGlobal = $configs[$paperGlobalPath] ?? '';
+        $paperWorldPath = isset($configs['config/paper-world-defaults.yml']) ? 'config/paper-world-defaults.yml' : 'paper-world-defaults.yml';
+        $paperWorld = $configs[$paperWorldPath] ?? $configs['paper-world.yml'] ?? '';
+
+        if (($value = $this->scalar($properties, 'view-distance')) !== null && (int) $value > 12) {
+            $rules[] = $this->finding('view-distance', 'medium', 'High view distance', 'server.properties', 'view-distance', $value, 8, 'A large view distance multiplies loaded and sent chunks for every player. Lower values reduce chunk work, but reduce the visible world radius.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/', $this->profiles(10, 8, 6));
         }
-        if ($paper && isset($configs['server.properties']) && preg_match('/^simulation-distance=(\d+)/m', $configs['server.properties'], $match) && (int) $match[1] > 8) {
-            $rules[] = $this->finding('simulation-distance', 'medium', 'High simulation distance', 'server.properties', 'simulation-distance', $match[1], 8, 'Simulation distance controls how far entities and blocks tick around players.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/');
+        if (($value = $this->scalar($properties, 'simulation-distance')) !== null && (int) $value > 8) {
+            $rules[] = $this->finding('simulation-distance', 'medium', 'High simulation distance', 'server.properties', 'simulation-distance', $value, 6, 'Simulation distance controls how far entities, redstone, and blocks tick around players. Reducing it is a gameplay trade-off.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/', $this->profiles(8, 6, 4));
         }
-        if ($paper && isset($configs['server.properties']) && preg_match('/^use-native-transport\s*=\s*(false|0)/mi', $configs['server.properties'], $match)) {
-            $rules[] = $this->finding('native-transport', 'low', 'Native transport is disabled', 'server.properties', 'use-native-transport', $match[1], true, 'Paper documents native transport as a Linux networking performance improvement. It does not change gameplay and can be applied safely.', 'low', false, true, 'https://docs.papermc.io/paper/reference/server-properties/');
+        if (($value = $this->scalar($properties, 'max-chained-neighbor-updates')) !== null && (int) $value > 100000) {
+            $rules[] = $this->finding('chained-neighbor-updates', 'low', 'Very high chained update limit', 'server.properties', 'max-chained-neighbor-updates', $value, 100000, 'This cap protects a tick from an excessive chain of block-neighbour updates. A smaller limit can prevent redstone or update storms, but may skip remaining updates when the cap is reached.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/', $this->profiles(200000, 100000, 50000));
         }
-        if ($paper && isset($configs['spigot.yml']) && preg_match('/^\s*hopper-transfer:\s*(\d+)/mi', $configs['spigot.yml'], $match) && (int) $match[1] < 8) {
-            $rules[] = $this->finding('hopper-transfer', 'medium', 'Frequent hopper transfers', 'spigot.yml', 'hopper-transfer', $match[1], 8, 'Hoppers are a common source of tick work. UltraServers recommends 8 as a starting point for hopper transfer and check intervals.', 'medium', true, true, 'https://docs.ultraservers.com/minecraft/server-management/optimize-your-minecraft-server');
+        if (($value = $this->scalar($properties, 'max-tick-time')) !== null && (int) $value < 0) {
+            $rules[] = $this->finding('watchdog-disabled', 'high', 'Server watchdog is disabled', 'server.properties', 'max-tick-time', $value, 60000, 'With the watchdog disabled, a fully stalled tick can leave the server unresponsive indefinitely. Restoring the documented 60-second watchdog protects availability.', 'high', false, true, 'https://docs.papermc.io/paper/reference/server-properties/');
         }
-        if ($paper && isset($configs['spigot.yml']) && preg_match('/^\s*hopper-check:\s*(\d+)/mi', $configs['spigot.yml'], $match) && (int) $match[1] < 8) {
-            $rules[] = $this->finding('hopper-check', 'medium', 'Frequent hopper checks', 'spigot.yml', 'hopper-check', $match[1], 8, 'Hopper checks can multiply with large farms. This recommended starting value should be reviewed because it can affect item timing.', 'medium', true, true, 'https://docs.ultraservers.com/minecraft/server-management/optimize-your-minecraft-server');
+        if (($value = $this->scalar($properties, 'use-native-transport')) !== null && in_array(Str::lower($value), ['false', '0'], true)) {
+            $rules[] = $this->finding('native-transport', 'low', 'Native transport is disabled', 'server.properties', 'use-native-transport', $value, true, 'Paper documents native transport as a Linux networking performance improvement. It does not change gameplay.', 'low', false, true, 'https://docs.papermc.io/paper/reference/server-properties/');
         }
-        if ($paper && isset($configs['paper-world-defaults.yml']) && preg_match('/^\s*entity-broadcast-range-percentage:\s*(\d+)/mi', $configs['paper-world-defaults.yml'], $match) && (int) $match[1] > 100) {
-            $rules[] = $this->finding('entity-broadcast-range', 'medium', 'Expanded entity broadcast range', 'paper-world-defaults.yml', 'entity-broadcast-range-percentage', $match[1], 100, 'Broadcasting entities beyond the default range increases per-player network and tracking work. Review this for gameplay impact before changing it.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/');
+
+        if ($bukkit && ($value = $this->scalar($bukkitConfig, 'autosave')) !== null && (int) $value > 0 && (int) $value < 6000) {
+            $rules[] = $this->finding('frequent-autosave', 'low', 'Frequent world autosaves', 'bukkit.yml', 'autosave', $value, 12000, 'Very frequent full autosaves can cause regular disk pressure. Longer intervals improve throughput but increase the amount of progress that could be lost after an unexpected crash.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/bukkit-configuration/', $this->profiles(18000, 12000, 6000));
         }
-        if (!$paper) $rules[] = ['severity' => 'informational', 'title' => 'No implementation-specific safe fixes', 'explanation' => 'Only settings documented for the detected implementation and version are recommended. This implementation has no safe built-in rule set yet.', 'impact' => 'unknown', 'gameplay_change' => false, 'restart_required' => false, 'source' => null, 'evidence' => ['implementation' => $server->egg->name, 'version' => $version], 'recommendation' => null];
+        if ($bukkit && ($value = $this->scalar($bukkitConfig, 'connection-throttle')) !== null && (int) $value === 0) {
+            $rules[] = $this->finding('connection-throttle', 'low', 'Connection throttle disabled', 'bukkit.yml', 'connection-throttle', $value, 4000, 'No connection throttle makes join floods more expensive to process. The Bukkit default of 4000 ms provides a basic per-IP guard.', 'low', false, true, 'https://docs.papermc.io/paper/reference/bukkit-configuration/');
+        }
+
+        if ($bukkit && ($value = $this->scalar($spigot, 'hopper-transfer')) !== null && (int) $value < 8) {
+            $rules[] = $this->finding('hopper-transfer', 'medium', 'Frequent hopper transfers', 'spigot.yml', 'hopper-transfer', $value, 8, 'Hoppers are a common source of repeated tick work. Higher values reduce work but slow item movement.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(4, 8, 12));
+        }
+        if ($bukkit && ($value = $this->scalar($spigot, 'hopper-check')) !== null && (int) $value < 8) {
+            $rules[] = $this->finding('hopper-check', 'medium', 'Frequent hopper checks', 'spigot.yml', 'hopper-check', $value, 8, 'Hopper checks can multiply with large farms. Higher values reduce repeated checks but can affect item timing.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(4, 8, 12));
+        }
+        if ($bukkit && ($value = $this->scalar($spigot, 'max-tnt-per-tick')) !== null && (int) $value < 0) {
+            $rules[] = $this->finding('unlimited-tnt', 'medium', 'TNT work is not capped', 'spigot.yml', 'max-tnt-per-tick', $value, 100, 'An unlimited TNT tick budget allows a single explosion machine to monopolize a tick. A cap protects responsiveness but can slow very large TNT machines.', 'high', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(200, 100, 50));
+        }
+
+        if ($paper && ($value = $this->scalar($paperWorld, 'max-auto-save-chunks-per-tick')) !== null && (int) $value > 24) {
+            $rules[] = $this->finding('auto-save-chunks', 'low', 'Large auto-save chunk batch', $paperWorldPath, 'max-auto-save-chunks-per-tick', $value, 24, 'Saving too many chunks in one tick can create periodic disk spikes. Lower batches spread the work over more ticks.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', $this->profiles(48, 24, 12));
+        }
+        if ($paper && ($value = $this->scalar($paperWorld, 'redstone-implementation')) !== null && Str::upper($value) === 'VANILLA') {
+            $rules[] = $this->finding('redstone-implementation', 'informational', 'Vanilla redstone implementation', $paperWorldPath, 'redstone-implementation', $value, 'EIGENCRAFT', 'Paper provides alternate redstone implementations that can reduce redstone update work. Both alternatives intentionally change redstone behaviour, so choose only after testing your builds.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', [
+                ['label' => 'EigenCraft', 'value' => 'EIGENCRAFT'],
+                ['label' => 'Alternate Current', 'value' => 'ALTERNATE_CURRENT'],
+            ]);
+        }
+        if ($paper && ($value = $this->scalar($paperWorld, 'update-pathfinding-on-block-update')) !== null && Str::lower($value) === 'true') {
+            $rules[] = $this->finding('pathfinding-updates', 'low', 'Pathfinding recalculates on every block update', $paperWorldPath, 'update-pathfinding-on-block-update', $value, false, 'Disabling block-update pathfinding can significantly reduce work on entity-heavy or redstone-heavy servers, but mobs can react less immediately to changed terrain.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', [['label' => 'Reduce pathfinding updates', 'value' => false]]);
+        }
+        if ($paper && ($value = $this->scalar($paperWorld, 'cooldown-when-full')) !== null && Str::lower($value) === 'false') {
+            $rules[] = $this->finding('hopper-full-cooldown', 'low', 'Full hoppers retry every tick', $paperWorldPath, 'cooldown-when-full', $value, true, 'Paper can apply a short cooldown to a full hopper instead of continuously checking it. This is a safe performance improvement.', 'low', false, true, 'https://docs.papermc.io/paper/reference/world-configuration/');
+        }
+        if ($paper && ($value = $this->scalar($paperGlobal, 'player-max-concurrent-chunk-generates')) !== null && (int) $value < 0) {
+            $rules[] = $this->finding('chunk-generate-limit', 'medium', 'Per-player chunk generation is unlimited', $paperGlobalPath, 'player-max-concurrent-chunk-generates', $value, 2, 'Unlimited concurrent chunk generation lets one player create expensive generation pressure. A per-player cap smooths exploration at the cost of slower terrain generation.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/global-configuration/', $this->profiles(4, 2, 1));
+        }
+        if ($paper && ($value = $this->scalar($paperGlobal, 'player-max-chunk-load-rate')) !== null && (float) $value < 0) {
+            $rules[] = $this->finding('chunk-load-rate', 'medium', 'Per-player chunk load rate is unlimited', $paperGlobalPath, 'player-max-chunk-load-rate', $value, 100, 'Unlimited chunk loading can produce sustained disk and CPU pressure when players move quickly. Paper documents 100 chunks per second as its default limit.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/global-configuration/', $this->profiles(150, 100, 75));
+        }
+
+        if (!$bukkit) $rules[] = ['severity' => 'informational', 'title' => 'No implementation-specific safe fixes', 'explanation' => 'Only settings documented for the detected implementation and version are recommended. This implementation has no safe built-in rule set yet.', 'impact' => 'unknown', 'gameplay_change' => false, 'restart_required' => false, 'source' => null, 'evidence' => ['implementation' => $server->egg->name, 'version' => $version], 'recommendation' => null];
         return $rules;
+    }
+
+    private function scalar(string $content, string $key): ?string
+    {
+        if ($content === '' || !preg_match('/^\\s*' . preg_quote($key, '/') . '\\s*[=:]\\s*([^#\\r\\n]+)/mi', $content, $match)) return null;
+        return trim($match[1], " \\t\\\"'");
+    }
+
+    private function profiles(int|float|string $risky, int|float|string $safe, int|float|string $verySafe): array
+    {
+        return [
+            ['label' => "Risky: {$risky}", 'value' => $risky],
+            ['label' => "Safe: {$safe}", 'value' => $safe],
+            ['label' => "Very Safe: {$verySafe}", 'value' => $verySafe],
+        ];
     }
 
     private function reportId(string $url): string
@@ -442,8 +604,21 @@ class MinecraftOptimizerService
     private function reportFinding(string $severity, string $title, string $explanation, array $evidence, string $recommendation): array
     { return ['severity' => $severity, 'title' => $title, 'explanation' => $explanation, 'impact' => $severity === 'high' ? 'high' : 'medium', 'gameplay_change' => false, 'restart_required' => false, 'evidence' => $evidence, 'recommendation' => ['manual' => $recommendation]]; }
 
-    private function finding(string $id, string $severity, string $title, string $file, string $key, string $observed, int|float|string|bool $value, string $explanation, string $impact, bool $gameplay, bool $restart, string $source): array
-    { return ['rule_id' => $id, 'severity' => $severity, 'title' => $title, 'explanation' => $explanation, 'impact' => $impact, 'gameplay_change' => $gameplay, 'restart_required' => $restart, 'source' => $source, 'evidence' => ['file' => $file, 'key' => $key, 'observed' => $observed], 'recommendation' => ['file' => $file, 'key' => $key, 'value' => $value]]; }
+    private function finding(string $id, string $severity, string $title, string $file, string $key, string $observed, int|float|string|bool $value, string $explanation, string $impact, bool $gameplay, bool $restart, string $source, array $options = []): array
+    {
+        return [
+            'rule_id' => $id,
+            'severity' => $severity,
+            'title' => $title,
+            'explanation' => $explanation,
+            'impact' => $impact,
+            'gameplay_change' => $gameplay,
+            'restart_required' => $restart,
+            'source' => $source,
+            'evidence' => ['file' => $file, 'key' => $key, 'observed' => $observed],
+            'recommendation' => ['file' => $file, 'key' => $key, 'value' => $value, 'options' => $options],
+        ];
+    }
     private function listDirectory(Server $server, string $path): array { try { return collect($this->files->setServer($server)->getDirectory($path))->pluck('name')->values()->all(); } catch (\Throwable) { return []; } }
     private function detectVersion(string $properties, Server $server): ?string
     {

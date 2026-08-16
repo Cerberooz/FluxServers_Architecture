@@ -17,6 +17,7 @@ class MonitorOptimizerCommand extends Command
 
         Server::query()
             ->whereNull('status')
+            ->where('optimizer_auto_analysis', true)
             ->with(['egg', 'nest', 'variables'])
             ->orderBy('id')
             ->chunkById(50, function ($servers) use ($optimizer, &$queued) {

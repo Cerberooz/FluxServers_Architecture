@@ -64,4 +64,31 @@ class MinecraftOptimizerServiceTest extends TestCase
 
         $this->assertSame(25 * 1024 * 1024, $summary['network']['ingress_bytes_per_second']);
     }
+
+    public function testItScansCommonConfigurationFilesAndOffersWhitelistedProfiles(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $server = new \Pterodactyl\Models\Server();
+        $server->setRelation('egg', new \Pterodactyl\Models\Egg(['name' => 'Paper']));
+        $server->setRelation('nest', new \Pterodactyl\Models\Nest(['name' => 'Minecraft']));
+
+        $method = new \ReflectionMethod($service, 'rules');
+        $rules = collect($method->invoke($service, $server, '1.21.11', [
+            'server.properties' => "view-distance=16\nsimulation-distance=12\nmax-chained-neighbor-updates=1000000\n",
+            'bukkit.yml' => "ticks-per:\n  autosave: 2000\n",
+            'spigot.yml' => "ticks-per:\n  hopper-check: 1\n  hopper-transfer: 1\n",
+            'config/paper-world-defaults.yml' => "chunks:\n  max-auto-save-chunks-per-tick: 48\nmisc:\n  redstone-implementation: VANILLA\n",
+            'config/paper-global.yml' => "chunk-loading-advanced:\n  player-max-concurrent-chunk-generates: -1\n",
+        ]));
+
+        $hopper = $rules->firstWhere('rule_id', 'hopper-check');
+        $this->assertSame(['Risky: 4', 'Safe: 8', 'Very Safe: 12'], array_column($hopper['recommendation']['options'], 'label'));
+        $this->assertTrue($rules->contains(fn (array $rule) => $rule['rule_id'] === 'chained-neighbor-updates'));
+        $this->assertTrue($rules->contains(fn (array $rule) => $rule['rule_id'] === 'redstone-implementation'));
+        $this->assertSame('config/paper-world-defaults.yml', $rules->firstWhere('rule_id', 'auto-save-chunks')['recommendation']['file']);
+    }
 }

@@ -18,14 +18,18 @@ class AllocationTransformer extends BaseClientTransformer
     public function transform(Allocation $model): array
     {
         $public = app(PublicMinecraftAddressService::class);
+        // Customer views should use the allocation alias when the administrator
+        // configured one. The public host remains a safe fallback for legacy
+        // allocations so an origin node IP is never exposed.
+        $host = $model->ip_alias ?: $public->host();
 
         return [
             'id' => $model->id,
             // Never expose the origin allocation IP through customer endpoints.
-            'ip' => $public->host(),
-            'ip_alias' => null,
+            'ip' => $host,
+            'ip_alias' => $model->ip_alias,
             'port' => $model->port,
-            'address' => $public->address($model),
+            'address' => sprintf('%s:%d', $host, $model->port),
             'notes' => $model->notes,
             'is_default' => $model->server->allocation_id === $model->id,
         ];
