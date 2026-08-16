@@ -4,12 +4,12 @@ namespace Pterodactyl\Http\Controllers\Auth;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
+use Illuminate\Http\Request;
 use Pterodactyl\Models\User;
 use Illuminate\Http\JsonResponse;
 use Pterodactyl\Facades\Activity;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Pterodactyl\Http\Requests\Auth\LoginRequest;
 
 class LoginController extends AbstractLoginController
 {
@@ -29,8 +29,13 @@ class LoginController extends AbstractLoginController
      * @throws \Pterodactyl\Exceptions\DisplayException
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function login(LoginRequest $request): JsonResponse
+    public function login(Request $request): JsonResponse
     {
+        $request->validate([
+            'user' => ['required', 'string', 'between:1,191'],
+            'password' => ['required', 'string'],
+        ]);
+
         if ($this->hasTooManyLoginAttempts($request)) {
             $this->fireLockoutEvent($request);
             $this->sendLockoutResponse($request);
