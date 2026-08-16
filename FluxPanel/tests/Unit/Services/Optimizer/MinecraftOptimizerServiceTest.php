@@ -91,4 +91,40 @@ class MinecraftOptimizerServiceTest extends TestCase
         $this->assertTrue($rules->contains(fn (array $rule) => $rule['rule_id'] === 'redstone-implementation'));
         $this->assertSame('config/paper-world-defaults.yml', $rules->firstWhere('rule_id', 'auto-save-chunks')['recommendation']['file']);
     }
+
+    public function testItReplacesNestedYamlConfigurationValues(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $method = new \ReflectionMethod($service, 'replaceValue');
+
+        $updated = $method->invoke($service, "world-settings:\n  default:\n    hopper-check: 1\n", 'world-settings.default.hopper-check', '8');
+
+        $this->assertSame("world-settings:\n  default:\n    hopper-check: 8\n", $updated);
+    }
+
+    public function testItDetectsDocumentedEntityAndExplosionPerformanceSettings(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $server = new \Pterodactyl\Models\Server();
+        $server->setRelation('egg', new \Pterodactyl\Models\Egg(['name' => 'Paper']));
+        $server->setRelation('nest', new \Pterodactyl\Models\Nest(['name' => 'Minecraft']));
+
+        $method = new \ReflectionMethod($service, 'rules');
+        $rules = collect($method->invoke($service, $server, '1.21.11', [
+            'spigot.yml' => "world-settings:\n  default:\n    entity-activation-range:\n      monsters: 48\n",
+            'config/paper-world-defaults.yml' => "environment:\n  optimize-explosions: false\ncollisions:\n  max-entity-collisions: 16\n",
+        ]));
+
+        $this->assertTrue($rules->contains(fn (array $rule) => $rule['rule_id'] === 'monster-activation-range'));
+        $this->assertTrue($rules->contains(fn (array $rule) => $rule['rule_id'] === 'optimize-explosions'));
+        $this->assertTrue($rules->contains(fn (array $rule) => $rule['rule_id'] === 'entity-collision-cap'));
+    }
 }

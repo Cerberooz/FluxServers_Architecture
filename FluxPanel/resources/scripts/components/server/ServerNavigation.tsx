@@ -84,13 +84,20 @@ const ScrollNavigation = styled.nav`
     &::after {
         top: calc(var(--fluid-active-top, 0px) - 4px);
         left: -16px;
-        width: 2px;
+        width: 5px;
         height: calc(var(--fluid-active-height, 0px) + 8px);
+        border-radius: 0 4px 4px 0;
         background: #2582ff;
     }
 
     &::-webkit-scrollbar {
         display: none;
+    }
+
+    a.fluid-server-nav-link-active {
+        color: #e8f0ff;
+        font-weight: 600;
+        background: #101824;
     }
 `;
 
@@ -129,7 +136,7 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
         if (!navigation) return;
 
         const updateIndicator = () => {
-            const active = navigation.querySelector<HTMLAnchorElement>('a.active');
+            const active = navigation.querySelector<HTMLAnchorElement>('a.fluid-server-nav-link-active');
             if (!active) {
                 setActiveIndicator((current) => ({ ...current, visible: false }));
                 return;
@@ -155,7 +162,7 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                 exact={route.exact}
                 onClick={() => setMobileOpen(false)}
                 className={`relative z-10 flex h-11 shrink-0 items-center rounded-lg border border-transparent px-3 text-neutral-300 no-underline transition-colors duration-200 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
-                activeClassName={'text-neutral-100 font-semibold'}
+                activeClassName={'fluid-server-nav-link-active'}
             >
                 <FontAwesomeIcon icon={icons[route.name!] || faTerminal} />
                 {!isCollapsed && <span className={'ml-3 flex-1 whitespace-nowrap text-sm font-medium'}>{route.name}</span>}

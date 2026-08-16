@@ -179,8 +179,9 @@ export default () => {
 const TabButton = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => <button
     type={'button'}
     onClick={onClick}
-    css={tw`-mb-px border-b-2 border-transparent px-0 pb-3 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-200`}
-    className={active ? 'border-blue-500 text-neutral-100' : ''}
+    css={active
+        ? tw`-mb-px border-b-2 border-blue-500 px-0 pb-3 text-sm font-semibold text-blue-300 transition-colors`
+        : tw`-mb-px border-b-2 border-transparent px-0 pb-3 text-sm font-medium text-neutral-400 transition-colors hover:text-neutral-200`}
 >{children}</button>;
 
 const ConfigurationOptimizer = ({ findings, scannedAt, onScan, onApply }: {
@@ -221,16 +222,25 @@ const ConfigurationCard = ({ finding, onApply }: { finding: Finding; onApply: (f
             <span css={tw`flex-shrink-0 text-xs text-neutral-400`}>Current: {finding.evidence?.observed ?? '—'}</span>
         </div>
         <div css={tw`px-4 py-3`}>
-            <p css={tw`h-10 text-sm leading-5 text-neutral-300`}>{finding.explanation}</p>
+            <p css={tw`text-sm leading-5 text-neutral-300`} style={{ minHeight: '2.5rem' }}>{finding.explanation}</p>
             {options.length
-                ? <div css={tw`mt-4 grid grid-cols-3 gap-2`}>
-                    {options.map((option, index) => <button
+                ? <div css={tw`mt-4 flex flex-wrap gap-2`}>
+                    {options.map((option) => {
+                        const label = option.label.toLowerCase();
+                        const style = label.startsWith('risky')
+                            ? { backgroundColor: 'rgba(234, 88, 12, 0.14)', borderColor: 'rgba(249, 115, 22, 0.58)', color: '#fed7aa' }
+                            : label.startsWith('safe')
+                                ? { backgroundColor: 'rgba(34, 197, 94, 0.14)', borderColor: 'rgba(74, 222, 128, 0.58)', color: '#bbf7d0' }
+                                : { backgroundColor: 'rgba(37, 99, 235, 0.16)', borderColor: 'rgba(96, 165, 250, 0.58)', color: '#bfdbfe' };
+
+                        return <button
                         key={option.label}
                         type={'button'}
                         onClick={() => onApply(finding, option.value)}
-                        css={tw`flex items-center justify-between border border-neutral-700 bg-neutral-900 px-3 py-2 text-left text-xs text-neutral-300 transition-colors hover:border-blue-500 hover:text-white`}
-                        className={index === 1 ? 'border-blue-500 bg-blue-600 text-white' : ''}
-                    ><span css={tw`uppercase tracking-wide`}>{option.label.split(':')[0]}</span><strong>{String(option.value)}</strong></button>)}
+                        css={tw`flex min-w-0 flex-1 items-center justify-center border px-3 py-2 text-center text-xs font-semibold leading-tight transition-opacity hover:opacity-90`}
+                        style={{ ...style, flexBasis: options.length === 1 ? '100%' : '8.75rem' }}
+                    ><span css={tw`whitespace-normal break-words`}>{option.label}</span></button>;
+                    })}
                 </div>
                 : <div css={tw`mt-4 flex items-center justify-between gap-3`}>
                     <span css={tw`text-xs text-neutral-400`}>Recommended: {String(recommendation.value)}</span>

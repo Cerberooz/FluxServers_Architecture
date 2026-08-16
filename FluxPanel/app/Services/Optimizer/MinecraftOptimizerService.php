@@ -199,12 +199,22 @@ class MinecraftOptimizerService
     {
         try {
             $files = $this->files->setServer($server);
-            foreach ($files->getDirectory('/plugins/spark') as $entry) {
-                if (($entry['name'] ?? null) === 'tmp') {
-                    return;
-                }
+            // Paper's bundled Spark may not have created any of these folders
+            // yet. Create the complete directory chain through Wings rather than
+            // assuming a third-party Spark plugin already made it.
+            try {
+                $files->getDirectory('/plugins');
+            } catch (\Throwable) {
+                $files->createDirectory('plugins', '/');
             }
-
+            try {
+                $files->getDirectory('/plugins/spark');
+            } catch (\Throwable) {
+                $files->createDirectory('spark', '/plugins');
+            }
+            foreach ($files->getDirectory('/plugins/spark') as $entry) {
+                if (($entry['name'] ?? null) === 'tmp') return;
+            }
             $files->createDirectory('tmp', '/plugins/spark');
         } catch (\Throwable $exception) {
             throw new DisplayException('Fluid could not prepare Spark\'s temporary profiling folder. Ensure Spark is installed and that the panel can write to plugins/spark, then try again.');
@@ -390,6 +400,15 @@ class MinecraftOptimizerService
         if ($bukkit && ($value = $this->scalar($bukkitConfig, 'connection-throttle')) !== null && (int) $value === 0) {
             $rules[] = $this->finding('connection-throttle', 'low', 'Connection throttle disabled', 'bukkit.yml', 'connection-throttle', $value, 4000, 'No connection throttle makes join floods more expensive to process. The Bukkit default of 4000 ms provides a basic per-IP guard.', 'low', false, true, 'https://docs.papermc.io/paper/reference/bukkit-configuration/');
         }
+        if ($bukkit && ($value = $this->yamlScalar($bukkitConfig, 'spawn-limits.monsters')) !== null && (int) $value > 70) {
+            $rules[] = $this->finding('monster-spawn-limit', 'medium', 'High monster spawn limit', 'bukkit.yml', 'spawn-limits.monsters', $value, 50, 'A high monster cap increases the amount of AI and collision work in loaded chunks. Lower limits trade mob density for more consistent tick time.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/bukkit-configuration/', $this->profiles(90, 50, 30));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($bukkitConfig, 'spawn-limits.animals')) !== null && (int) $value > 15) {
+            $rules[] = $this->finding('animal-spawn-limit', 'low', 'High animal spawn limit', 'bukkit.yml', 'spawn-limits.animals', $value, 10, 'Passive mobs add AI and pathfinding pressure. A lower cap is useful for survival servers with large animal farms, but reduces natural animal density.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/bukkit-configuration/', $this->profiles(25, 10, 5));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($bukkitConfig, 'ticks-per.monster-spawns')) !== null && (int) $value > 0 && (int) $value < 2) {
+            $rules[] = $this->finding('monster-spawn-ticks', 'low', 'Monster spawning runs every tick', 'bukkit.yml', 'ticks-per.monster-spawns', $value, 2, 'Increasing the interval between monster spawn attempts reduces repeated spawn searches. It also lowers the rate at which mobs naturally appear.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/bukkit-configuration/', $this->profiles(1, 2, 4));
+        }
 
         if ($bukkit && ($value = $this->scalar($spigot, 'hopper-transfer')) !== null && (int) $value < 8) {
             $rules[] = $this->finding('hopper-transfer', 'medium', 'Frequent hopper transfers', 'spigot.yml', 'hopper-transfer', $value, 8, 'Hoppers are a common source of repeated tick work. Higher values reduce work but slow item movement.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(4, 8, 12));
@@ -399,6 +418,27 @@ class MinecraftOptimizerService
         }
         if ($bukkit && ($value = $this->scalar($spigot, 'max-tnt-per-tick')) !== null && (int) $value < 0) {
             $rules[] = $this->finding('unlimited-tnt', 'medium', 'TNT work is not capped', 'spigot.yml', 'max-tnt-per-tick', $value, 100, 'An unlimited TNT tick budget allows a single explosion machine to monopolize a tick. A cap protects responsiveness but can slow very large TNT machines.', 'high', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(200, 100, 50));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.merge-radius.item')) !== null && (float) $value < 2.5) {
+            $rules[] = $this->finding('item-merge-radius', 'low', 'Small item merge radius', 'spigot.yml', 'world-settings.default.merge-radius.item', $value, 4.0, 'A larger item merge radius reduces the number of live item entities. It can change how quickly items merge and should be tested with farms.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(2.5, 4.0, 6.0));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.merge-radius.exp')) !== null && (float) $value < 4.0) {
+            $rules[] = $this->finding('experience-merge-radius', 'low', 'Small experience merge radius', 'spigot.yml', 'world-settings.default.merge-radius.exp', $value, 6.0, 'Increasing experience-orb merging reduces entity count in mob farms, but changes the distance at which experience combines.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(4.0, 6.0, 8.0));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.entity-activation-range.monsters')) !== null && (int) $value > 32) {
+            $rules[] = $this->finding('monster-activation-range', 'medium', 'Large monster activation range', 'spigot.yml', 'world-settings.default.entity-activation-range.monsters', $value, 32, 'A large activation range keeps more monsters ticking around each player. Reducing it lowers AI cost but can affect distant mob behaviour.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(48, 32, 24));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.entity-activation-range.animals')) !== null && (int) $value > 24) {
+            $rules[] = $this->finding('animal-activation-range', 'low', 'Large animal activation range', 'spigot.yml', 'world-settings.default.entity-activation-range.animals', $value, 24, 'Reducing animal activation range lowers pathfinding and AI work in animal-heavy bases, with a trade-off to distant animal behaviour.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(32, 24, 16));
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.tick-inactive-villagers')) !== null && Str::lower($value) === 'true') {
+            $rules[] = $this->finding('inactive-villager-ticking', 'medium', 'Inactive villagers keep ticking', 'spigot.yml', 'world-settings.default.tick-inactive-villagers', $value, false, 'Villagers are especially expensive because of pathfinding and POI logic. Disabling inactive ticking can reduce load but may affect villager farms outside activation range.', 'high', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', [['label' => 'Safe: Disable', 'value' => false]]);
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.nerf-spawner-mobs')) !== null && Str::lower($value) === 'false') {
+            $rules[] = $this->finding('spawner-mob-ai', 'medium', 'Spawner mobs run full AI', 'spigot.yml', 'world-settings.default.nerf-spawner-mobs', $value, true, 'Nerfing the AI of spawner mobs greatly reduces farm load, but changes how those mobs behave and is not suitable for every gameplay style.', 'high', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', [['label' => 'Safe: Enable', 'value' => true]]);
+        }
+        if ($bukkit && ($value = $this->yamlScalar($spigot, 'world-settings.default.entity-tracking-range.monsters')) !== null && (int) $value > 64) {
+            $rules[] = $this->finding('monster-tracking-range', 'low', 'Large monster tracking range', 'spigot.yml', 'world-settings.default.entity-tracking-range.monsters', $value, 48, 'Large tracking ranges increase entity updates and network traffic. Lower values reduce bandwidth and processing but make distant entities disappear sooner.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/spigot-configuration/', $this->profiles(96, 48, 32));
         }
 
         if ($paper && ($value = $this->scalar($paperWorld, 'max-auto-save-chunks-per-tick')) !== null && (int) $value > 24) {
@@ -416,11 +456,29 @@ class MinecraftOptimizerService
         if ($paper && ($value = $this->scalar($paperWorld, 'cooldown-when-full')) !== null && Str::lower($value) === 'false') {
             $rules[] = $this->finding('hopper-full-cooldown', 'low', 'Full hoppers retry every tick', $paperWorldPath, 'cooldown-when-full', $value, true, 'Paper can apply a short cooldown to a full hopper instead of continuously checking it. This is a safe performance improvement.', 'low', false, true, 'https://docs.papermc.io/paper/reference/world-configuration/');
         }
-        if ($paper && ($value = $this->scalar($paperGlobal, 'player-max-concurrent-chunk-generates')) !== null && (int) $value < 0) {
-            $rules[] = $this->finding('chunk-generate-limit', 'medium', 'Per-player chunk generation is unlimited', $paperGlobalPath, 'player-max-concurrent-chunk-generates', $value, 2, 'Unlimited concurrent chunk generation lets one player create expensive generation pressure. A per-player cap smooths exploration at the cost of slower terrain generation.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/global-configuration/', $this->profiles(4, 2, 1));
+        if ($paper && ($value = $this->scalar($paperWorld, 'ignore-occluding-blocks')) !== null && Str::lower($value) === 'false') {
+            $rules[] = $this->finding('hopper-occluding-blocks', 'low', 'Hoppers check occluding blocks', $paperWorldPath, 'ignore-occluding-blocks', $value, true, 'Paper can skip hopper checks for containers hidden inside occluding blocks. This reduces hopper work and is normally safe for standard servers.', 'low', false, true, 'https://docs.papermc.io/paper/reference/world-configuration/');
         }
-        if ($paper && ($value = $this->scalar($paperGlobal, 'player-max-chunk-load-rate')) !== null && (float) $value < 0) {
-            $rules[] = $this->finding('chunk-load-rate', 'medium', 'Per-player chunk load rate is unlimited', $paperGlobalPath, 'player-max-chunk-load-rate', $value, 100, 'Unlimited chunk loading can produce sustained disk and CPU pressure when players move quickly. Paper documents 100 chunks per second as its default limit.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/global-configuration/', $this->profiles(150, 100, 75));
+        if ($paper && ($value = $this->scalar($paperWorld, 'optimize-explosions')) !== null && Str::lower($value) === 'false') {
+            $rules[] = $this->finding('optimize-explosions', 'medium', 'Explosion optimization disabled', $paperWorldPath, 'optimize-explosions', $value, true, 'Paper can cache entity lookups during explosions instead of recalculating them repeatedly. This significantly reduces explosion load without changing explosion outcomes.', 'medium', false, true, 'https://docs.papermc.io/paper/reference/world-configuration/');
+        }
+        if ($paper && ($value = $this->yamlScalar($paperWorld, 'collisions.max-entity-collisions')) !== null && (int) $value > 8) {
+            $rules[] = $this->finding('entity-collision-cap', 'medium', 'High entity collision cap', $paperWorldPath, 'collisions.max-entity-collisions', $value, 8, 'Entity collision checks can dominate tick time in crowded farms. A lower cap limits collision processing but can change cramming behaviour.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', $this->profiles(16, 8, 4));
+        }
+        if ($paper && ($value = $this->yamlScalar($paperWorld, 'entities.armor-stands.do-collision-entity-lookups')) !== null && Str::lower($value) === 'true') {
+            $rules[] = $this->finding('armor-stand-collisions', 'low', 'Armor stands perform collision lookups', $paperWorldPath, 'entities.armor-stands.do-collision-entity-lookups', $value, false, 'Disabling armor-stand collision lookups reduces work in decorative builds with many stands, but may affect collision-sensitive maps.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', [['label' => 'Safe: Disable', 'value' => false]]);
+        }
+        if ($paper && ($value = $this->yamlScalar($paperWorld, 'entities.behavior.zombies-target-turtle-eggs')) !== null && Str::lower($value) === 'true') {
+            $rules[] = $this->finding('turtle-egg-targeting', 'low', 'Zombies target turtle eggs', $paperWorldPath, 'entities.behavior.zombies-target-turtle-eggs', $value, false, 'Disabling turtle-egg targeting stops nearby search work. It can affect farms that intentionally use turtle eggs.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', [['label' => 'Safe: Disable', 'value' => false]]);
+        }
+        if ($paper && ($value = $this->yamlScalar($paperWorld, 'entities.spawning.spawn-limits.monster')) !== null && (int) $value > 70) {
+            $rules[] = $this->finding('paper-monster-limit', 'medium', 'High Paper monster spawn limit', $paperWorldPath, 'entities.spawning.spawn-limits.monster', $value, 50, 'Paper world spawn limits override Bukkit values. Lowering this cap reduces AI and collision pressure in busy worlds at the cost of lower mob density.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/world-configuration/', $this->profiles(90, 50, 30));
+        }
+        if ($paper && ($value = $this->yamlScalar($paperGlobal, 'chunk-loading-advanced.player-max-concurrent-chunk-generates')) !== null && (int) $value < 0) {
+            $rules[] = $this->finding('chunk-generate-limit', 'medium', 'Per-player chunk generation is unlimited', $paperGlobalPath, 'chunk-loading-advanced.player-max-concurrent-chunk-generates', $value, 2, 'Unlimited concurrent chunk generation lets one player create expensive generation pressure. A per-player cap smooths exploration at the cost of slower terrain generation.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/global-configuration/', $this->profiles(4, 2, 1));
+        }
+        if ($paper && ($value = $this->yamlScalar($paperGlobal, 'chunk-loading-basic.player-max-chunk-load-rate')) !== null && (float) $value < 0) {
+            $rules[] = $this->finding('chunk-load-rate', 'medium', 'Per-player chunk load rate is unlimited', $paperGlobalPath, 'chunk-loading-basic.player-max-chunk-load-rate', $value, 100, 'Rate-limiting chunk loads protects the server from sustained exploration pressure while retaining normal gameplay.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/global-configuration/', $this->profiles(150, 100, 75));
         }
 
         if (!$bukkit) $rules[] = ['severity' => 'informational', 'title' => 'No implementation-specific safe fixes', 'explanation' => 'Only settings documented for the detected implementation and version are recommended. This implementation has no safe built-in rule set yet.', 'impact' => 'unknown', 'gameplay_change' => false, 'restart_required' => false, 'source' => null, 'evidence' => ['implementation' => $server->egg->name, 'version' => $version], 'recommendation' => null];
@@ -632,5 +690,56 @@ class MinecraftOptimizerService
     }
     private function detectJava(string $image): ?string { return preg_match('/java[^0-9]*([0-9]+)/i', $image, $match) ? $match[1] : null; }
     private function sparkState(Server $server, array $plugins, array $mods, ?string $version): array { $builtIn = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), 'paper') && (!$version || version_compare($version, '1.21.0', '>=')); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
-    private function replaceValue(string $content, string $key, string $value): string { return preg_replace('/^(' . preg_quote($key, '/') . '\s*[=:]\s*).+$/mi', '${1}' . $value, $content, 1) ?? $content; }
+    private function replaceValue(string $content, string $key, string $value): string
+    {
+        if (str_contains($key, '.')) return $this->replaceYamlValue($content, $key, $value);
+
+        // YAML keys are normally indented. The previous expression only matched
+        // top-level keys, so a valid nested configuration finding could never be
+        // applied from the Optimizer UI.
+        return preg_replace('/^(\s*' . preg_quote($key, '/') . '\s*[=:]\s*)[^#\r\n]*(\s*(?:#.*)?)$/mi', '${1}' . $value . '${2}', $content, 1) ?? $content;
+    }
+
+    private function yamlScalar(string $content, string $path): ?string
+    {
+        $target = explode('.', $path);
+        $stack = [];
+
+        foreach (preg_split('/\r?\n/', $content) as $line) {
+            if (!preg_match('/^(\s*)([^:#][^:]*):\s*(.*?)\s*(?:#.*)?$/', $line, $match)) continue;
+            $indent = strlen($match[1]);
+            while ($stack && end($stack)['indent'] >= $indent) array_pop($stack);
+            $key = trim($match[2], " \t\"'");
+            $value = trim($match[3], " \t\"'");
+            $candidate = [...array_column($stack, 'key'), $key];
+            if ($candidate === $target && $value !== '') return $value;
+            if ($value === '') $stack[] = ['indent' => $indent, 'key' => $key];
+        }
+
+        return null;
+    }
+
+    private function replaceYamlValue(string $content, string $path, string $value): string
+    {
+        $target = explode('.', $path);
+        $stack = [];
+        $lines = preg_split('/(\r?\n)/', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+
+        for ($index = 0; $index < count($lines); $index += 2) {
+            $line = $lines[$index];
+            if (!preg_match('/^(\s*)([^:#][^:]*):(\s*)([^#\r\n]*)(.*)$/', $line, $match)) continue;
+            $indent = strlen($match[1]);
+            while ($stack && end($stack)['indent'] >= $indent) array_pop($stack);
+            $key = trim($match[2], " \t\"'");
+            $candidate = [...array_column($stack, 'key'), $key];
+            if ($candidate === $target) {
+                $lines[$index] = $match[1] . $match[2] . ':' . $match[3] . $value . $match[5];
+
+                return implode('', $lines);
+            }
+            if (trim($match[4]) === '') $stack[] = ['indent' => $indent, 'key' => $key];
+        }
+
+        return $content;
+    }
 }
