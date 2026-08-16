@@ -237,6 +237,10 @@ export default createGlobalStyle`
     .fluid-console-identity > div:last-child { border-right: 0; }
     .fluid-console-identity span { display: block; color: #4f6280; font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
     .fluid-console-identity strong { display: block; overflow: hidden; margin-top: 7px; color: #ecf1f9; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .fluid-console-copy-address { display: inline-flex; max-width: 100%; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+    .fluid-console-copy-address strong { max-width: calc(100% - 18px); }
+    .fluid-console-copy-address svg { flex: 0 0 auto; color: #6e83a2; font-size: 10px; }
+    .fluid-console-copy-address:hover svg { color: #2582ff; }
     .fluid-console-layout { display: grid; grid-template-columns: minmax(0, 1fr) 318px; gap: 20px; margin-top: 20px; }
     .fluid-console-surface { min-height: 414px; overflow: hidden; border: 1px solid #17202e; border-radius: 4px; background: #05070a; }
     .fluid-console-surface > header { display: flex; min-height: 57px; align-items: center; justify-content: space-between; padding: 0 17px; border-bottom: 1px solid #17202e; }
@@ -246,12 +250,13 @@ export default createGlobalStyle`
     .fluid-console-controls { display: flex; gap: 8px; }
     .fluid-console-controls button { min-height: 30px; padding: 0 15px; font-size: 10px; }
     .fluid-console-resources > div { display: grid; grid-template-columns: 1fr; gap: 0; }
-    .fluid-console-resources .fluid-console-stat-block { border-radius: 0; box-shadow: none; }
-    .fluid-console-resources .fluid-console-stat-block:last-child { border-bottom: 0; }
-    .fluid-console-resources .fluid-console-stat-block > .icon { background: #080b11 !important; border: 1px solid #17202e; }
-    .fluid-console-resources .fluid-console-stat-block > .status_bar { display: none; }
-    .fluid-console-resources .fluid-console-stat-block p { font-size: 10px !important; line-height: 1.1 !important; }
-    .fluid-console-resources .fluid-console-stat-block p + div { height: 20px !important; font-size: 13px !important; line-height: 20px !important; }
+    .fluid-console-resource-list { display: flex; flex-direction: column; }
+    .fluid-console-resource-row { min-height: 65px; padding: 12px 17px; border-bottom: 1px solid #17202e; }
+    .fluid-console-resource-row:last-child { border-bottom: 0; }
+    .fluid-console-resource-row > span { display: block; color: #4f6280; font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+    .fluid-console-resource-row > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 6px; }
+    .fluid-console-resource-row strong { overflow: hidden; color: #ecf1f9; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+    .fluid-console-resource-row small { flex: 0 0 auto; color: #6e83a2; font-size: 9px; }
     .fluid-console-graphs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
     .fluid-console-graphs .chart_container h3 { color: #ecf1f9; font-size: 12px; font-weight: 600; }
     .fluid-console-graphs .chart_container > div:first-child { min-height: 48px; padding: 0 16px; border-bottom: 1px solid #17202e; }
@@ -259,7 +264,7 @@ export default createGlobalStyle`
     @media (max-width: 1024px) {
         .fluid-console-layout { grid-template-columns: 1fr; }
         .fluid-console-resources > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .fluid-console-resources .fluid-console-stat-block:nth-last-child(-n+2) { border-bottom: 0; }
+        .fluid-console-resource-row:nth-last-child(-n+2) { border-bottom: 0; }
         .fluid-console-graphs { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
@@ -267,8 +272,8 @@ export default createGlobalStyle`
         .fluid-console-identity > div:nth-child(2) { border-right: 0; }
         .fluid-console-identity > div:nth-child(-n+2) { border-bottom: 1px solid #17202e; }
         .fluid-console-resources > div { grid-template-columns: 1fr; }
-        .fluid-console-resources .fluid-console-stat-block { border-bottom: 1px solid #17202e !important; }
-        .fluid-console-resources .fluid-console-stat-block:last-child { border-bottom: 0 !important; }
+        .fluid-console-resource-row { border-bottom: 1px solid #17202e !important; }
+        .fluid-console-resource-row:last-child { border-bottom: 0 !important; }
     }
 
     @media (max-width: 640px) {

@@ -1,43 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    faClock,
-    faCloudDownloadAlt,
-    faCloudUploadAlt,
-    faHdd,
-    faMemory,
-    faMicrochip,
-    faWifi,
-} from '@fortawesome/free-solid-svg-icons';
-import { bytesToString, ip, mbToBytes } from '@/lib/formatters';
+import { bytesToString, mbToBytes } from '@/lib/formatters';
 import { ServerContext } from '@/state/server';
 import { SocketEvent, SocketRequest } from '@/components/server/events';
-import UptimeDuration from '@/components/server/UptimeDuration';
-import StatBlock from '@/components/server/console/StatBlock';
 import useWebsocketEvent from '@/plugins/useWebsocketEvent';
 import classNames from 'classnames';
-import { capitalize } from '@/lib/strings';
 
 type Stats = Record<'memory' | 'cpu' | 'disk' | 'uptime' | 'rx' | 'tx', number>;
-
-const getBackgroundColor = (value: number, max: number | null): string | undefined => {
-    const delta = !max ? 0 : value / max;
-
-    if (delta > 0.8) {
-        if (delta > 0.9) {
-            return 'bg-red-500';
-        }
-        return 'bg-yellow-500';
-    }
-
-    return undefined;
-};
-
-const Limit = ({ limit, children }: { limit: string | null; children: React.ReactNode }) => (
-    <>
-        {children}
-        <span className={'ml-1 text-gray-300 text-[70%] select-none'}>/ {limit || <>&infin;</>}</span>
-    </>
-);
 
 const ServerDetailsBlock = ({ className }: { className?: string }) => {
     const [stats, setStats] = useState<Stats>({ memory: 0, cpu: 0, disk: 0, uptime: 0, tx: 0, rx: 0 });
@@ -56,11 +24,16 @@ const ServerDetailsBlock = ({ className }: { className?: string }) => {
         [limits]
     );
 
-    const allocation = ServerContext.useStoreState((state) => {
-        const match = state.server.data!.allocations.find((allocation) => allocation.isDefault);
-
-        return !match ? 'n/a' : `${match.alias || ip(match.ip)}:${match.port}`;
-    });
+    const percentage = (value: number, limit: number) => limit > 0 ? Math.min(100, Math.round((value / limit) * 100)) : 0;
+    const memoryLimit = mbToBytes(limits.memory);
+    const diskLimit = mbToBytes(limits.disk);
+    const resources = [
+        { label: 'CPU load', value: status === 'offline' ? 'Offline' : `${stats.cpu.toFixed(2)}%`, detail: `of ${textLimits.cpu || 'unlimited'} allocation` },
+        { label: 'Memory', value: status === 'offline' ? 'Offline' : `${bytesToString(stats.memory)} / ${textLimits.memory || 'unlimited'}`, detail: status === 'offline' ? '' : `${percentage(stats.memory, memoryLimit)}% allocated` },
+        { label: 'Disk', value: `${bytesToString(stats.disk)} / ${textLimits.disk || 'unlimited'}`, detail: diskLimit > 0 ? `${bytesToString(Math.max(diskLimit - stats.disk, 0))} available` : '' },
+        { label: 'Network in', value: status === 'offline' ? 'Offline' : bytesToString(stats.rx), detail: status === 'offline' ? '' : 'current session' },
+        { label: 'Network out', value: status === 'offline' ? 'Offline' : bytesToString(stats.tx), detail: status === 'offline' ? '' : 'current session' },
+    ];
 
     useEffect(() => {
         if (!connected || !instance) {
@@ -89,50 +62,13 @@ const ServerDetailsBlock = ({ className }: { className?: string }) => {
     });
 
     return (
-        <div className={classNames('grid grid-cols-6 gap-2 md:gap-4', className)}>
-            <StatBlock icon={faWifi} title={'Address'} copyOnClick={allocation}>
-                {allocation}
-            </StatBlock>
-            <StatBlock
-                icon={faClock}
-                title={'Uptime'}
-                color={getBackgroundColor(status === 'running' ? 0 : status !== 'offline' ? 9 : 10, 10)}
-            >
-                {status === null ? (
-                    'Offline'
-                ) : stats.uptime > 0 ? (
-                    <UptimeDuration uptime={stats.uptime / 1000} />
-                ) : (
-                    capitalize(status)
-                )}
-            </StatBlock>
-            <StatBlock icon={faMicrochip} title={'CPU Load'} color={getBackgroundColor(stats.cpu, limits.cpu)}>
-                {status === 'offline' ? (
-                    <span className={'text-gray-400'}>Offline</span>
-                ) : (
-                    <Limit limit={textLimits.cpu}>{stats.cpu.toFixed(2)}%</Limit>
-                )}
-            </StatBlock>
-            <StatBlock
-                icon={faMemory}
-                title={'Memory'}
-                color={getBackgroundColor(stats.memory / 1024, limits.memory * 1024)}
-            >
-                {status === 'offline' ? (
-                    <span className={'text-gray-400'}>Offline</span>
-                ) : (
-                    <Limit limit={textLimits.memory}>{bytesToString(stats.memory)}</Limit>
-                )}
-            </StatBlock>
-            <StatBlock icon={faHdd} title={'Disk'} color={getBackgroundColor(stats.disk / 1024, limits.disk * 1024)}>
-                <Limit limit={textLimits.disk}>{bytesToString(stats.disk)}</Limit>
-            </StatBlock>
-            <StatBlock icon={faCloudDownloadAlt} title={'Network (Inbound)'}>
-                {status === 'offline' ? <span className={'text-gray-400'}>Offline</span> : bytesToString(stats.rx)}
-            </StatBlock>
-            <StatBlock icon={faCloudUploadAlt} title={'Network (Outbound)'}>
-                {status === 'offline' ? <span className={'text-gray-400'}>Offline</span> : bytesToString(stats.tx)}
-            </StatBlock>
+        <div className={classNames('fluid-console-resource-list', className)}>
+            {resources.map((resource) => (
+                <div className={'fluid-console-resource-row'} key={resource.label}>
+                    <span>{resource.label}</span>
+                    <div><strong>{resource.value}</strong>{resource.detail && <small>{resource.detail}</small>}</div>
+                </div>
+            ))}
         </div>
     );
 };
