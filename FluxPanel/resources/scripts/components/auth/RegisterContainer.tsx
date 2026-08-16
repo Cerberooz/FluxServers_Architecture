@@ -78,33 +78,19 @@ const RegisterContainer = () => {
             });
     };
 
-    if (activationEmail) {
-        const resend = () => {
-            setIsResending(true);
-            setResendMessage(undefined);
-            resendEmailVerification(activationEmail)
-                .then(() => setResendMessage('A new activation email has been sent.'))
-                .catch((error) => {
-                    console.error(error);
-                    setResendMessage('We could not send the activation email right now. Please try again shortly.');
-                })
-                .finally(() => setIsResending(false));
-        };
+    const resend = () => {
+        if (!activationEmail) return;
 
-        return <LoginFormContainer title={'Activate your account'} subtitle={'One more step before you can sign in.'} css={tw`w-full flex`}>
-            <div css={tw`rounded-lg border border-blue-700 bg-blue-900 bg-opacity-30 p-5 text-sm text-blue-100`}>
-                <p css={tw`font-semibold text-blue-100`}>{activationEmailSent ? 'An email has been sent to activate your account.' : 'Your account was created, but the activation email could not be sent.'}</p>
-                <p css={tw`mt-2 text-blue-200`}>Open the verification link sent to {activationEmail}. Check spam or promotions too. Once activated, return here to sign in.</p>
-            </div>
-            <div css={tw`mt-4`}>
-                <Button type={'button'} size={'small'} isLoading={isResending} disabled={isResending} onClick={resend}>Resend activation email</Button>
-                {resendMessage && <p css={tw`mt-3 text-sm text-neutral-400`}>{resendMessage}</p>}
-            </div>
-            <div css={tw`mt-6 text-center`}>
-                <Link to={'/auth/login'} css={tw`text-xs uppercase tracking-wide text-neutral-500 no-underline hover:text-neutral-300`}>Back to sign in</Link>
-            </div>
-        </LoginFormContainer>;
-    }
+        setIsResending(true);
+        setResendMessage(undefined);
+        resendEmailVerification(activationEmail)
+            .then(() => setResendMessage('A new activation email has been sent.'))
+            .catch((error) => {
+                console.error(error);
+                setResendMessage('We could not send the activation email right now. Please try again shortly.');
+            })
+            .finally(() => setIsResending(false));
+    };
 
     return (
         <Formik
@@ -131,11 +117,28 @@ const RegisterContainer = () => {
             })}
         >
             {({ isSubmitting, setSubmitting, submitForm }) => (
+                <>
                 <LoginFormContainer
-                    title={'Create Your Account'}
-                    subtitle={'Register to start managing your servers.'}
+                    title={activationEmail ? 'Activate your account' : 'Create Your Account'}
+                    subtitle={activationEmail ? 'One more step before you can sign in.' : 'Register to start managing your servers.'}
                     css={tw`w-full flex`}
                 >
+                    {activationEmail ? (
+                        <>
+                            <div css={tw`rounded-lg border border-blue-700 bg-blue-900 bg-opacity-30 p-5 text-sm text-blue-100`}>
+                                <p css={tw`font-semibold text-blue-100`}>{activationEmailSent ? 'An email has been sent to activate your account.' : 'Your account was created, but the activation email could not be sent.'}</p>
+                                <p css={tw`mt-2 text-blue-200`}>Open the verification link sent to {activationEmail}. Check spam or promotions too. Once activated, return here to sign in.</p>
+                            </div>
+                            <div css={tw`mt-4`}>
+                                <Button type={'button'} size={'small'} isLoading={isResending} disabled={isResending} onClick={resend}>Resend activation email</Button>
+                                {resendMessage && <p css={tw`mt-3 text-sm text-neutral-400`}>{resendMessage}</p>}
+                            </div>
+                            <div css={tw`mt-6 text-center`}>
+                                <Link to={'/auth/login'} css={tw`text-xs uppercase tracking-wide text-neutral-500 no-underline hover:text-neutral-300`}>Back to sign in</Link>
+                            </div>
+                        </>
+                    ) : (
+                        <>
                     <Field type={'email'} label={'Email'} name={'email'} placeholder={'you@example.com'} autoComplete={'email'} disabled={isSubmitting} />
                     <div css={tw`mt-6`}>
                         <Field type={'text'} label={'Username'} name={'username'} placeholder={'Choose a username'} autoComplete={'username'} disabled={isSubmitting} />
@@ -162,22 +165,6 @@ const RegisterContainer = () => {
                             Register
                         </Button>
                     </div>
-                    {recaptchaEnabled && (
-                        <Reaptcha
-                            ref={ref}
-                            size={'invisible'}
-                            sitekey={siteKey || '_invalid_key'}
-                            onRender={() => setRecaptchaReady(true)}
-                            onVerify={(response) => {
-                                token.current = response;
-                                submitForm();
-                            }}
-                            onExpire={() => {
-                                setSubmitting(false);
-                                token.current = '';
-                            }}
-                        />
-                    )}
                     <div css={tw`mt-6 text-center`}>
                         <Link
                             to={'/auth/login'}
@@ -186,7 +173,26 @@ const RegisterContainer = () => {
                             Already have an account?
                         </Link>
                     </div>
+                        </>
+                    )}
                 </LoginFormContainer>
+                {recaptchaEnabled && (
+                    <Reaptcha
+                        ref={ref}
+                        size={'invisible'}
+                        sitekey={siteKey || '_invalid_key'}
+                        onRender={() => setRecaptchaReady(true)}
+                        onVerify={(response) => {
+                            token.current = response;
+                            submitForm();
+                        }}
+                        onExpire={() => {
+                            setSubmitting(false);
+                            token.current = '';
+                        }}
+                    />
+                )}
+                </>
             )}
         </Formik>
     );

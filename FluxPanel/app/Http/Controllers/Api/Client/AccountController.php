@@ -53,7 +53,10 @@ class AccountController extends ClientApiController
         if (mb_strtolower($original) !== mb_strtolower($request->validated('email'))) {
             RateLimiter::hit($key, self::EMAIL_UPDATE_THROTTLE);
 
-            $this->updateService->handle($user, $request->validated());
+            $user = $this->updateService->handle($user, array_merge($request->validated(), [
+                'email_verified_at' => null,
+            ]));
+            $user->sendEmailVerificationNotification();
 
             Activity::event('user:account.email-changed')
                 ->property(['old' => $original, 'new' => $request->validated('email')])

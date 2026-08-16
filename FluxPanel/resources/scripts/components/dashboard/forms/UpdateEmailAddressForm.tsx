@@ -33,7 +33,7 @@ export default () => {
                 addFlash({
                     type: 'success',
                     key: 'account:email',
-                    message: 'Your primary email has been updated.',
+                    message: 'Your primary email has been updated. Check that address to verify it before your next sign-in.',
                 })
             )
             .catch((error) =>

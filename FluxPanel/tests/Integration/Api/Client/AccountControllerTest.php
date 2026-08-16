@@ -8,6 +8,8 @@ use Illuminate\Http\Response;
 use Pterodactyl\Models\Subuser;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Pterodactyl\Jobs\RevokeSftpAccessJob;
 
 class AccountControllerTest extends ClientApiIntegrationTestCase
@@ -42,6 +44,7 @@ class AccountControllerTest extends ClientApiIntegrationTestCase
     public function testEmailIsUpdated()
     {
         $user = User::factory()->create();
+        Notification::fake();
 
         $this->actingAs($user)
             ->putJson('/api/client/account/email', [
@@ -51,7 +54,8 @@ class AccountControllerTest extends ClientApiIntegrationTestCase
             ->assertNoContent();
 
         $this->assertActivityFor('user:account.email-changed', $user, $user);
-        $this->assertDatabaseHas('users', ['id' => $user->id, 'email' => $email]);
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'email' => $email, 'email_verified_at' => null]);
+        Notification::assertSentTo($user, VerifyEmail::class);
     }
 
     public function testEmailChangeIsThrottled(): void

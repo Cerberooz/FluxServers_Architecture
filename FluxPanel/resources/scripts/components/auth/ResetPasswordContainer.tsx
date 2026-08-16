@@ -31,9 +31,9 @@ export default ({ match, location }: RouteComponentProps<{ token: string }>) => 
     const submit = ({ password, passwordConfirmation }: Values, { setSubmitting }: FormikHelpers<Values>) => {
         clearFlashes();
         performPasswordReset(email, { token: match.params.token, password, passwordConfirmation })
-            .then(() => {
+            .then((response) => {
                 // @ts-expect-error this is valid
-                window.location = '/';
+                window.location = response.sendToLogin ? '/auth/login' : response.redirectTo || '/';
             })
             .catch((error) => {
                 console.error(error);

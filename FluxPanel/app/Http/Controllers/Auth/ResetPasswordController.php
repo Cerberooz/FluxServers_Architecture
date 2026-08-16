@@ -84,13 +84,13 @@ class ResetPasswordController extends Controller
         $this->dispatcher->dispatch(new PasswordReset($user));
         PasswordChanged::dispatch($user);
 
-        // If the user is not using 2FA log them in, otherwise skip this step and force a
-        // fresh login where they'll be prompted to enter a token.
-        if (!$user->use_totp) {
+        // Never use password reset as a way around the email-activation requirement.
+        // Users with 2FA must also complete a fresh sign-in after changing a password.
+        if (!$user->use_totp && $user->hasVerifiedEmail()) {
             $this->guard()->login($user);
         }
 
-        $this->hasTwoFactor = $user->use_totp;
+        $this->hasTwoFactor = $user->use_totp || !$user->hasVerifiedEmail();
     }
 
     /**

@@ -13,12 +13,13 @@ interface PasswordResetResponse {
 
 export default (email: string, data: Data): Promise<PasswordResetResponse> => {
     return new Promise((resolve, reject) => {
-        http.post('/auth/password/reset', {
-            email,
-            token: data.token,
-            password: data.password,
-            password_confirmation: data.passwordConfirmation,
-        })
+        http.get('/sanctum/csrf-cookie')
+            .then(() => http.post('/auth/password/reset', {
+                email,
+                token: data.token,
+                password: data.password,
+                password_confirmation: data.passwordConfirmation,
+            }))
             .then((response) =>
                 resolve({
                     redirectTo: response.data.redirect_to,
