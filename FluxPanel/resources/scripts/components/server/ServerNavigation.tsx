@@ -81,7 +81,7 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                 to={to(route.path)}
                 exact={route.exact}
                 onClick={() => setMobileOpen(false)}
-                className={`flex h-11 items-center rounded-lg border border-transparent px-3 text-neutral-300 no-underline transition-all hover:bg-neutral-800 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
+                className={`flex h-11 shrink-0 items-center rounded-lg border border-transparent px-3 text-neutral-300 no-underline transition-all hover:bg-neutral-800 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
                 activeClassName={'border-l-2 border-primary-500 bg-neutral-800 text-neutral-100 rounded-l-none'}
             >
                 <FontAwesomeIcon icon={icons[route.name!] || faTerminal} />
@@ -162,7 +162,7 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                     <ScrollNavigation className={'mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1'} aria-label={'Server management'}>
                         {navigationRoutes.map((route) => routeLink(route))}
                         <Can action={['allocation.read', 'file.read-content', 'file.read']} matchAny>
-                            <div>
+                            <div className={'shrink-0'}>
                                 <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Tools'}>
                                     <button
                                         type={'button'}

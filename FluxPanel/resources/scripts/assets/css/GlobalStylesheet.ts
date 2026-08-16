@@ -190,6 +190,10 @@ export default createGlobalStyle`
     .fluid-dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
     .fluid-dashboard-card { min-height: 236px; border: 1px solid #17202e; background: #05070a; }
     .fluid-dashboard-card > header, .fluid-quick-access > header { padding: 15px 17px; border-bottom: 1px solid #17202e; }
+    .fluid-dashboard-card > .fluid-dashboard-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .fluid-dashboard-card__header > a { flex: 0 0 auto; margin-top: -3px; padding: 7px 11px; border: 1px solid #17202e; border-radius: 4px; color: #2582ff; font-size: 9px; font-weight: 500; line-height: 1.2; text-decoration: none; }
+    .fluid-dashboard-card__header > a:hover { border-color: #2582ff; background: #080b11; }
+    .fluid-dashboard-card__header > a span { padding-left: 4px; }
     .fluid-dashboard-card h2, .fluid-quick-access h2 { margin: 0; color: #ecf1f9; font-size: 13px; font-weight: 600; }
     .fluid-dashboard-card header p, .fluid-quick-access header p { margin: 6px 0 0; color: #6e83a2; font-size: 9px; }
     .fluid-dashboard-detail { display: grid; grid-template-columns: 136px minmax(0, 1fr); min-height: 35px; align-items: center; padding: 0 17px; border-bottom: 1px solid #17202e; }
@@ -238,7 +242,7 @@ export default createGlobalStyle`
     .fluid-console-surface > header { display: flex; min-height: 57px; align-items: center; justify-content: space-between; padding: 0 17px; border-bottom: 1px solid #17202e; }
     .fluid-console-surface h2 { margin: 0; color: #ecf1f9; font-size: 13px; font-weight: 600; }
     .fluid-console-surface header p { margin: 5px 0 0; color: #6e83a2; font-size: 9px; }
-    .fluid-console-terminal { height: 355px; }
+    .fluid-console-terminal { height: 355px; min-height: 0; }
     .fluid-console-controls { display: flex; gap: 8px; }
     .fluid-console-controls button { min-height: 30px; padding: 0 15px; font-size: 10px; }
     .fluid-console-resources > div { display: grid; grid-template-columns: 1fr; gap: 0; }
@@ -246,6 +250,8 @@ export default createGlobalStyle`
     .fluid-console-resources .stat_block:last-child { border-bottom: 0; }
     .fluid-console-resources .stat_block > .icon { background: #080b11 !important; border: 1px solid #17202e; }
     .fluid-console-resources .stat_block > .status_bar { display: none; }
+    .fluid-console-resources .stat_block p { font-size: 10px !important; line-height: 1.1 !important; }
+    .fluid-console-resources .stat_block p + div { height: 20px !important; font-size: 13px !important; line-height: 20px !important; }
     .fluid-console-graphs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
     .fluid-console-graphs .chart_container h3 { color: #ecf1f9; font-size: 12px; font-weight: 600; }
     .fluid-console-graphs .chart_container > div:first-child { min-height: 48px; padding: 0 16px; border-bottom: 1px solid #17202e; }

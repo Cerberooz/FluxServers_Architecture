@@ -85,15 +85,17 @@ export default () => {
                             <Detail label={'Node'}>{server.node}</Detail>
                             <Detail label={'Region'}>{server.nodeLocation || 'Not set'}</Detail>
                             <Detail label={'CPU'}>{server.nodeCpuModel || 'Not set'}</Detail>
-                            <Detail label={'Memory'}>{server.nodeMemoryType ? `${server.nodeMemoryType} / ${bytesToString(mbToBytes(server.nodeMemory))}` : bytesToString(mbToBytes(server.nodeMemory))}</Detail>
-                            <Detail label={'Disk'}>{bytesToString(mbToBytes(server.nodeDisk))}</Detail>
+                            <Detail label={'Memory'}>{server.nodeMemoryType || 'Not set'}</Detail>
                         </div>
                     </section>
 
                     <section className={'fluid-dashboard-card fluid-dashboard-activity'}>
-                        <header><h2>Recent activity</h2><p>Latest changes to this server</p></header>
+                        <header className={'fluid-dashboard-card__header'}>
+                            <div><h2>Recent activity</h2><p>Latest changes to this server</p></div>
+                            <Link to={`/server/${server.id}/activity`}>View activity <span>&rarr;</span></Link>
+                        </header>
                         {!activity && isActivityLoading ? <p className={'fluid-dashboard-empty'}>Loading recent activity…</p> : !activity?.items.length ? <p className={'fluid-dashboard-empty'}>No activity recorded for this server yet.</p> : (
-                            <div>{activity.items.map((item) => {
+                            <div>{activity.items.slice(0, 3).map((item) => {
                                 const actor = item.relationships.actor;
                                 return <div className={'fluid-dashboard-activity__item'} key={item.id}>
                                     <i />
