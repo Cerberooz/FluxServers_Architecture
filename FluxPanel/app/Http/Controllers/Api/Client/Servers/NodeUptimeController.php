@@ -18,12 +18,18 @@ class NodeUptimeController extends ClientApiController
     }
 
     /**
-     * Read the host uptime directly from Wings. The value is intentionally cached
-     * since multiple servers can share a single node and every dashboard view would
-     * otherwise make an identical daemon request.
+     * Return the most recent host uptime reported by the node-side companion.
+     * Older Wings installations can still fall back to their system endpoint,
+     * although it does not expose host uptime in current Wings releases.
      */
     public function __invoke(GetServerRequest $request, Server $server): array
     {
+        // Wings' public system endpoint does not expose host uptime. Prefer the
+        // authenticated node-side reporter when it has checked in recently.
+        if ($server->node->uptime_reported_at && $server->node->uptime_reported_at->greaterThan(now()->subMinutes(3))) {
+            return ['uptime' => $server->node->uptime_seconds];
+        }
+
         $uptime = $this->cache->remember("node-uptime:{$server->node_id}", Carbon::now()->addSeconds(30), function () use ($server) {
             try {
                 $system = $this->repository->setNode($server->node)->getSystemInformation(2);

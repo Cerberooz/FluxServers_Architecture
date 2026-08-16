@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+set -eu
+
+CONFIG_FILE="${WINGS_CONFIG_FILE:-/etc/pterodactyl/config.yml}"
+
+value() {
+    sed -n "s/^$1:[[:space:]]*//p" "$CONFIG_FILE" | head -n 1 | tr -d "'\""
+}
+
+REMOTE="$(value remote)"
+TOKEN_ID="$(value token_id)"
+# Older hand-written Wings configurations occasionally use a dash here.
+[ -n "$TOKEN_ID" ] || TOKEN_ID="$(value token-id)"
+TOKEN="$(value token)"
+UPTIME_SECONDS="$(cut -d. -f1 /proc/uptime)"
+
+test -n "$REMOTE"
+test -n "$TOKEN_ID"
+test -n "$TOKEN"
+
+exec curl --fail --silent --show-error --connect-timeout 10 --max-time 20 \
+    -X POST "${REMOTE%/}/api/remote/nodes/uptime" \
+    -H "Authorization: Bearer ${TOKEN_ID}.${TOKEN}" \
+    -H 'Content-Type: application/json' \
+    --data "{\"uptime_seconds\":${UPTIME_SECONDS}}"

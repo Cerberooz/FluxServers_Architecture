@@ -1,0 +1,14 @@
+[Unit]
+Description=Flux Panel node uptime reporter
+After=network-online.target wings.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/bin/flux-node-uptime-reporter
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadOnlyPaths=/etc/pterodactyl/config.yml /proc/uptime

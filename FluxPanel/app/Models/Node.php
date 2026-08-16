@@ -29,6 +29,8 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
  * @property int $memory_overallocate
  * @property string|null $cpu_model
  * @property string|null $memory_type
+ * @property int|null $uptime_seconds
+ * @property \Carbon\Carbon|null $uptime_reported_at
  * @property int $disk
  * @property int $disk_overallocate
  * @property int $upload_size
@@ -80,6 +82,8 @@ class Node extends Model implements Identifiable
         'disk' => 'integer',
         'daemonListen' => 'integer',
         'daemonSFTP' => 'integer',
+        'uptime_seconds' => 'integer',
+        'uptime_reported_at' => 'datetime',
         'behind_proxy' => 'boolean',
         'public' => 'boolean',
         'maintenance_mode' => 'boolean',
