@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -56,8 +56,37 @@ const icons: Record<string, IconDefinition> = {
 };
 
 const ScrollNavigation = styled.nav`
+    position: relative;
+    isolation: isolate;
     scrollbar-width: none;
     -ms-overflow-style: none;
+
+    &::before,
+    &::after {
+        position: absolute;
+        z-index: 0;
+        content: '';
+        pointer-events: none;
+        opacity: var(--fluid-active-visible, 0);
+        transition: top 420ms cubic-bezier(.34, 1.56, .64, 1), height 420ms cubic-bezier(.34, 1.56, .64, 1), opacity 160ms ease;
+    }
+
+    &::before {
+        top: var(--fluid-active-top, 0px);
+        right: 4px;
+        left: -4px;
+        height: var(--fluid-active-height, 0px);
+        border-radius: 8px;
+        background: #0a0e15;
+    }
+
+    &::after {
+        top: calc(var(--fluid-active-top, 0px) - 4px);
+        left: -16px;
+        width: 2px;
+        height: calc(var(--fluid-active-height, 0px) + 8px);
+        background: #2582ff;
+    }
 
     &::-webkit-scrollbar {
         display: none;
@@ -70,10 +99,36 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
     const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
     const [toolsOpen, setToolsOpen] = useState(() => ['/subdomains', '/optimizer', '/plugins'].some((path) => location.pathname.endsWith(path)));
+    const navigationRef = useRef<HTMLElement>(null);
+    const [activeIndicator, setActiveIndicator] = useState({ top: 0, height: 0, visible: false });
     const isCollapsed = !!collapsed;
     const to = (path: string) => (path === '/' ? baseUrl : `${baseUrl.replace(/\/*$/, '')}/${path.replace(/^\/+/, '')}`);
     const toolRoutes = routes.server.filter((route) => ['Subdomains', 'Optimizer', 'Plugins'].includes(route.name || ''));
     const navigationRoutes = routes.server.filter((route) => !!route.name && !toolRoutes.includes(route));
+
+    useLayoutEffect(() => {
+        const navigation = navigationRef.current;
+        if (!navigation) return;
+
+        const updateIndicator = () => {
+            const active = navigation.querySelector<HTMLAnchorElement>('a.active');
+            if (!active) {
+                setActiveIndicator((current) => ({ ...current, visible: false }));
+                return;
+            }
+
+            setActiveIndicator({ top: active.offsetTop + 4, height: Math.max(active.offsetHeight - 8, 0), visible: true });
+        };
+
+        const frame = requestAnimationFrame(updateIndicator);
+        const observer = new ResizeObserver(updateIndicator);
+        observer.observe(navigation);
+
+        return () => {
+            cancelAnimationFrame(frame);
+            observer.disconnect();
+        };
+    }, [location.pathname, toolsOpen, isCollapsed]);
 
     const routeLink = (route: (typeof routes.server)[number], nested = false) => {
         const link = (
@@ -81,8 +136,8 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                 to={to(route.path)}
                 exact={route.exact}
                 onClick={() => setMobileOpen(false)}
-                className={`flex h-11 shrink-0 items-center rounded-lg border border-transparent px-3 text-neutral-300 no-underline transition-all hover:bg-neutral-800 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
-                activeClassName={'border-l-2 border-primary-500 bg-neutral-800 text-neutral-100 rounded-l-none'}
+                className={`relative z-10 flex h-11 shrink-0 items-center rounded-lg border border-transparent px-3 text-neutral-300 no-underline transition-colors duration-200 hover:text-neutral-100 ${nested && !isCollapsed ? 'ml-3' : ''}`}
+                activeClassName={'text-neutral-100 font-semibold'}
             >
                 <FontAwesomeIcon icon={icons[route.name!] || faTerminal} />
                 {!isCollapsed && <span className={'ml-3 whitespace-nowrap text-sm font-medium'}>{route.name}</span>}
@@ -159,10 +214,19 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
                         </div>
                     )}
 
-                    <ScrollNavigation className={'mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1'} aria-label={'Server management'}>
+                    <ScrollNavigation
+                        ref={navigationRef}
+                        style={{
+                            '--fluid-active-top': `${activeIndicator.top}px`,
+                            '--fluid-active-height': `${activeIndicator.height}px`,
+                            '--fluid-active-visible': activeIndicator.visible ? 1 : 0,
+                        } as React.CSSProperties}
+                        className={'mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1'}
+                        aria-label={'Server management'}
+                    >
                         {navigationRoutes.map((route) => routeLink(route))}
                         <Can action={['allocation.read', 'file.read-content', 'file.read']} matchAny>
-                            <div className={'shrink-0'}>
+                            <div className={'relative z-10 shrink-0'}>
                                 <Tooltip placement={isCollapsed ? 'right' : 'bottom'} content={'Tools'}>
                                     <button
                                         type={'button'}

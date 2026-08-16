@@ -237,8 +237,8 @@ export default createGlobalStyle`
     .fluid-console-identity > div:last-child { border-right: 0; }
     .fluid-console-identity span { display: block; color: #4f6280; font-size: 8px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
     .fluid-console-identity strong { display: block; overflow: hidden; margin-top: 7px; color: #ecf1f9; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-    .fluid-console-copy-address { display: inline-flex; max-width: 100%; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
-    .fluid-console-copy-address strong { max-width: calc(100% - 18px); }
+    .fluid-console-copy-address { display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 8px; padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+    .fluid-console-copy-address strong { flex: 0 1 auto; max-width: none; }
     .fluid-console-copy-address svg { flex: 0 0 auto; color: #6e83a2; font-size: 10px; }
     .fluid-console-copy-address:hover svg { color: #2582ff; }
     .fluid-console-layout { display: grid; grid-template-columns: minmax(0, 1fr) 318px; gap: 20px; margin-top: 20px; }
