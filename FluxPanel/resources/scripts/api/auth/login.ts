@@ -5,6 +5,7 @@ export interface LoginResponse {
     intended?: string;
     confirmationToken?: string;
     verificationRequired?: boolean;
+    emailSent?: boolean;
 }
 
 export interface LoginData {

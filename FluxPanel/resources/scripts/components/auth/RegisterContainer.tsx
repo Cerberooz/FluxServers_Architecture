@@ -6,6 +6,7 @@ import Reaptcha from 'reaptcha';
 import tw from 'twin.macro';
 import { useStoreState } from 'easy-peasy';
 import register from '@/api/auth/register';
+import resendEmailVerification from '@/api/auth/resendEmailVerification';
 import Field from '@/components/elements/Field';
 import Button from '@/components/elements/Button';
 import LoginFormContainer from '@/components/auth/LoginFormContainer';
@@ -25,6 +26,9 @@ const RegisterContainer = () => {
     const token = useRef('');
     const [recaptchaReady, setRecaptchaReady] = useState(false);
     const [activationEmail, setActivationEmail] = useState<string>();
+    const [activationEmailSent, setActivationEmailSent] = useState(true);
+    const [isResending, setIsResending] = useState(false);
+    const [resendMessage, setResendMessage] = useState<string>();
 
     const { clearFlashes, addFlash, clearAndAddHttpError } = useFlash();
     const { enabled: recaptchaEnabled, siteKey } = useStoreState((state) => state.settings.data!.recaptcha);
@@ -56,6 +60,7 @@ const RegisterContainer = () => {
             .then((response) => {
                 if (response.verificationRequired) {
                     setActivationEmail(values.email);
+                    setActivationEmailSent(response.emailSent !== false);
                     setSubmitting(false);
                     return;
                 }
@@ -74,10 +79,26 @@ const RegisterContainer = () => {
     };
 
     if (activationEmail) {
+        const resend = () => {
+            setIsResending(true);
+            setResendMessage(undefined);
+            resendEmailVerification(activationEmail)
+                .then(() => setResendMessage('A new activation email has been sent.'))
+                .catch((error) => {
+                    console.error(error);
+                    setResendMessage('We could not send the activation email right now. Please try again shortly.');
+                })
+                .finally(() => setIsResending(false));
+        };
+
         return <LoginFormContainer title={'Activate your account'} subtitle={'One more step before you can sign in.'} css={tw`w-full flex`}>
             <div css={tw`rounded-lg border border-blue-700 bg-blue-900 bg-opacity-30 p-5 text-sm text-blue-100`}>
-                <p css={tw`font-semibold text-blue-100`}>An email has been sent to activate your account.</p>
-                <p css={tw`mt-2 text-blue-200`}>Open the verification link sent to {activationEmail}. Once activated, return here to sign in.</p>
+                <p css={tw`font-semibold text-blue-100`}>{activationEmailSent ? 'An email has been sent to activate your account.' : 'Your account was created, but the activation email could not be sent.'}</p>
+                <p css={tw`mt-2 text-blue-200`}>Open the verification link sent to {activationEmail}. Check spam or promotions too. Once activated, return here to sign in.</p>
+            </div>
+            <div css={tw`mt-4`}>
+                <Button type={'button'} size={'small'} isLoading={isResending} disabled={isResending} onClick={resend}>Resend activation email</Button>
+                {resendMessage && <p css={tw`mt-3 text-sm text-neutral-400`}>{resendMessage}</p>}
             </div>
             <div css={tw`mt-6 text-center`}>
                 <Link to={'/auth/login'} css={tw`text-xs uppercase tracking-wide text-neutral-500 no-underline hover:text-neutral-300`}>Back to sign in</Link>
