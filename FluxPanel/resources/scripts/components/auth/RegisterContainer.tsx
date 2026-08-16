@@ -22,7 +22,8 @@ interface Values {
 
 const RegisterContainer = () => {
     const ref = useRef<Reaptcha>(null);
-    const [token, setToken] = useState('');
+    const token = useRef('');
+    const [recaptchaReady, setRecaptchaReady] = useState(false);
     const [activationEmail, setActivationEmail] = useState<string>();
 
     const { clearFlashes, addFlash, clearAndAddHttpError } = useFlash();
@@ -35,8 +36,13 @@ const RegisterContainer = () => {
     const onSubmit = (values: Values, { setSubmitting }: FormikHelpers<Values>) => {
         clearFlashes();
 
-        if (recaptchaEnabled && !token) {
-            ref.current!.execute().catch((error) => {
+        if (recaptchaEnabled && !token.current) {
+            if (!recaptchaReady || !ref.current) {
+                setSubmitting(false);
+                clearAndAddHttpError({ error: new Error('The security check is still loading. Please wait a moment and try again.') });
+                return;
+            }
+            ref.current.execute().catch((error) => {
                 console.error(error);
 
                 setSubmitting(false);
@@ -46,7 +52,7 @@ const RegisterContainer = () => {
             return;
         }
 
-        register({ ...values, recaptchaData: token })
+        register({ ...values, recaptchaData: token.current })
             .then((response) => {
                 if (response.verificationRequired) {
                     setActivationEmail(values.email);
@@ -59,7 +65,7 @@ const RegisterContainer = () => {
             .catch((error) => {
                 console.error(error);
 
-                setToken('');
+                token.current = '';
                 if (ref.current) ref.current.reset();
 
                 setSubmitting(false);
@@ -140,13 +146,14 @@ const RegisterContainer = () => {
                             ref={ref}
                             size={'invisible'}
                             sitekey={siteKey || '_invalid_key'}
+                            onRender={() => setRecaptchaReady(true)}
                             onVerify={(response) => {
-                                setToken(response);
+                                token.current = response;
                                 submitForm();
                             }}
                             onExpire={() => {
                                 setSubmitting(false);
-                                setToken('');
+                                token.current = '';
                             }}
                         />
                     )}

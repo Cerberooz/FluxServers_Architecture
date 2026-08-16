@@ -46,7 +46,8 @@ class MinecraftOptimizerServiceTest extends TestCase
         $this->assertSame(18.5, $summary['tps']);
         $this->assertSame(40, $summary['mspt_median']);
         $this->assertSame(55, $summary['mspt_p95']);
-        $this->assertSame('healthy', $summary['server_health']['status']);
+        $this->assertSame('very_healthy', $summary['server_health']['status']);
+        $this->assertFalse($summary['analysis']['normal']);
     }
 
     public function testItPreservesNetworkEvidenceForAutomaticReports(): void

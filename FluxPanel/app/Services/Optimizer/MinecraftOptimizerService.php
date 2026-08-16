@@ -33,9 +33,26 @@ class MinecraftOptimizerService
             $plugins = $this->listDirectory($server, '/plugins');
             $mods = $this->listDirectory($server, '/mods');
             $version = $this->detectVersion($configs['server.properties'] ?? '', $server);
-            $summary = ['implementation' => $implementation, 'minecraft_version' => $version, 'java' => $this->detectJava($server->image), 'memory_mb' => $server->memory, 'cpu_percent' => $server->cpu, 'plugins' => $plugins, 'mods' => $mods, 'files_scanned' => array_keys($configs), 'spark' => $this->sparkState($server, $plugins, $mods, $version)];
+            $rules = $this->rules($server, $version, $configs);
+            $actionable = collect($rules)->filter(fn (array $finding) => in_array($finding['severity'] ?? '', ['medium', 'high', 'critical'], true))->count();
+            $reviews = collect($rules)->filter(fn (array $finding) => ($finding['severity'] ?? 'informational') !== 'informational')->count();
+            $summary = [
+                'implementation' => $implementation,
+                'minecraft_version' => $version,
+                'java' => $this->detectJava($server->image),
+                'memory_mb' => $server->memory,
+                'cpu_percent' => $server->cpu,
+                'plugins' => $plugins,
+                'mods' => $mods,
+                'files_scanned' => array_keys($configs),
+                'spark' => $this->sparkState($server, $plugins, $mods, $version),
+                'server_health' => $this->configurationHealth($actionable),
+                'analysis' => $reviews
+                    ? ['normal' => false, 'conclusion' => $actionable ? 'Caution' : 'Healthy', 'message' => "Configuration scan found {$reviews} optimization setting(s) worth reviewing. Apply only recommendations that suit this server's gameplay."]
+                    : ['normal' => true, 'conclusion' => 'Very Healthy', 'message' => 'Configuration scan completed normally. No performance-impacting settings were found in the checked files.'],
+            ];
             $run->update(['status' => 'completed', 'summary' => $summary, 'completed_at' => now()]);
-            foreach ($this->rules($server, $version, $configs) as $finding) $run->findings()->create($finding);
+            foreach ($rules as $finding) $run->findings()->create($finding);
         } catch (\Throwable $exception) {
             $run->update(['status' => 'failed', 'error' => $exception->getMessage(), 'completed_at' => now()]);
             throw $exception;
@@ -50,7 +67,8 @@ class MinecraftOptimizerService
         $server = $finding->run->server;
         $path = $recommendation['file'];
         $content = $this->files->setServer($server)->getContent($path, 524288);
-        $replacement = $this->replaceValue($content, $recommendation['key'], (string) $recommendation['value']);
+        $value = $recommendation['value'];
+        $replacement = $this->replaceValue($content, $recommendation['key'], is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
         if ($replacement === $content) throw new DisplayException('The expected configuration value was not found. Scan again before applying this recommendation.');
         $snapshot = ServerOptimizerSnapshot::query()->create(['server_id' => $server->id, 'finding_id' => $finding->id, 'path' => $path, 'contents' => $content]);
         $this->files->setServer($server)->putContent($path, $replacement);
@@ -238,13 +256,25 @@ class MinecraftOptimizerService
 
     private function rules(Server $server, ?string $version, array $configs): array
     {
-        $paper = $version && Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), ['paper', 'pufferfish', 'purpur']);
+        $paper = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), ['paper', 'pufferfish', 'purpur']);
         $rules = [];
         if ($paper && isset($configs['server.properties']) && preg_match('/^view-distance=(\d+)/m', $configs['server.properties'], $match) && (int) $match[1] > 12) {
-            $rules[] = $this->finding('view-distance', 'medium', 'High view distance', 'server.properties', 'view-distance', $match[1], 12, 'A high view distance increases chunks loaded and ticked for every player.', 'medium', false, true, 'https://docs.papermc.io/paper/reference/server-properties/');
+            $rules[] = $this->finding('view-distance', 'medium', 'High view distance', 'server.properties', 'view-distance', $match[1], 10, 'A high view distance increases chunks sent and loaded for every player. UltraServers recommends starting at 7; 10 is a more conservative review point.', 'medium', true, true, 'https://docs.ultraservers.com/minecraft/server-management/optimize-your-minecraft-server');
         }
         if ($paper && isset($configs['server.properties']) && preg_match('/^simulation-distance=(\d+)/m', $configs['server.properties'], $match) && (int) $match[1] > 8) {
             $rules[] = $this->finding('simulation-distance', 'medium', 'High simulation distance', 'server.properties', 'simulation-distance', $match[1], 8, 'Simulation distance controls how far entities and blocks tick around players.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/');
+        }
+        if ($paper && isset($configs['server.properties']) && preg_match('/^use-native-transport\s*=\s*(false|0)/mi', $configs['server.properties'], $match)) {
+            $rules[] = $this->finding('native-transport', 'low', 'Native transport is disabled', 'server.properties', 'use-native-transport', $match[1], true, 'Paper documents native transport as a Linux networking performance improvement. It does not change gameplay and can be applied safely.', 'low', false, true, 'https://docs.papermc.io/paper/reference/server-properties/');
+        }
+        if ($paper && isset($configs['spigot.yml']) && preg_match('/^\s*hopper-transfer:\s*(\d+)/mi', $configs['spigot.yml'], $match) && (int) $match[1] < 8) {
+            $rules[] = $this->finding('hopper-transfer', 'medium', 'Frequent hopper transfers', 'spigot.yml', 'hopper-transfer', $match[1], 8, 'Hoppers are a common source of tick work. UltraServers recommends 8 as a starting point for hopper transfer and check intervals.', 'medium', true, true, 'https://docs.ultraservers.com/minecraft/server-management/optimize-your-minecraft-server');
+        }
+        if ($paper && isset($configs['spigot.yml']) && preg_match('/^\s*hopper-check:\s*(\d+)/mi', $configs['spigot.yml'], $match) && (int) $match[1] < 8) {
+            $rules[] = $this->finding('hopper-check', 'medium', 'Frequent hopper checks', 'spigot.yml', 'hopper-check', $match[1], 8, 'Hopper checks can multiply with large farms. This recommended starting value should be reviewed because it can affect item timing.', 'medium', true, true, 'https://docs.ultraservers.com/minecraft/server-management/optimize-your-minecraft-server');
+        }
+        if ($paper && isset($configs['paper-world-defaults.yml']) && preg_match('/^\s*entity-broadcast-range-percentage:\s*(\d+)/mi', $configs['paper-world-defaults.yml'], $match) && (int) $match[1] > 100) {
+            $rules[] = $this->finding('entity-broadcast-range', 'medium', 'Expanded entity broadcast range', 'paper-world-defaults.yml', 'entity-broadcast-range-percentage', $match[1], 100, 'Broadcasting entities beyond the default range increases per-player network and tracking work. Review this for gameplay impact before changing it.', 'medium', true, true, 'https://docs.papermc.io/paper/reference/server-properties/');
         }
         if (!$paper) $rules[] = ['severity' => 'informational', 'title' => 'No implementation-specific safe fixes', 'explanation' => 'Only settings documented for the detected implementation and version are recommended. This implementation has no safe built-in rule set yet.', 'impact' => 'unknown', 'gameplay_change' => false, 'restart_required' => false, 'source' => null, 'evidence' => ['implementation' => $server->egg->name, 'version' => $version], 'recommendation' => null];
         return $rules;
@@ -287,6 +317,7 @@ class MinecraftOptimizerService
         ];
         $summary['plugin_usage'] = $this->hotspots($report);
         $summary['server_health'] = $this->healthFromReport($summary);
+        $summary['analysis'] = $this->performanceAnalysis($summary);
 
         return $summary;
     }
@@ -327,7 +358,16 @@ class MinecraftOptimizerService
     private function healthFromMetrics(array $metrics): array
     {
         $score = max(0, min(100, 100 - max(0, ($metrics['cpu_percent'] ?? 0) - 65) - max(0, ($metrics['memory_percent'] ?? 0) - 75)));
-        return ['score' => round($score), 'status' => $score >= 80 ? 'healthy' : ($score >= 55 ? 'degraded' : 'concerning')];
+        $score = round($score);
+
+        return ['score' => $score, 'status' => $this->healthStatus($score)];
+    }
+
+    private function configurationHealth(int $actionable): array
+    {
+        $score = max(0, 100 - $actionable * 15);
+
+        return ['score' => $score, 'status' => $this->healthStatus($score)];
     }
 
     private function healthFromReport(array $summary): array
@@ -337,7 +377,39 @@ class MinecraftOptimizerService
         if (($summary['mspt_p95'] ?? $summary['mspt_median'] ?? 0) > 50) $score -= min(35, ((float) ($summary['mspt_p95'] ?? $summary['mspt_median']) - 50) / 2);
         if (($summary['memory_max'] ?? 0) > 0) $score -= max(0, (($summary['memory_used'] ?? 0) / $summary['memory_max'] * 100) - 85);
         $score = max(0, min(100, $score));
-        return ['score' => round($score), 'status' => $score >= 80 ? 'healthy' : ($score >= 55 ? 'degraded' : 'concerning')];
+        $score = round($score);
+
+        return ['score' => $score, 'status' => $this->healthStatus($score)];
+    }
+
+    private function healthStatus(float $score): string
+    {
+        return $score >= 90 ? 'very_healthy' : ($score >= 75 ? 'healthy' : ($score >= 55 ? 'caution' : ($score >= 30 ? 'poor' : 'critical')));
+    }
+
+    private function performanceAnalysis(array $summary): array
+    {
+        $health = $summary['server_health'] ?? ['score' => 100, 'status' => 'very_healthy'];
+        $score = (int) ($health['score'] ?? 100);
+        $conclusion = match ($health['status'] ?? 'very_healthy') {
+            'healthy' => 'Healthy',
+            'caution' => 'Caution',
+            'poor' => 'Poor',
+            'critical' => 'Critical',
+            default => 'Very Healthy',
+        };
+        $signals = [];
+        if (($summary['tps'] ?? 20) < 19) $signals[] = 'TPS was below the ideal 19–20 range.';
+        if (($summary['mspt_p95'] ?? $summary['mspt_median'] ?? 0) > 50) $signals[] = 'P95 tick time exceeded the 50ms tick budget.';
+        if (($summary['memory_max'] ?? 0) > 0 && (($summary['memory_used'] ?? 0) / $summary['memory_max']) > .85) $signals[] = 'Java heap usage was elevated.';
+        if (max((float) data_get($summary, 'network.ingress_bytes_per_second', 0), (float) data_get($summary, 'network.egress_bytes_per_second', 0)) >= 20 * 1024 * 1024) $signals[] = 'High network traffic coincided with this report.';
+
+        return [
+            'normal' => !$signals && $score >= 90,
+            'conclusion' => $conclusion,
+            'message' => $signals ? implode(' ', $signals) : 'Spark completed normally. No performance concerns were identified in this sample.',
+            'signals' => $signals,
+        ];
     }
 
     private function isConcerning(array $summary): bool
@@ -370,7 +442,7 @@ class MinecraftOptimizerService
     private function reportFinding(string $severity, string $title, string $explanation, array $evidence, string $recommendation): array
     { return ['severity' => $severity, 'title' => $title, 'explanation' => $explanation, 'impact' => $severity === 'high' ? 'high' : 'medium', 'gameplay_change' => false, 'restart_required' => false, 'evidence' => $evidence, 'recommendation' => ['manual' => $recommendation]]; }
 
-    private function finding(string $id, string $severity, string $title, string $file, string $key, string $observed, int $value, string $explanation, string $impact, bool $gameplay, bool $restart, string $source): array
+    private function finding(string $id, string $severity, string $title, string $file, string $key, string $observed, int|float|string|bool $value, string $explanation, string $impact, bool $gameplay, bool $restart, string $source): array
     { return ['rule_id' => $id, 'severity' => $severity, 'title' => $title, 'explanation' => $explanation, 'impact' => $impact, 'gameplay_change' => $gameplay, 'restart_required' => $restart, 'source' => $source, 'evidence' => ['file' => $file, 'key' => $key, 'observed' => $observed], 'recommendation' => ['file' => $file, 'key' => $key, 'value' => $value]]; }
     private function listDirectory(Server $server, string $path): array { try { return collect($this->files->setServer($server)->getDirectory($path))->pluck('name')->values()->all(); } catch (\Throwable) { return []; } }
     private function detectVersion(string $properties, Server $server): ?string

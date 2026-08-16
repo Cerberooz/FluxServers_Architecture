@@ -19,7 +19,8 @@ interface Values {
 
 export default () => {
     const ref = useRef<Reaptcha>(null);
-    const [token, setToken] = useState('');
+    const token = useRef('');
+    const [recaptchaReady, setRecaptchaReady] = useState(false);
 
     const { clearFlashes, addFlash } = useFlash();
     const { enabled: recaptchaEnabled, siteKey } = useStoreState((state) => state.settings.data!.recaptcha);
@@ -33,8 +34,13 @@ export default () => {
 
         // If there is no token in the state yet, request the token and then abort this submit request
         // since it will be re-submitted when the recaptcha data is returned by the component.
-        if (recaptchaEnabled && !token) {
-            ref.current!.execute().catch((error) => {
+        if (recaptchaEnabled && !token.current) {
+            if (!recaptchaReady || !ref.current) {
+                setSubmitting(false);
+                addFlash({ type: 'error', title: 'Security check loading', message: 'Please wait a moment and try again.' });
+                return;
+            }
+            ref.current.execute().catch((error) => {
                 console.error(error);
 
                 setSubmitting(false);
@@ -44,7 +50,7 @@ export default () => {
             return;
         }
 
-        requestPasswordResetEmail(email, token)
+        requestPasswordResetEmail(email, token.current)
             .then((response) => {
                 resetForm();
                 addFlash({ type: 'success', title: 'Success', message: response });
@@ -54,7 +60,7 @@ export default () => {
                 addFlash({ type: 'error', title: 'Error', message: httpErrorToHuman(error) });
             })
             .then(() => {
-                setToken('');
+                token.current = '';
                 if (ref.current) ref.current.reset();
 
                 setSubmitting(false);
@@ -93,13 +99,14 @@ export default () => {
                             ref={ref}
                             size={'invisible'}
                             sitekey={siteKey || '_invalid_key'}
+                            onRender={() => setRecaptchaReady(true)}
                             onVerify={(response) => {
-                                setToken(response);
+                                token.current = response;
                                 submitForm();
                             }}
                             onExpire={() => {
                                 setSubmitting(false);
-                                setToken('');
+                                token.current = '';
                             }}
                         />
                     )}

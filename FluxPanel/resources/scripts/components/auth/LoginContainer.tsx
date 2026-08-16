@@ -18,7 +18,8 @@ interface Values {
 
 const LoginContainer = ({ history }: RouteComponentProps) => {
     const ref = useRef<Reaptcha>(null);
-    const [token, setToken] = useState('');
+    const token = useRef('');
+    const [recaptchaReady, setRecaptchaReady] = useState(false);
 
     const { clearFlashes, clearAndAddHttpError } = useFlash();
     const { enabled: recaptchaEnabled, siteKey } = useStoreState((state) => state.settings.data!.recaptcha);
@@ -32,8 +33,13 @@ const LoginContainer = ({ history }: RouteComponentProps) => {
 
         // If there is no token in the state yet, request the token and then abort this submit request
         // since it will be re-submitted when the recaptcha data is returned by the component.
-        if (recaptchaEnabled && !token) {
-            ref.current!.execute().catch((error) => {
+        if (recaptchaEnabled && !token.current) {
+            if (!recaptchaReady || !ref.current) {
+                setSubmitting(false);
+                clearAndAddHttpError({ error: new Error('The security check is still loading. Please wait a moment and try again.') });
+                return;
+            }
+            ref.current.execute().catch((error) => {
                 console.error(error);
 
                 setSubmitting(false);
@@ -43,7 +49,7 @@ const LoginContainer = ({ history }: RouteComponentProps) => {
             return;
         }
 
-        login({ ...values, recaptchaData: token })
+        login({ ...values, recaptchaData: token.current })
             .then((response) => {
                 if (response.complete) {
                     // @ts-expect-error this is valid
@@ -56,7 +62,7 @@ const LoginContainer = ({ history }: RouteComponentProps) => {
             .catch((error) => {
                 console.error(error);
 
-                setToken('');
+                token.current = '';
                 if (ref.current) ref.current.reset();
 
                 setSubmitting(false);
@@ -103,13 +109,14 @@ const LoginContainer = ({ history }: RouteComponentProps) => {
                             ref={ref}
                             size={'invisible'}
                             sitekey={siteKey || '_invalid_key'}
+                            onRender={() => setRecaptchaReady(true)}
                             onVerify={(response) => {
-                                setToken(response);
+                                token.current = response;
                                 submitForm();
                             }}
                             onExpire={() => {
                                 setSubmitting(false);
-                                setToken('');
+                                token.current = '';
                             }}
                         />
                     )}

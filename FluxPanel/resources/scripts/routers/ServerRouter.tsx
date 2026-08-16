@@ -29,10 +29,11 @@ export default () => {
         const server = state.server.data;
         if (!server) return '';
 
-        const version = server.variables.find((variable) => variable.envVariable === 'MINECRAFT_VERSION')?.serverValue
-            || server.variables.find((variable) => variable.envVariable === 'MINECRAFT_VERSION')?.defaultValue;
+        const versionVariable = server.variables.find((variable) => /(?:minecraft|mc)[_\s-]*version|^version$/i.test(`${variable.name} ${variable.envVariable}`));
+        const version = versionVariable?.serverValue || versionVariable?.defaultValue;
+        const minecraft = `${server.nestName}${version && version !== 'latest' ? ` ${version}` : ''}`;
 
-        return `${server.nestName} \u00b7 ${server.eggName}${version && version !== 'latest' ? ` ${version}` : ''}`;
+        return `${minecraft} \u00b7 ${server.eggName}`;
     });
     const uuid = ServerContext.useStoreState((state) => state.server.data?.uuid);
     const inConflictState = ServerContext.useStoreState((state) => state.server.inConflictState);
