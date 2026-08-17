@@ -22,6 +22,28 @@ class ModrinthPluginService
         return ['supported' => (bool) $platform, 'platform' => $platform, 'loaders' => match ($platform) { 'paper' => ['paper', 'spigot', 'bukkit'], 'purpur' => ['purpur', 'paper', 'spigot', 'bukkit'], 'folia' => ['folia', 'paper'], 'spigot' => ['spigot', 'bukkit'], 'bukkit' => ['bukkit'], default => [] }, 'version' => $version, 'directory' => self::DIRECTORY];
     }
 
+    /**
+     * Read the running server's own log for the actual Minecraft release. This
+     * deliberately does not derive a version from an egg name: eggs can be
+     * configured as "latest" and can drift from the version actually running.
+     */
+    public function runtimeMetadata(Server $server): array
+    {
+        return Cache::remember("server-runtime-metadata:{$server->id}", now()->addMinute(), function () use ($server) {
+            $log = '';
+            try {
+                $log = $this->files->setServer($server)->getContent('/logs/latest.log', 524288);
+            } catch (\Throwable) {
+                // A server that has never started has no runtime log yet.
+            }
+
+            $version = $this->runtimeMinecraftVersion($log);
+            $software = $this->runtimeSoftware($log);
+
+            return ['minecraft_version' => $version, 'software' => $software];
+        });
+    }
+
     public function search(Server $server, string $query): array
     {
         $context = $this->context($server);
@@ -159,6 +181,9 @@ class ModrinthPluginService
     private function resolveCompatibleVersion(string $projectId, array $context, bool $compatible = true): ?array { $query = $compatible ? ['loaders' => json_encode($context['loaders']), 'game_versions' => json_encode([$context['version']]), 'featured' => 'true', 'include_changelog' => 'false'] : ['include_changelog' => 'false']; $versions = $this->api("project/{$projectId}/version", $query); return collect($versions)->first(fn ($version) => !empty($version['files'])); }
     private function minecraftVersion(Server $server): ?string
     {
+        $runtime = $this->runtimeMetadata($server);
+        if ($runtime['minecraft_version']) return $runtime['minecraft_version'];
+
         // EggVariable is joined directly onto Server::variables. Check its
         // human label *and* environment key because community eggs use names
         // such as VERSION, MC_VERSION, or MINECRAFT_VERSION interchangeably.
@@ -169,16 +194,20 @@ class ModrinthPluginService
                 && preg_match('/(\d+\.\d+(?:\.\d+)?)/', $value, $match)) return $match[1];
         }
 
-        if (preg_match('/(\d+\.\d+(?:\.\d+)?)/', $server->egg->name, $match)) return $match[1];
+        return null;
+    }
 
-        // Eggs configured with "latest" have no concrete value to send to
-        // Modrinth. Once the server has run, Paper and most Bukkit forks log
-        // the exact Minecraft version; use that authoritative runtime value.
-        try {
-            $log = $this->files->setServer($server)->getContent('/logs/latest.log', 524288);
-            if (preg_match('/(?:for\s+Minecraft|Minecraft(?:\s+Server)?(?:\s+version)?)[^0-9]*(\d+\.\d+(?:\.\d+)?)/i', $log, $match)) return $match[1];
-        } catch (\Throwable) {
-            // The server may not have started yet or Wings may be unavailable.
+    private function runtimeMinecraftVersion(string $log): ?string
+    {
+        return preg_match('/(?:for\s+Minecraft|Minecraft(?:\s+Server)?(?:\s+version)?)[^0-9]*(\d+\.\d+(?:\.\d+)?)/i', $log, $match)
+            ? $match[1]
+            : null;
+    }
+
+    private function runtimeSoftware(string $log): ?string
+    {
+        if (preg_match('/(?:Loading|Running)\s+(Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i', $log, $match)) {
+            return ucfirst(Str::lower($match[1]));
         }
 
         return null;

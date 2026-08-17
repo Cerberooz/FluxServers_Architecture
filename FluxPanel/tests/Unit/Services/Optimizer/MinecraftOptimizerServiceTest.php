@@ -65,6 +65,26 @@ class MinecraftOptimizerServiceTest extends TestCase
         $this->assertSame(25 * 1024 * 1024, $summary['network']['ingress_bytes_per_second']);
     }
 
+    public function testItPreservesAndCalculatesNetworkSamplesFromWings(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $method = new \ReflectionMethod($service, 'summarizeReport');
+        $summary = $method->invoke($service, ['type' => 'health', 'metadata' => []], 'abc123', [], [
+            'network' => ['samples' => [
+                ['ingress_bytes_per_second' => 1024, 'egress_bytes_per_second' => 512],
+                ['ingress_bytes_per_second' => 4096, 'egress_bytes_per_second' => 2048],
+            ]],
+        ]);
+
+        $this->assertSame(4096.0, $summary['network']['ingress_bytes_per_second']);
+        $this->assertSame(2048.0, $summary['network']['egress_bytes_per_second']);
+        $this->assertCount(2, $summary['network']['samples']);
+    }
+
     public function testItScansCommonConfigurationFilesAndOffersWhitelistedProfiles(): void
     {
         $service = new MinecraftOptimizerService(

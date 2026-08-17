@@ -33,7 +33,7 @@ class OptimizerController extends ClientApiController
         return [
             'data' => $runs->items(),
             'configuration' => $configuration,
-            'settings' => ['automatic_analysis' => $server->optimizer_auto_analysis],
+            'settings' => ['automatic_analysis' => $server->optimizer_auto_analysis ?? true],
             'meta' => [
                 'pagination' => [
                     'current_page' => $runs->currentPage(),
@@ -65,11 +65,15 @@ class OptimizerController extends ClientApiController
         abort_unless($request->user()->can(Permission::ACTION_CONTROL_CONSOLE, $server), 403);
 
         $data = $request->validate(['automatic_analysis' => 'required|boolean']);
-        $server->update(['optimizer_auto_analysis' => $data['automatic_analysis']]);
+        // forceFill keeps this feature explicit even on installations whose
+        // Server model has custom guarded fields. Refresh so the response
+        // always reflects the persisted boolean rather than a stale/null value.
+        $server->forceFill(['optimizer_auto_analysis' => (bool) $data['automatic_analysis']])->save();
+        $server->refresh();
 
         Activity::event('server:optimizer.auto_analysis')->subject($server)->property('enabled', $server->optimizer_auto_analysis)->log();
 
-        return new JsonResponse(['attributes' => ['automatic_analysis' => $server->optimizer_auto_analysis]]);
+        return new JsonResponse(['attributes' => ['automatic_analysis' => (bool) ($server->optimizer_auto_analysis ?? true)]]);
     }
     public function import(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); $data = $request->validate(['url' => 'required|string|max:255']); $run = $service->importReport($server, $data['url']); Activity::event('server:optimizer.import')->subject($server)->property('report_id', $run->summary['report_id'] ?? null)->log(); return new JsonResponse(['attributes' => $run], 201); }
     public function apply(Request $request, Server $server, ServerOptimizerFinding $finding, MinecraftOptimizerService $service): JsonResponse

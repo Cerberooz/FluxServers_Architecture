@@ -43,7 +43,7 @@ export default ({ server, className }: { server: Server; className?: string }) =
     return (
         <Row to={`/server/${server.id}`} className={className}>
             <div css={tw`flex items-center pl-4 pr-4`}><FontAwesomeIcon icon={faServer} css={tw`mr-3 text-neutral-500`} /><div><p css={tw`font-semibold text-neutral-100`}>{server.name}</p>{server.description && <p css={tw`mt-1 truncate text-[10px] text-neutral-500`}>{server.description}</p>}</div></div>
-            <div css={tw`text-neutral-400`}>—</div>
+            <div css={tw`truncate text-neutral-400`} title={server.nodeLocation || undefined}>{server.nodeLocation || 'Not set'}</div>
             <div css={tw`text-neutral-300`}><Dot $online={online} />{status}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faMicrochip} css={tw`mr-2 text-neutral-500`} />{cpu}</div>
             <div css={tw`text-neutral-300`}><FontAwesomeIcon icon={faMemory} css={tw`mr-2 text-neutral-500`} />{memory}</div>

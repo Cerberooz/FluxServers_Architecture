@@ -53,7 +53,7 @@ class ServerTransformer extends BaseClientTransformer
             'node_cpu_model' => $server->node->cpu_model,
             'node_memory_type' => $server->node->memory_type,
             'node_memory' => $server->node->memory,
-            'node_location' => $server->node->location->long,
+            'node_location' => $server->node->location?->long ?? $server->node->location?->short ?? null,
             'nest_name' => $server->nest->name,
             'egg_name' => $server->egg->name,
             'is_node_under_maintenance' => $server->node->isUnderMaintenance(),

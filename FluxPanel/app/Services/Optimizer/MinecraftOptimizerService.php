@@ -88,7 +88,7 @@ class MinecraftOptimizerService
             if (!$option) throw new DisplayException('The selected configuration profile is not available for this finding. Scan again before applying it.');
             $selectedValue = $option['value'];
         }
-        $server = $finding->run->server;
+        $server = $finding->run()->with('server')->firstOrFail()->server;
         $path = $recommendation['file'];
         $content = $this->files->setServer($server)->getContent($path, 524288);
         $value = $hasSelectedValue ? $selectedValue : $recommendation['value'];
@@ -311,6 +311,10 @@ class MinecraftOptimizerService
     public function collectProfile(Server $server, ServerOptimizerRun $run): bool
     {
         $this->captureNetworkSample($server, $run);
+        // captureNetworkSample persists the evolving series. Reload this model
+        // before importReport merges Spark's JSON, otherwise the final update
+        // can overwrite all samples with the stale summary from the job.
+        $run->refresh();
 
         try {
             $log = $this->files->setServer($server)->getContent('logs/latest.log', 524288);
@@ -517,6 +521,13 @@ class MinecraftOptimizerService
         $system = $metadata['systemStatistics'] ?? [];
         $windows = array_values($report['timeWindowStatistics'] ?? []);
         $latest = $windows ? end($windows) : [];
+        $network = $trigger['network'] ?? $existingSummary['network'] ?? [];
+        $samples = array_values($network['samples'] ?? []);
+        if ($samples) {
+            $network['ingress_bytes_per_second'] = max(array_map(fn (array $sample) => (float) ($sample['ingress_bytes_per_second'] ?? 0), $samples));
+            $network['egress_bytes_per_second'] = max(array_map(fn (array $sample) => (float) ($sample['egress_bytes_per_second'] ?? 0), $samples));
+        }
+
         $summary = [
             'report_id' => $reportId,
             'report_type' => $report['type'],
@@ -533,7 +544,7 @@ class MinecraftOptimizerService
             'block_entities' => $latest['tileEntities'] ?? null,
             'chunks' => $latest['chunks'] ?? null,
             'players' => data_get($statistics, 'players.online') ?? data_get($statistics, 'playerCount') ?? data_get($latest, 'players'),
-            'network' => $trigger['network'] ?? $existingSummary['network'] ?? null,
+            'network' => $network ?: null,
         ];
         $summary['plugin_usage'] = $this->hotspots($report);
         $summary['server_health'] = $this->healthFromReport($summary);
@@ -560,10 +571,14 @@ class MinecraftOptimizerService
 
     private function resourceMetrics(Server $server, array $resource): array
     {
-        $memory = (float) (data_get($resource, 'memory_bytes') ?? data_get($resource, 'memory.bytes') ?? data_get($resource, 'resources.memory_bytes') ?? 0);
-        $cpu = (float) (data_get($resource, 'cpu_absolute') ?? data_get($resource, 'cpu.absolute') ?? data_get($resource, 'resources.cpu_absolute') ?? 0);
-        $ingress = (float) (data_get($resource, 'network.rx_bytes') ?? data_get($resource, 'network_rx_bytes') ?? data_get($resource, 'resources.network.rx_bytes') ?? 0);
-        $egress = (float) (data_get($resource, 'network.tx_bytes') ?? data_get($resource, 'network_tx_bytes') ?? data_get($resource, 'resources.network.tx_bytes') ?? 0);
+        // Wings' internal endpoint returns the same shape used by the client
+        // resource endpoint: all utilization counters are nested below
+        // `utilization`. Keep the older locations as fallbacks for compatible
+        // Wings releases, but always prefer the authoritative current shape.
+        $memory = (float) (data_get($resource, 'utilization.memory_bytes') ?? data_get($resource, 'memory_bytes') ?? data_get($resource, 'memory.bytes') ?? data_get($resource, 'resources.memory_bytes') ?? 0);
+        $cpu = (float) (data_get($resource, 'utilization.cpu_absolute') ?? data_get($resource, 'cpu_absolute') ?? data_get($resource, 'cpu.absolute') ?? data_get($resource, 'resources.cpu_absolute') ?? 0);
+        $ingress = (float) (data_get($resource, 'utilization.network.rx_bytes') ?? data_get($resource, 'network.rx_bytes') ?? data_get($resource, 'network_rx_bytes') ?? data_get($resource, 'resources.network.rx_bytes') ?? 0);
+        $egress = (float) (data_get($resource, 'utilization.network.tx_bytes') ?? data_get($resource, 'network.tx_bytes') ?? data_get($resource, 'resources.network.tx_bytes') ?? 0);
         $limit = $server->memory > 0 ? $server->memory * 1024 * 1024 : null;
 
         return [

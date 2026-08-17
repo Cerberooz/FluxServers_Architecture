@@ -15,6 +15,7 @@ import ConflictStateRenderer from '@/components/server/ConflictStateRenderer';
 import PermissionRoute from '@/components/elements/PermissionRoute';
 import routes from '@/routers/routes';
 import ServerNavigation from '@/components/server/ServerNavigation';
+import http from '@/api/http';
 
 export default () => {
     const match = useRouteMatch<{ id: string }>();
@@ -22,6 +23,7 @@ export default () => {
 
     const rootAdmin = useStoreState((state) => state.user.data!.rootAdmin);
     const [error, setError] = useState('');
+    const [runtimeMetadata, setRuntimeMetadata] = useState<{ minecraft_version?: string; software?: string }>({});
 
     const id = ServerContext.useStoreState((state) => state.server.data?.id);
     const serverName = ServerContext.useStoreState((state) => state.server.data?.name || 'Server');
@@ -29,11 +31,10 @@ export default () => {
         const server = state.server.data;
         if (!server) return '';
 
-        const versionVariable = server.variables.find((variable) => /(?:minecraft|mc)[_\s-]*version|^version$/i.test(`${variable.name} ${variable.envVariable}`));
-        const version = versionVariable?.serverValue || versionVariable?.defaultValue;
-        const minecraft = `${server.nestName}${version && version !== 'latest' ? ` ${version}` : ''}`;
+        const version = runtimeMetadata.minecraft_version ? `Minecraft ${runtimeMetadata.minecraft_version}` : 'Minecraft version unavailable';
+        const software = runtimeMetadata.software || server.eggName;
 
-        return `${minecraft} \u00b7 ${server.eggName}`;
+        return `${version} \u00b7 ${software}`;
     });
     const uuid = ServerContext.useStoreState((state) => state.server.data?.uuid);
     const inConflictState = ServerContext.useStoreState((state) => state.server.inConflictState);
@@ -66,6 +67,13 @@ export default () => {
         return () => {
             clearServerState();
         };
+    }, [match.params.id]);
+
+    useEffect(() => {
+        setRuntimeMetadata({});
+        http.get(`/api/client/servers/${match.params.id}/runtime-metadata`)
+            .then(({ data }) => setRuntimeMetadata(data.attributes || {}))
+            .catch(() => undefined);
     }, [match.params.id]);
 
     return (

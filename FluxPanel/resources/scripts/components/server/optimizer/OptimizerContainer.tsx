@@ -216,7 +216,7 @@ const ConfigurationCard = ({ finding, onApply }: { finding: Finding; onApply: (f
     return <article css={tw`border border-neutral-700 bg-neutral-800`}>
         <div css={tw`flex items-start justify-between gap-4 border-b border-neutral-700 px-4 py-3`}>
             <div css={tw`min-w-0`}>
-                <h4 css={tw`text-sm font-semibold text-neutral-100`}>{finding.title}</h4>
+                <div css={tw`flex flex-wrap items-center gap-2`}><h4 css={tw`text-sm font-semibold text-neutral-100`}>{finding.severity === 'critical' || finding.severity === 'high' ? <span title={'High importance'} css={tw`mr-1 text-yellow-300`}>⚠</span> : null}{finding.title}</h4><span css={finding.severity === 'critical' || finding.severity === 'high' ? tw`border border-yellow-600 bg-yellow-900 bg-opacity-30 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-yellow-200` : finding.severity === 'medium' ? tw`border border-yellow-700 bg-yellow-900 bg-opacity-20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-yellow-200` : tw`border border-blue-700 bg-blue-900 bg-opacity-20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-blue-200`}>{finding.severity === 'critical' ? 'Critical importance' : finding.severity === 'high' ? 'High importance' : finding.severity === 'medium' ? 'Medium importance' : 'Low importance'}</span></div>
                 <p css={tw`mt-1 truncate text-xs text-neutral-500`}>{recommendation.file} · {recommendation.key}</p>
             </div>
             <span css={tw`flex-shrink-0 text-xs text-neutral-400`}>Current: {finding.evidence?.observed ?? '—'}</span>
@@ -295,17 +295,17 @@ const SparkAnalyser = ({ runs, pagination, unread, automatic, reportUrl, onRepor
         <div><h3 css={tw`text-base font-semibold text-neutral-100`}>Reports</h3><p css={tw`mt-1 text-sm text-neutral-400`}>Completed and currently processing analyses.</p></div>
         <span css={tw`text-xs text-neutral-500`}>{pagination.total} total{unread ? ` · ${unread} unread alert${unread === 1 ? '' : 's'}` : ''}</span>
     </div>
-    <div css={tw`overflow-x-auto border border-neutral-700 bg-neutral-800`}>
-        <div css={tw`min-w-full`} style={{ minWidth: '760px' }}>
+    <div css={tw`overflow-hidden border border-neutral-700 bg-neutral-800`}>
+        <div css={tw`w-full min-w-0`}>
             <div css={tw`grid grid-cols-12 gap-3 border-b border-neutral-700 px-4 py-3 text-xs font-medium uppercase tracking-wide text-neutral-500`}>
-                <span css={tw`col-span-4`}>Report</span><span css={tw`col-span-2`}>Source</span><span css={tw`col-span-3`}>Result</span><span css={tw`col-span-2`}>Status</span><span css={tw`col-span-1`}>Updated</span>
+                <span css={tw`col-span-4 min-w-0 truncate`}>Report</span><span css={tw`col-span-2 min-w-0 truncate`}>Source</span><span css={tw`col-span-3 min-w-0 truncate`}>Result</span><span css={tw`col-span-2 min-w-0 truncate`}>Status</span><span css={tw`col-span-1 min-w-0 truncate`}>Updated</span>
             </div>
             {runs.length ? runs.map((run) => <button key={run.id} type={'button'} onClick={() => onOpen(run)} css={tw`grid w-full grid-cols-12 gap-3 border-b border-neutral-700 px-4 py-4 text-left text-sm transition-colors last:border-b-0 hover:bg-neutral-700`}>
                 <span css={tw`col-span-4 flex min-w-0 items-center gap-2 font-semibold text-neutral-100`}><span css={tw`h-2 w-2 flex-shrink-0 rounded-full bg-transparent`}>{run.automatic && run.flagged_at && !run.read_at && <i css={tw`block h-2 w-2 rounded-full bg-red-500`} />}</span><span css={tw`truncate`}>{reportTitle(run)}</span></span>
-                <span css={tw`col-span-2 truncate text-neutral-400`}>{reportSource(run)}</span>
-                <span css={tw`col-span-3 truncate text-neutral-200`}>{reportResult(run)}</span>
-                <span className={run.status === 'failed' ? 'text-red-400' : run.status === 'completed' ? 'text-green-400' : 'text-blue-300'} css={tw`col-span-2 font-semibold uppercase tracking-wide text-xs`}>{run.status}</span>
-                <span css={tw`col-span-1 whitespace-nowrap text-xs text-blue-300`}>{run.status === 'completed' ? 'View →' : formattedDate(run.updated_at || run.created_at)}</span>
+                <span css={tw`col-span-2 min-w-0 truncate text-neutral-400`}>{reportSource(run)}</span>
+                <span css={tw`col-span-3 min-w-0 truncate text-neutral-200`}>{reportResult(run)}</span>
+                <span className={run.status === 'failed' ? 'text-red-400' : run.status === 'completed' ? 'text-green-400' : 'text-blue-300'} css={tw`col-span-2 min-w-0 truncate text-xs font-semibold uppercase tracking-wide`}>{run.status}</span>
+                <span css={tw`col-span-1 min-w-0 truncate text-xs text-blue-300`}>{run.status === 'completed' ? 'View →' : formattedDate(run.updated_at || run.created_at)}</span>
             </button>) : <p css={tw`px-4 py-6 text-sm text-neutral-400`}>No Spark reports yet.</p>}
         </div>
     </div>
