@@ -4,6 +4,7 @@ namespace Pterodactyl\Tests\Unit\Services\Servers;
 
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Facades\Http;
 use Pterodactyl\Models\Egg;
 use Pterodactyl\Models\EggVariable;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
@@ -66,5 +67,31 @@ class MinecraftVersionChangeServiceTest extends TestCase
 
         $this->assertSame('Velocity', $method->invoke($service, $velocity)['platform']);
         $this->assertNull($method->invoke($service, $unknown));
+    }
+
+    public function testItExpandsACustomPaperVersionVariableWithTheOfficialCatalogue(): void
+    {
+        Http::fake([
+            'https://api.papermc.io/v2/projects/paper' => Http::response([
+                'versions' => ['1.21.11', '1.21.10', 'not-a-release'],
+            ]),
+        ]);
+
+        $service = $this->service();
+        $method = new \ReflectionMethod($service, 'eggOption');
+        $egg = new Egg(['name' => 'Paper Minecraft']);
+        $egg->id = 77;
+        $egg->setRelation('variables', new EloquentCollection([
+            new EggVariable([
+                'env_variable' => 'VERSION',
+                'default_value' => 'latest',
+                'rules' => 'required|string|max:32',
+            ]),
+        ]));
+
+        $option = $method->invoke($service, $egg);
+
+        $this->assertSame(['latest', '1.21.11', '1.21.10'], $option['versions']);
+        $this->assertTrue($option['custom_version_allowed']);
     }
 }

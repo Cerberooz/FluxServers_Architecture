@@ -69,6 +69,22 @@ class ModrinthPluginServiceTest extends TestCase
         $this->assertFalse($this->service()->context($server)['supported']);
     }
 
+    public function testItPrefersAPaperStartupSignatureOverAnUnrelatedVelocityLogMention(): void
+    {
+        $method = new \ReflectionMethod($this->service(), 'runtimeSoftware');
+        $log = "[INFO]: loaded VelocitySupport plugin\n[INFO]: This server is running Paper version 1.21.11-132-ver/1.21.11";
+
+        $this->assertSame('Paper', $method->invoke($this->service(), $log));
+    }
+
+    public function testItRecognisesVelocityOnlyFromAnActualStartupSignature(): void
+    {
+        $method = new \ReflectionMethod($this->service(), 'runtimeSoftware');
+
+        $this->assertSame('Velocity', $method->invoke($this->service(), 'This server is running Velocity version 3.4.0'));
+        $this->assertNull($method->invoke($this->service(), 'VelocitySupport plugin enabled'));
+    }
+
     public function testItRejectsInvalidModrinthProjectIdentifiers(): void
     {
         $method = new \ReflectionMethod($this->service(), 'projectId');

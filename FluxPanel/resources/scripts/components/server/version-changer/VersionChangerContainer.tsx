@@ -112,7 +112,7 @@ const SoftwareList = ({ platforms, onSelect }: { platforms: Platform[]; onSelect
 const VersionList = ({ platform, onBack, onSelect }: { platform: Platform; onBack: () => void; onSelect: (candidate: Candidate, version?: string) => void }) => <section>
     <button type={'button'} onClick={onBack} css={tw`mb-5 text-sm font-semibold text-blue-400 hover:text-blue-300`}>← Version Changer</button>
     <h3 css={tw`text-xl font-semibold text-neutral-100`}>{platform.name}</h3>
-    <p css={tw`mt-1 text-sm text-neutral-400`}>Select a Minecraft version. You can choose a specific build before installing.</p>
+    <p css={tw`mt-1 text-sm text-neutral-400`}>Select a version supported by this launcher. You can choose a specific build before installing.</p>
     <div css={tw`mt-6 grid gap-4 lg:grid-cols-2`}>
         {platform.candidates.flatMap((candidate) => {
             const versions = candidate.versions.length ? candidate.versions : [candidate.default_version || 'Version set by egg'];

@@ -5,6 +5,8 @@ namespace Pterodactyl\Services\Servers;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Pterodactyl\Exceptions\DisplayException;
 use Pterodactyl\Exceptions\Http\Connection\DaemonConnectionException;
@@ -154,6 +156,16 @@ class MinecraftVersionChangeService
         $version = $this->versionVariable($egg->variables);
         $build = $this->buildVariable($egg->variables);
         $versions = $version ? $this->valuesFor($version) : [];
+        $customVersionAllowed = $version ? !str_contains($version->rules, 'in:') : false;
+
+        // Eggs whose version variable accepts arbitrary releases (for example a
+        // Paper egg with VERSION=latest) otherwise expose only "latest". Fetch
+        // the official release catalogue so customers can choose every actual
+        // version the egg can install, while keeping the egg validation and
+        // install script as the final authority.
+        if ($version && $customVersionAllowed) {
+            $versions = array_values(array_unique(array_merge($versions, $this->catalogVersions($platform))));
+        }
 
         return [
             'egg_id' => $egg->id,
@@ -165,7 +177,7 @@ class MinecraftVersionChangeService
             'builds' => $build ? $this->valuesFor($build) : [],
             'default_build' => $build?->default_value,
             'build_variable' => $build?->env_variable,
-            'custom_version_allowed' => $version ? !str_contains($version->rules, 'in:') : false,
+            'custom_version_allowed' => $customVersionAllowed,
             'custom_build_allowed' => $build ? !str_contains($build->rules, 'in:') : false,
         ];
     }
@@ -235,6 +247,116 @@ class MinecraftVersionChangeService
         }
 
         return array_values(array_unique(array_filter(array_map('trim', $values), fn (string $value) => $value !== '')));
+    }
+
+    /**
+     * Return only official, stable Minecraft release identifiers. A network
+     * failure is intentionally non-fatal: the configured egg values remain
+     * available and no version is invented by the Panel.
+     *
+     * @return list<string>
+     */
+    private function catalogVersions(string $platform): array
+    {
+        return match ($platform) {
+            'Paper', 'Folia', 'Velocity', 'Waterfall' => $this->paperMcVersions(strtolower($platform)),
+            'Purpur' => $this->purpurVersions(),
+            'Fabric' => $this->fabricVersions(),
+            'Vanilla' => $this->vanillaVersions(),
+            default => [],
+        };
+    }
+
+    /** @return list<string> */
+    private function paperMcVersions(string $project): array
+    {
+        return Cache::remember("version-changer:papermc:{$project}", now()->addHours(6), function () use ($project): array {
+            try {
+                $response = Http::acceptJson()->timeout(8)->get("https://api.papermc.io/v2/projects/{$project}");
+                if (!$response->successful()) {
+                    return [];
+                }
+
+                return array_values(array_filter(
+                    $response->json('versions', []),
+                    fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version)
+                ));
+            } catch (\Throwable $exception) {
+                Log::notice('Could not retrieve the PaperMC version catalogue.', ['project' => $project, 'exception' => $exception->getMessage()]);
+
+                return [];
+            }
+        });
+    }
+
+    /** @return list<string> */
+    private function vanillaVersions(): array
+    {
+        return Cache::remember('version-changer:vanilla', now()->addHours(6), function (): array {
+            try {
+                $response = Http::acceptJson()->timeout(8)->get('https://piston-meta.mojang.com/mc/game/version_manifest_v2.json');
+                if (!$response->successful()) {
+                    return [];
+                }
+
+                return collect($response->json('versions', []))
+                    ->where('type', 'release')
+                    ->pluck('id')
+                    ->filter(fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version))
+                    ->values()
+                    ->all();
+            } catch (\Throwable $exception) {
+                Log::notice('Could not retrieve the Minecraft version catalogue.', ['exception' => $exception->getMessage()]);
+
+                return [];
+            }
+        });
+    }
+
+    /** @return list<string> */
+    private function purpurVersions(): array
+    {
+        return Cache::remember('version-changer:purpur', now()->addHours(6), function (): array {
+            try {
+                $response = Http::acceptJson()->timeout(8)->get('https://api.purpurmc.org/v2/purpur');
+                if (!$response->successful()) {
+                    return [];
+                }
+
+                return array_values(array_filter(
+                    $response->json('versions', []),
+                    fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version)
+                ));
+            } catch (\Throwable $exception) {
+                Log::notice('Could not retrieve the Purpur version catalogue.', ['exception' => $exception->getMessage()]);
+
+                return [];
+            }
+        });
+    }
+
+    /** @return list<string> */
+    private function fabricVersions(): array
+    {
+        return Cache::remember('version-changer:fabric', now()->addHours(6), function (): array {
+            try {
+                $response = Http::acceptJson()->timeout(8)->get('https://meta.fabricmc.net/v2/versions/game');
+                if (!$response->successful()) {
+                    return [];
+                }
+
+                return collect($response->json())
+                    ->filter(fn ($version) => is_array($version) && ($version['stable'] ?? false) && isset($version['version']))
+                    ->pluck('version')
+                    ->filter(fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version))
+                    ->values()
+                    ->all();
+            } catch (\Throwable $exception) {
+                Log::notice('Could not retrieve the Fabric version catalogue.', ['exception' => $exception->getMessage()]);
+
+                return [];
+            }
+        });
     }
 
     private function wipeFiles(Server $server): void

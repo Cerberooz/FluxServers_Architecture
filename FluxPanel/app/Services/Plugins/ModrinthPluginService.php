@@ -17,7 +17,12 @@ class ModrinthPluginService
     public function context(Server $server): array
     {
         $name = Str::lower($server->egg->name . ' ' . $server->nest->name);
-        $platform = Str::contains($name, 'folia') ? 'folia' : (Str::contains($name, 'purpur') ? 'purpur' : (Str::contains($name, 'leaf') ? 'leaf' : (Str::contains($name, 'paper') ? 'paper' : (Str::contains($name, 'spigot') ? 'spigot' : (Str::contains($name, 'bukkit') ? 'bukkit' : null)))));
+        $runtime = $this->runtimeMetadata($server);
+        // A verified runtime signature always wins over the egg name. Eggs can be
+        // reused, renamed, or changed after a server has been provisioned.
+        $platform = $runtime['software']
+            ? $this->pluginPlatformForSoftware($runtime['software'])
+            : (Str::contains($name, 'folia') ? 'folia' : (Str::contains($name, 'purpur') ? 'purpur' : (Str::contains($name, 'leaf') ? 'leaf' : (Str::contains($name, 'paper') ? 'paper' : (Str::contains($name, 'spigot') ? 'spigot' : (Str::contains($name, 'bukkit') ? 'bukkit' : null))))));
         $version = $this->minecraftVersion($server);
         return ['supported' => (bool) $platform, 'platform' => $platform, 'loaders' => match ($platform) { 'paper', 'leaf' => ['paper', 'spigot', 'bukkit'], 'purpur' => ['purpur', 'paper', 'spigot', 'bukkit'], 'folia' => ['folia', 'paper'], 'spigot' => ['spigot', 'bukkit'], 'bukkit' => ['bukkit'], default => [] }, 'version' => $version, 'directory' => self::DIRECTORY];
     }
@@ -29,7 +34,9 @@ class ModrinthPluginService
      */
     public function runtimeMetadata(Server $server): array
     {
-        $cacheKey = "server-runtime-metadata:{$server->id}";
+        // Bump this key whenever parsing rules change so a previous, incorrect
+        // classification cannot remain visible for the old cache lifetime.
+        $cacheKey = "server-runtime-metadata:v2:{$server->id}";
         $cached = Cache::get($cacheKey);
         if (is_array($cached) && !empty($cached['minecraft_version'])) {
             return $cached;
@@ -238,18 +245,57 @@ class ModrinthPluginService
 
     private function runtimeSoftware(string $log): ?string
     {
-        // Velocity is deliberately detected for status handling only. It is not
-        // presented as a Minecraft server implementation or used for plugin
-        // compatibility because it is a proxy, not a Bukkit-family server.
-        if (preg_match('/\bVelocity(?:\s+Proxy)?\b/i', $log)) {
-            return 'Velocity';
-        }
+        // Only accept a software name when it appears in a recognised startup
+        // signature. Looking for a bare word such as "Velocity" is unsafe: it
+        // can occur in plugin names, stack traces, or old log entries on a Paper
+        // server and used to mislabel Paper installations as Velocity.
+        $patterns = [
+            '/\bThis\s+server\s+is\s+running\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\s+version\b/i',
+            '/\[(?:bootstrap|servermain)\][^\n]*\b(?:loading|starting)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i',
+            '/\b(?:loading|running)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\s+(?:version|[0-9])/i',
+            '/\bThis\s+server\s+is\s+running\s+(Velocity|BungeeCord|Waterfall)\s+version\b/i',
+            '/\bStarting\s+(Velocity|BungeeCord|Waterfall)\s+(?:version|build|[0-9])/i',
+        ];
 
-        if (preg_match('/(?:Loading|Running)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i', $log, $match)) {
-            return ucfirst(Str::lower($match[1]));
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $log, $match)) {
+                return $this->canonicalSoftware($match[1]);
+            }
         }
 
         return null;
+    }
+
+    private function pluginPlatformForSoftware(string $software): ?string
+    {
+        return match (Str::lower($software)) {
+            'paper' => 'paper',
+            'leaf' => 'leaf',
+            'purpur' => 'purpur',
+            'pufferfish' => 'purpur',
+            'folia' => 'folia',
+            'spigot' => 'spigot',
+            'craftbukkit', 'bukkit' => 'bukkit',
+            default => null,
+        };
+    }
+
+    private function canonicalSoftware(string $software): string
+    {
+        return match (Str::lower($software)) {
+            'paper' => 'Paper',
+            'leaf' => 'Leaf',
+            'purpur' => 'Purpur',
+            'pufferfish' => 'Pufferfish',
+            'folia' => 'Folia',
+            'spigot' => 'Spigot',
+            'craftbukkit' => 'CraftBukkit',
+            'bukkit' => 'Bukkit',
+            'velocity' => 'Velocity',
+            'bungeecord' => 'BungeeCord',
+            'waterfall' => 'Waterfall',
+            default => $software,
+        };
     }
     private function dependencies(array $version, array $context): array { return collect($version['dependencies'] ?? [])->map(function ($dependency) use ($context) { if (($dependency['dependency_type'] ?? '') === 'required' && empty($dependency['version_id']) && !empty($dependency['project_id'])) $dependency['resolved'] = $this->resolveCompatibleVersion($dependency['project_id'], $context); return ['type' => $dependency['dependency_type'] ?? 'required', 'project_id' => $dependency['project_id'] ?? null, 'version_id' => $dependency['version_id'] ?? null, 'resolved' => $dependency['resolved'] ?? null]; })->all(); }
     private function dependencyKey(array $dependency): ?string { return $dependency['project_id'] ?? $dependency['version_id'] ?? null; }

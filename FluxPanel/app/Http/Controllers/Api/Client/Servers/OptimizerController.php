@@ -20,7 +20,14 @@ class OptimizerController extends ClientApiController
         $this->mayRead($request, $server);
         // Also clean up pre-existing history created before retention was
         // introduced; this is idempotent and only touches this server.
-        $service->pruneHistory($server);
+        // Retention must never make the Optimizer unavailable. This also lets
+        // installations that have just been upgraded load their existing data
+        // while a failed cleanup is reported for administrators to inspect.
+        try {
+            $service->pruneHistory($server);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
         $page = max(1, (int) $request->query('page', 1));
         $runs = $server->optimizerRuns()
             ->where('type', '!=', 'configuration_scan')
