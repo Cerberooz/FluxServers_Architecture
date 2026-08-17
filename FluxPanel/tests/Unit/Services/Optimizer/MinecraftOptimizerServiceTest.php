@@ -126,6 +126,20 @@ class MinecraftOptimizerServiceTest extends TestCase
         $this->assertSame("world-settings:\n  default:\n    hopper-check: 8\n", $updated);
     }
 
+    public function testItReplacesServerPropertiesValuesWithoutCorruptingNumericValues(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $method = new \ReflectionMethod($service, 'replaceValue');
+
+        $updated = $method->invoke($service, "view-distance=10 # customer setting\n", 'view-distance', '12');
+
+        $this->assertSame("view-distance=12 # customer setting\n", $updated);
+    }
+
     public function testItDetectsDocumentedEntityAndExplosionPerformanceSettings(): void
     {
         $service = new MinecraftOptimizerService(

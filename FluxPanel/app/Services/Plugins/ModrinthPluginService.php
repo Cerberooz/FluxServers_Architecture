@@ -29,19 +29,38 @@ class ModrinthPluginService
      */
     public function runtimeMetadata(Server $server): array
     {
-        return Cache::remember("server-runtime-metadata:{$server->id}", now()->addMinute(), function () use ($server) {
-            $log = '';
+        $cacheKey = "server-runtime-metadata:{$server->id}";
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && !empty($cached['minecraft_version'])) {
+            return $cached;
+        }
+
+        $log = '';
+        // Wings accepts relative paths. Some older Wings setups reject a leading
+        // slash, while some installations kept the historic leading slash.
+        foreach (['logs/latest.log', '/logs/latest.log'] as $path) {
             try {
-                $log = $this->files->setServer($server)->getContent('/logs/latest.log', 524288);
+                $log = $this->files->setServer($server)->getContent($path, 524288);
+                if ($log !== '') {
+                    break;
+                }
             } catch (\Throwable) {
                 // A server that has never started has no runtime log yet.
             }
+        }
 
-            $version = $this->runtimeMinecraftVersion($log);
-            $software = $this->runtimeSoftware($log);
+        $metadata = [
+            'minecraft_version' => $this->runtimeMinecraftVersion($log),
+            'software' => $this->runtimeSoftware($log),
+        ];
 
-            return ['minecraft_version' => $version, 'software' => $software];
-        });
+        // Do not cache a failed read: a starting server writes this information
+        // moments later and the next request should immediately see it.
+        if ($metadata['minecraft_version']) {
+            Cache::put($cacheKey, $metadata, now()->addMinutes(5));
+        }
+
+        return $metadata;
     }
 
     public function search(Server $server, string $query): array
@@ -199,9 +218,19 @@ class ModrinthPluginService
 
     private function runtimeMinecraftVersion(string $log): ?string
     {
-        return preg_match('/(?:for\s+Minecraft|Minecraft(?:\s+Server)?(?:\s+version)?)[^0-9]*(\d+\.\d+(?:\.\d+)?)/i', $log, $match)
-            ? $match[1]
-            : null;
+        $patterns = [
+            '/\bfor\s+Minecraft\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
+            '/\bMinecraft(?:\s+Server)?\s+version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
+            '/\b(?:Paper|Purpur|Pufferfish|Folia|Spigot)\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)(?:[-\s]|$)/i',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $log, $match)) {
+                return $match[1];
+            }
+        }
+
+        return null;
     }
 
     private function runtimeSoftware(string $log): ?string

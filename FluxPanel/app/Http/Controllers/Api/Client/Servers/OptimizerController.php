@@ -79,7 +79,11 @@ class OptimizerController extends ClientApiController
     public function apply(Request $request, Server $server, ServerOptimizerFinding $finding, MinecraftOptimizerService $service): JsonResponse
     {
         $this->mayRead($request, $server);
-        abort_unless($request->user()->can(Permission::ACTION_FILE_UPDATE, $server) && $finding->run->server_id === $server->id, 403);
+        abort_unless(
+            $request->user()->can(Permission::ACTION_FILE_UPDATE, $server)
+            && $finding->run()->where('server_id', $server->id)->exists(),
+            403
+        );
 
         $data = $request->validate(['value' => ['nullable']]);
         $hasSelectedValue = array_key_exists('value', $data);

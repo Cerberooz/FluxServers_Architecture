@@ -89,14 +89,28 @@ class MinecraftOptimizerService
             $selectedValue = $option['value'];
         }
         $server = $finding->run()->with('server')->firstOrFail()->server;
-        $path = $recommendation['file'];
-        $content = $this->files->setServer($server)->getContent($path, 524288);
-        $value = $hasSelectedValue ? $selectedValue : $recommendation['value'];
-        $replacement = $this->replaceValue($content, $recommendation['key'], is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
-        if ($replacement === $content) throw new DisplayException('The expected configuration value was not found. Scan again before applying this recommendation.');
-        $snapshot = ServerOptimizerSnapshot::query()->create(['server_id' => $server->id, 'finding_id' => $finding->id, 'path' => $path, 'contents' => $content]);
-        $this->files->setServer($server)->putContent($path, $replacement);
-        return $snapshot;
+        if (!$server) {
+            throw new DisplayException('The server for this optimizer finding no longer exists. Scan the server again.');
+        }
+
+        try {
+            $path = $recommendation['file'];
+            $content = $this->files->setServer($server)->getContent($path, 524288);
+            $value = $hasSelectedValue ? $selectedValue : $recommendation['value'];
+            $replacement = $this->replaceValue($content, $recommendation['key'], is_bool($value) ? ($value ? 'true' : 'false') : (string) $value);
+            if ($replacement === $content) {
+                throw new DisplayException('The expected configuration value was not found. Scan again before applying this recommendation.');
+            }
+            $snapshot = ServerOptimizerSnapshot::query()->create(['server_id' => $server->id, 'finding_id' => $finding->id, 'path' => $path, 'contents' => $content]);
+            $this->files->setServer($server)->putContent($path, $replacement);
+
+            return $snapshot;
+        } catch (DisplayException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw new DisplayException('Fluid could not save this configuration through Wings. Check that the server is online and its files are writable, then try again.');
+        }
     }
 
     public function rollback(ServerOptimizerSnapshot $snapshot): void
@@ -164,7 +178,9 @@ class MinecraftOptimizerService
     public function captureNetworkSample(Server $server, ServerOptimizerRun $run): void
     {
         try {
-            $metrics = $this->resourceMetrics($server, $this->servers->setServer($server)->getResourceUsage());
+            // Server details is Wings' stable, standard endpoint and includes
+            // the utilization counters needed for rate calculation.
+            $metrics = $this->resourceMetrics($server, $this->servers->setServer($server)->getDetails());
             $summary = $run->summary ?? [];
             $network = $summary['network'] ?? [];
             $samples = array_values($network['samples'] ?? []);
@@ -176,7 +192,8 @@ class MinecraftOptimizerService
             ];
 
             if ($previous) {
-                $elapsed = max(1, now()->diffInSeconds($previous['captured_at'] ?? now()));
+                $capturedAt = isset($previous['captured_at']) ? \Carbon\Carbon::parse($previous['captured_at']) : now();
+                $elapsed = max(1, now()->diffInSeconds($capturedAt));
                 $sample['ingress_bytes_per_second'] = max(0, ($sample['ingress_bytes'] - (float) ($previous['ingress_bytes'] ?? 0)) / $elapsed);
                 $sample['egress_bytes_per_second'] = max(0, ($sample['egress_bytes'] - (float) ($previous['egress_bytes'] ?? 0)) / $elapsed);
             }
@@ -185,8 +202,11 @@ class MinecraftOptimizerService
             $network['samples'] = array_slice($samples, -12);
             $summary['network'] = $network;
             $run->update(['summary' => $summary]);
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             // Network evidence is helpful but must not prevent Spark collection.
+            // Keep the root cause in Laravel's log instead of silently producing
+            // an empty chart when a node has a Wings connectivity/config issue.
+            report($exception);
         }
     }
 
@@ -232,7 +252,7 @@ class MinecraftOptimizerService
             return null;
         }
 
-        $resource = $this->servers->setServer($server)->getResourceUsage();
+        $resource = $details;
         $metrics = $this->resourceMetrics($server, $resource);
         $cacheKey = "optimizer:resource-sample:{$server->id}";
         $previous = Cache::get($cacheKey);
@@ -571,10 +591,8 @@ class MinecraftOptimizerService
 
     private function resourceMetrics(Server $server, array $resource): array
     {
-        // Wings' internal endpoint returns the same shape used by the client
-        // resource endpoint: all utilization counters are nested below
-        // `utilization`. Keep the older locations as fallbacks for compatible
-        // Wings releases, but always prefer the authoritative current shape.
+        // Wings' standard server-details response exposes counters below
+        // `utilization`. Keep older field locations as compatible fallbacks.
         $memory = (float) (data_get($resource, 'utilization.memory_bytes') ?? data_get($resource, 'memory_bytes') ?? data_get($resource, 'memory.bytes') ?? data_get($resource, 'resources.memory_bytes') ?? 0);
         $cpu = (float) (data_get($resource, 'utilization.cpu_absolute') ?? data_get($resource, 'cpu_absolute') ?? data_get($resource, 'cpu.absolute') ?? data_get($resource, 'resources.cpu_absolute') ?? 0);
         $ingress = (float) (data_get($resource, 'utilization.network.rx_bytes') ?? data_get($resource, 'network.rx_bytes') ?? data_get($resource, 'network_rx_bytes') ?? data_get($resource, 'resources.network.rx_bytes') ?? 0);
@@ -709,10 +727,20 @@ class MinecraftOptimizerService
     {
         if (str_contains($key, '.')) return $this->replaceYamlValue($content, $key, $value);
 
-        // YAML keys are normally indented. The previous expression only matched
-        // top-level keys, so a valid nested configuration finding could never be
-        // applied from the Optimizer UI.
-        return preg_replace('/^(\s*' . preg_quote($key, '/') . '\s*[=:]\s*)[^#\r\n]*(\s*(?:#.*)?)$/mi', '${1}' . $value . '${2}', $content, 1) ?? $content;
+        // server.properties uses '=' while simple YAML settings use ':'. Rebuild
+        // the line rather than interpolating preg_replace captures, which can
+        // corrupt a replacement value that begins with a digit.
+        $lines = preg_split('/(\r?\n)/', $content, -1, PREG_SPLIT_DELIM_CAPTURE);
+        for ($index = 0; $index < count($lines); $index += 2) {
+            if (!preg_match('/^(\s*' . preg_quote($key, '/') . '\s*[=:]\s*)[^#\r\n]*?(\s*(?:#.*)?)$/i', $lines[$index], $match)) {
+                continue;
+            }
+
+            $lines[$index] = $match[1] . $value . $match[2];
+            return implode('', $lines);
+        }
+
+        return $content;
     }
 
     private function yamlScalar(string $content, string $path): ?string
