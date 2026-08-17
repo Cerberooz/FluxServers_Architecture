@@ -69,11 +69,23 @@ class MinecraftVersionChangeServiceTest extends TestCase
         $this->assertNull($method->invoke($service, $unknown));
     }
 
+    public function testItRecognisesPlatformSpecificVersionVariableNames(): void
+    {
+        $service = $this->service();
+        $method = new \ReflectionMethod($service, 'versionVariable');
+        $variables = new EloquentCollection([
+            new EggVariable(['env_variable' => 'VANILLA_VERSION']),
+            new EggVariable(['env_variable' => 'FORGE_VERSION']),
+        ]);
+
+        $this->assertSame('VANILLA_VERSION', $method->invoke($service, $variables)->env_variable);
+    }
+
     public function testItExpandsACustomPaperVersionVariableWithTheOfficialCatalogue(): void
     {
         Http::fake([
-            'https://api.papermc.io/v2/projects/paper' => Http::response([
-                'versions' => ['1.21.11', '1.21.10', 'not-a-release'],
+            'https://fill.papermc.io/v3/projects/paper' => Http::response([
+                'versions' => ['1.21' => ['1.21.11', '1.21.10'], 'legacy' => ['not-a-release']],
             ]),
         ]);
 

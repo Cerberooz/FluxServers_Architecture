@@ -84,7 +84,16 @@ class ModrinthPluginService
             ["versions:{$context['version']}"],
             array_map(fn (string $loader) => "categories:{$loader}", $context['loaders']),
         ]);
-        $data = $this->api('search', ['query' => trim($query), 'facets' => $facets, 'limit' => 12]);
+        $parameters = ['facets' => $facets, 'limit' => 12];
+        $query = trim($query);
+        if ($query === '') {
+            // The Discover tab opens with the most-downloaded compatible plugins,
+            // rather than an empty screen that looks like Modrinth failed.
+            $parameters['index'] = 'downloads';
+        } else {
+            $parameters['query'] = $query;
+        }
+        $data = $this->api('search', $parameters);
 
         // Do not resolve a release for every hit here. That used to add one
         // sequential HTTP request per result and made typing a search feel slow.

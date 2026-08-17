@@ -84,7 +84,7 @@ class MinecraftOptimizerService
         $options = $recommendation['options'] ?? [];
         if (($finding->gameplay_change ?? false) && !$hasSelectedValue) throw new DisplayException('Choose one of the listed configuration profiles before applying this gameplay-affecting setting.');
         if ($hasSelectedValue) {
-            $option = collect($options)->first(fn (array $candidate) => json_encode($candidate['value'] ?? null) === json_encode($selectedValue));
+            $option = collect($options)->first(fn ($candidate) => is_array($candidate) && json_encode($candidate['value'] ?? null) === json_encode($selectedValue));
             if (!$option) throw new DisplayException('The selected configuration profile is not available for this finding. Scan again before applying it.');
             $selectedValue = $option['value'];
         }
@@ -122,8 +122,22 @@ class MinecraftOptimizerService
 
     public function startProfile(Server $server, string $mode, bool $automatic = false, array $trigger = [], bool $flagged = true): ServerOptimizerRun
     {
-        $active = $server->optimizerRuns()->where('type', 'like', 'spark_%')->whereIn('status', ['queued', 'running'])->exists();
-        if ($active) throw new DisplayException('A performance analysis is already running for this server.');
+        $activeRuns = $server->optimizerRuns()->where('type', 'like', 'spark_%')->whereIn('status', ['queued', 'running'])->get();
+        foreach ($activeRuns as $activeRun) {
+            // A profile and its follow-up report collection complete in under five
+            // minutes. Mark abandoned jobs as failed so a queue restart or a Wings
+            // interruption cannot permanently lock this server's analyser.
+            if (!$activeRun->started_at || $activeRun->started_at->lt(now()->subMinutes(10))) {
+                $activeRun->update([
+                    'status' => 'failed',
+                    'error' => 'Spark analysis timed out before an official report was collected. You can start a new scan.',
+                    'completed_at' => now(),
+                ]);
+                continue;
+            }
+
+            throw new DisplayException('A performance analysis is already running for this server.');
+        }
         $details = $this->servers->setServer($server)->getDetails();
         if (($details['state'] ?? null) !== 'running') throw new DisplayException('The server must be online before starting performance analysis.');
         $run = $this->createRun($server, [

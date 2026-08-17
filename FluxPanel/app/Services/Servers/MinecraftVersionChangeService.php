@@ -229,7 +229,17 @@ class MinecraftVersionChangeService
     /** @param Collection<int, EggVariable> $variables */
     private function versionVariable(Collection $variables): ?EggVariable
     {
-        return $variables->first(fn (EggVariable $variable) => (bool) preg_match('/(?:MINECRAFT|MC|SERVER)_?VERSION|^VERSION$/i', $variable->env_variable));
+        $explicit = $variables->first(fn (EggVariable $variable) => (bool) preg_match('/(?:MINECRAFT|MC|SERVER)_?VERSION|^VERSION$/i', $variable->env_variable));
+        if ($explicit) {
+            return $explicit;
+        }
+
+        // Official eggs do not all use the same name: Vanilla and BungeeCord
+        // use VANILLA_VERSION and BUNGEE_VERSION respectively. Prefer the
+        // explicit Minecraft fields above, then accept the platform version
+        // field while leaving a Forge build override out of the selector.
+        return $variables->first(fn (EggVariable $variable) => (bool) preg_match('/_VERSION$/i', $variable->env_variable)
+            && !in_array(strtoupper($variable->env_variable), ['FORGE_VERSION', 'BUILD_VERSION'], true));
     }
 
     /** @param Collection<int, EggVariable> $variables */
@@ -263,6 +273,8 @@ class MinecraftVersionChangeService
             'Purpur' => $this->purpurVersions(),
             'Fabric' => $this->fabricVersions(),
             'Vanilla' => $this->vanillaVersions(),
+            'Forge' => $this->forgeVersions(),
+            'BungeeCord' => $this->bungeeBuilds(),
             default => [],
         };
     }
@@ -270,17 +282,17 @@ class MinecraftVersionChangeService
     /** @return list<string> */
     private function paperMcVersions(string $project): array
     {
-        return Cache::remember("version-changer:papermc:{$project}", now()->addHours(6), function () use ($project): array {
+        return Cache::remember("version-changer:papermc:v2:{$project}", now()->addHours(6), function () use ($project): array {
             try {
-                $response = Http::acceptJson()->timeout(8)->get("https://api.papermc.io/v2/projects/{$project}");
+                // Fill is PaperMC's current public catalogue. The old v2 endpoint
+                // no longer powers current projects, which left every egg with its
+                // single fallback/default version.
+                $response = Http::acceptJson()->timeout(8)->get("https://fill.papermc.io/v3/projects/{$project}");
                 if (!$response->successful()) {
                     return [];
                 }
 
-                return array_values(array_filter(
-                    $response->json('versions', []),
-                    fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version)
-                ));
+                return $this->releaseVersions(Arr::flatten($response->json('versions', [])));
             } catch (\Throwable $exception) {
                 Log::notice('Could not retrieve the PaperMC version catalogue.', ['project' => $project, 'exception' => $exception->getMessage()]);
 
@@ -299,12 +311,12 @@ class MinecraftVersionChangeService
                     return [];
                 }
 
-                return collect($response->json('versions', []))
+                return $this->releaseVersions(collect($response->json('versions', []))
                     ->where('type', 'release')
                     ->pluck('id')
                     ->filter(fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version))
                     ->values()
-                    ->all();
+                    ->all());
             } catch (\Throwable $exception) {
                 Log::notice('Could not retrieve the Minecraft version catalogue.', ['exception' => $exception->getMessage()]);
 
@@ -323,10 +335,7 @@ class MinecraftVersionChangeService
                     return [];
                 }
 
-                return array_values(array_filter(
-                    $response->json('versions', []),
-                    fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version)
-                ));
+                return $this->releaseVersions($response->json('versions', []));
             } catch (\Throwable $exception) {
                 Log::notice('Could not retrieve the Purpur version catalogue.', ['exception' => $exception->getMessage()]);
 
@@ -345,18 +354,71 @@ class MinecraftVersionChangeService
                     return [];
                 }
 
-                return collect($response->json())
+                return $this->releaseVersions(collect($response->json())
                     ->filter(fn ($version) => is_array($version) && ($version['stable'] ?? false) && isset($version['version']))
                     ->pluck('version')
                     ->filter(fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version))
                     ->values()
-                    ->all();
+                    ->all());
             } catch (\Throwable $exception) {
                 Log::notice('Could not retrieve the Fabric version catalogue.', ['exception' => $exception->getMessage()]);
 
                 return [];
             }
         });
+    }
+
+    /** @return list<string> */
+    private function forgeVersions(): array
+    {
+        return Cache::remember('version-changer:forge', now()->addHours(6), function (): array {
+            try {
+                $response = Http::acceptJson()->timeout(8)->get('https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json');
+                if (!$response->successful()) {
+                    return [];
+                }
+
+                return $this->releaseVersions(array_map(fn (string $key) => explode('-', $key, 2)[0], array_keys($response->json('promos', []))));
+            } catch (\Throwable $exception) {
+                Log::notice('Could not retrieve the Forge version catalogue.', ['exception' => $exception->getMessage()]);
+
+                return [];
+            }
+        });
+    }
+
+    /** @return list<string> */
+    private function bungeeBuilds(): array
+    {
+        return Cache::remember('version-changer:bungeecord', now()->addHours(6), function (): array {
+            try {
+                $response = Http::acceptJson()->timeout(8)->get('https://ci.md-5.net/job/BungeeCord/api/json?tree=builds[number]');
+                if (!$response->successful()) {
+                    return [];
+                }
+
+                return collect($response->json('builds', []))
+                    ->pluck('number')
+                    ->filter(fn ($build) => is_int($build) || ctype_digit((string) $build))
+                    ->map(fn ($build) => (string) $build)
+                    ->take(10)
+                    ->values()
+                    ->all();
+            } catch (\Throwable $exception) {
+                Log::notice('Could not retrieve the BungeeCord build catalogue.', ['exception' => $exception->getMessage()]);
+
+                return [];
+            }
+        });
+    }
+
+    /** @param array<int, mixed> $versions @return list<string> */
+    private function releaseVersions(array $versions): array
+    {
+        $releases = array_values(array_unique(array_filter($versions, fn ($version) => is_string($version) && preg_match('/^\d+\.\d+(?:\.\d+)?$/', $version))));
+        usort($releases, fn (string $left, string $right) => version_compare($right, $left));
+
+        return array_slice($releases, 0, 10);
     }
 
     private function wipeFiles(Server $server): void

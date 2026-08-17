@@ -98,9 +98,16 @@ class OptimizerController extends ClientApiController
             403
         );
 
-        $data = $request->validate(['value' => ['nullable']]);
-        $hasSelectedValue = array_key_exists('value', $data);
-        $snapshot = $service->apply($finding, $data['value'] ?? null, $hasSelectedValue);
+        try {
+            $data = $request->validate(['value' => ['nullable']]);
+            $hasSelectedValue = array_key_exists('value', $data);
+            $snapshot = $service->apply($finding, $data['value'] ?? null, $hasSelectedValue);
+        } catch (DisplayException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw new DisplayException('Fluid could not apply this setting. Refresh the configuration scan and make sure Wings is online before trying again.');
+        }
 
         Activity::event('server:optimizer.apply')->subject($server, $finding)->property('snapshot_id', $snapshot->id)->log();
 
