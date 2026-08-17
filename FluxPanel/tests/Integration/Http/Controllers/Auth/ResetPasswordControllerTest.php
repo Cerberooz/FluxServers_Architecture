@@ -9,6 +9,14 @@ use Pterodactyl\Tests\Integration\Http\HttpTestCase;
 
 class ResetPasswordControllerTest extends HttpTestCase
 {
+    public function testForgotPasswordRejectsAnUnregisteredEmail(): void
+    {
+        $this->postJson('/auth/password', ['email' => 'missing@example.test'])
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.0.code', 'EmailNotRegistered')
+            ->assertJsonPath('errors.0.detail', 'No account is registered with this email address.');
+    }
+
     public function testResettingAnUnverifiedAccountDoesNotAuthenticateIt(): void
     {
         $user = User::factory()->create(['email_verified_at' => null]);

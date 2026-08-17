@@ -5,9 +5,9 @@ from __future__ import annotations
 import datetime as datetime_module
 import logging
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
-from fluxweb.errors import DomainError, IntegrationError, PanelError
+from fluxweb.errors import ConfigurationError, DomainError, IntegrationError, PanelError
 from fluxweb.extensions import limiter
 from fluxweb.integrations.fluid import get_fluid_client
 from fluxweb.models import Order, ServerRecord, ServerStatus
@@ -34,13 +34,6 @@ def user_account():
         .all()
     )
     orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(20).all()
-    panel_account = None
-    if user.pelican_user_id and config.panel_configured:
-        try:
-            panel_account = get_fluid_client().get_user(user.pelican_user_id)
-        except (PanelError, IntegrationError):
-            log.info("Panel account details unavailable for Web user %s", user.id)
-
     return render_template(
         "account.html",
         user=user,
@@ -51,8 +44,25 @@ def user_account():
         timedelta=datetime_module.timedelta,
         panel_url=config.panel_url or "",
         email_verified=user.email_verified,
-        panel_account=panel_account,
+        # Panel profile data is helpful, but it must never delay the account
+        # shell or billing/order data. The client fetches it after first paint.
+        panel_account=None,
     )
+
+
+@bp.route("/account/panel-profile")
+@login_required
+@limiter.limit("60 per hour")
+def panel_profile():
+    """Fetch optional Fluid account information after the page is rendered."""
+    user = current_user()
+    if not user.pelican_user_id:
+        return jsonify({"linked": False})
+    try:
+        profile = get_fluid_client().get_user(user.pelican_user_id)
+    except (ConfigurationError, PanelError, IntegrationError):
+        return jsonify({"linked": True, "available": False})
+    return jsonify({"linked": True, "available": bool(profile), "profile": profile})
 
 
 @bp.route("/account/sync", methods=["POST"])

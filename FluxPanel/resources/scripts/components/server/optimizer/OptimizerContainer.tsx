@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import tw from 'twin.macro';
+import { Line } from 'react-chartjs-2';
 import http from '@/api/http';
 import Button from '@/components/elements/Button';
 import Modal from '@/components/elements/Modal';
 import Spinner from '@/components/elements/Spinner';
 import Switch from '@/components/elements/Switch';
 import ServerContentBlock from '@/components/elements/ServerContentBlock';
+import { getOptions } from '@/components/server/console/chart';
 import { ServerContext } from '@/state/server';
 import { useFlashKey } from '@/plugins/useFlash';
 
@@ -84,7 +86,7 @@ const reportSource = (run: Run) => run.type === 'spark_import'
         : 'Live server scan';
 const reportResult = (run: Run) => {
     if (run.status === 'running' || run.status === 'queued') return 'Collecting profile data…';
-    if (run.status === 'failed') return 'Analysis failed';
+    if (run.status === 'failed') return run.error || 'Analysis failed';
     const plugins = run.summary?.plugin_usage?.length || 0;
     const network = run.summary?.network;
     const highNetwork = Math.max(network?.ingress_bytes_per_second || 0, network?.egress_bytes_per_second || 0) >= 20 * 1024 * 1024;
@@ -131,7 +133,17 @@ export default () => {
         setSelected(run);
         if (run.automatic && run.flagged_at && !run.read_at) {
             http.post(`/api/client/servers/${uuid}/optimizer/runs/${run.id}/read`)
-                .then(() => load())
+                .then(({ data }) => {
+                    const readAt = data.attributes?.read_at || new Date().toISOString();
+                    const unread = data.meta?.unread || 0;
+                    setSelected((current) => current?.id === run.id ? { ...current, read_at: readAt } : current);
+                    setResponse((current) => current ? {
+                        ...current,
+                        data: current.data.map((item) => item.id === run.id ? { ...item, read_at: readAt } : item),
+                        meta: { ...current.meta, unread },
+                    } : current);
+                    window.dispatchEvent(new CustomEvent('optimizer-notifications-updated', { detail: { uuid, unread } }));
+                })
                 .catch(clearAndAddHttpError);
         }
     };
@@ -320,11 +332,58 @@ const ReportModal = ({ run, onClose }: { run: Run; onClose: () => void }) => {
     const health = run.summary?.server_health;
     const plugins = run.summary?.plugin_usage || [];
     const samples = run.summary?.network?.samples || [];
-    const peak = Math.max(1, ...samples.flatMap((sample) => [sample.ingress_bytes_per_second || 0, sample.egress_bytes_per_second || 0]));
     const networkRate = Math.max(run.summary?.network?.ingress_bytes_per_second || 0, run.summary?.network?.egress_bytes_per_second || 0);
     const networkMessage = networkRate >= 20 * 1024 * 1024
         ? `Traffic was unusually high during this report. Peak observed rate: ${rate(networkRate)}.`
         : samples.length > 1 ? 'Incoming and outgoing traffic stayed within the configured alert threshold during this report.' : 'Network sampling was not available for this report.';
+    const networkChart = useMemo(() => ({
+        labels: samples.map((_, index) => index),
+        datasets: [
+            {
+                label: 'Ingress',
+                data: samples.map((sample) => sample.ingress_bytes_per_second || 0),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.14)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.25,
+                pointRadius: 0,
+            },
+            {
+                label: 'Egress',
+                data: samples.map((sample) => sample.egress_bytes_per_second || 0),
+                borderColor: '#e5e7eb',
+                backgroundColor: 'rgba(229, 231, 235, 0.06)',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.25,
+                pointRadius: 0,
+            },
+        ],
+    }), [samples]);
+    const networkChartOptions = useMemo(() => getOptions({
+        plugins: {
+            tooltip: {
+                enabled: true,
+                callbacks: {
+                    title: (items) => formattedDate(samples[items[0]?.dataIndex || 0]?.captured_at),
+                    label: (item) => `${item.dataset.label}: ${rate(Number(item.raw) || 0)}`,
+                },
+            },
+        },
+        scales: {
+            x: {
+                min: 0,
+                max: Math.max(1, samples.length - 1),
+                ticks: { display: false },
+            },
+            y: {
+                ticks: {
+                    callback: (value) => rate(typeof value === 'string' ? Number(value) : value),
+                },
+            },
+        },
+    }), [samples]);
 
     return <Modal visible onDismissed={onClose}>
         <section css={tw`space-y-6`}>
@@ -347,8 +406,8 @@ const ReportModal = ({ run, onClose }: { run: Run; onClose: () => void }) => {
                         </div>
                     </section>
                     <section><div css={tw`flex items-end justify-between gap-3`}><div><h3 css={tw`text-base font-semibold text-neutral-100`}>Network activity</h3><p css={tw`mt-1 text-sm text-neutral-400`}>Ingress and egress captured while this report was generated.</p></div><span css={tw`text-xs text-neutral-500`}>Ingress <i css={tw`mx-1 inline-block h-2 w-2 bg-blue-500`} /> Egress <i css={tw`mx-1 inline-block h-2 w-2 bg-neutral-100`} /></span></div>
-                        <div css={tw`mt-3 flex h-32 items-end gap-1 border border-neutral-700 bg-neutral-900 px-3 pb-5 pt-3`}>
-                            {samples.length > 1 ? samples.map((sample, index) => <div key={`${sample.captured_at}-${index}`} css={tw`flex h-full min-w-0 flex-1 items-end justify-center gap-px`} title={`${formattedDate(sample.captured_at)} · ingress ${rate(sample.ingress_bytes_per_second)} · egress ${rate(sample.egress_bytes_per_second)}`}><i css={tw`block w-1 bg-blue-500`} style={{ height: `${Math.max(3, ((sample.ingress_bytes_per_second || 0) / peak) * 100)}%` }} /><i css={tw`block w-1 bg-neutral-100`} style={{ height: `${Math.max(3, ((sample.egress_bytes_per_second || 0) / peak) * 100)}%` }} /></div>) : <p css={tw`w-full text-center text-sm text-neutral-500`}>No network samples are available for this report.</p>}
+                        <div css={tw`mt-3 h-40 border border-neutral-700 bg-neutral-900 p-3`}>
+                            {samples.length > 1 ? <Line data={networkChart} options={networkChartOptions} /> : <p css={tw`flex h-full items-center justify-center text-sm text-neutral-500`}>No network samples are available for this report.</p>}
                         </div>
                     </section>
                 </>}

@@ -271,6 +271,7 @@ class Config:
     mail_from: str = "no-reply@fluxservers.cloud"
 
     rate_limit_storage_uri: str = "memory://"
+    redis_url: str | None = None
     cron_secret: str | None = None
 
     expiry_days: int = 30
@@ -564,6 +565,7 @@ class Config:
 
         # --- Rate limiting -------------------------------------------------
         redis_url = _env("REDIS_URL")
+        cfg.redis_url = redis_url
         cfg.rate_limit_storage_uri = redis_url or "memory://"
         if env == "production" and not redis_url:
             cfg.warnings.append(

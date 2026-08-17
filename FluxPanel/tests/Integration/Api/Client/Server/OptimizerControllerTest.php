@@ -7,6 +7,34 @@ use Pterodactyl\Tests\Integration\Api\Client\ClientApiIntegrationTestCase;
 
 class OptimizerControllerTest extends ClientApiIntegrationTestCase
 {
+    public function testOptimizerKeepsOnlyTheTenNewestPerformanceReportsPerServer(): void
+    {
+        [$user, $server] = $this->generateTestAccount();
+
+        foreach (range(1, 12) as $number) {
+            $server->optimizerRuns()->create([
+                'type' => 'automatic_resource_alert',
+                'status' => 'failed',
+                'automatic' => true,
+                'summary' => ['message' => "Alert {$number}"],
+                'error' => 'Spark did not publish a report URL.',
+                'started_at' => now(),
+                'completed_at' => now(),
+            ]);
+        }
+
+        // Loading the report API also cleans up history made before the
+        // retention policy was introduced.
+        $this->actingAs($user)->getJson($this->link($server, '/optimizer?page=1'))
+            ->assertOk()
+            ->assertJsonPath('meta.pagination.total', 10);
+
+        $this->assertSame(10, ServerOptimizerRun::query()
+            ->where('server_id', $server->id)
+            ->where('type', '!=', 'configuration_scan')
+            ->count());
+    }
+
     public function testOwnerCanPaginateAndReadAutomaticOptimizerReports(): void
     {
         [$user, $server] = $this->generateTestAccount();
@@ -31,7 +59,8 @@ class OptimizerControllerTest extends ClientApiIntegrationTestCase
 
         $run = ServerOptimizerRun::query()->where('server_id', $server->id)->latest()->firstOrFail();
         $this->actingAs($user)->postJson($this->link($server, "/optimizer/runs/{$run->id}/read"))
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('meta.unread', 5);
 
         $this->assertNotNull($run->fresh()->read_at);
     }

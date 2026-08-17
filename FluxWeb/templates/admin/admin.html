@@ -295,21 +295,15 @@
             <div class="section-toolbar">
                 <input type="text" id="servers-search" placeholder="Search servers">
             </div>
-            <div class="table-summary">Showing {{ servers.items|length }} of {{ stats.total_servers if stats.total_servers is not none else 'unavailable' }} servers</div>
+            <div class="table-summary" id="panel-servers-summary">Loading current Panel inventory…</div>
             <div class="admin-table-container">
                 <table class="admin-table">
                     <thead><tr><th>ID</th><th>Owner</th><th>Plan</th><th>Status</th><th>Control</th></tr></thead>
-                    <tbody>
-                        {% for server in servers.items %}
-                        <tr data-filter-row="servers" data-filter-text="{{ (server.pelican_server_identifier ~ ' ' ~ server.owner.username ~ ' ' ~ server.plan_name ~ ' ' ~ server.status)|lower }}"><td><code>{{ server.pelican_server_identifier }}</code></td><td>{{ server.owner.username }}</td><td>{{ server.plan_name }}</td>
-                        <td><span style="color: {% if server.status == 'Active' %}#10b981{% else %}#ef4444{% endif %}">{{ server.status }}</span></td>
-                        <td><button class="btn-action btn-warning" onclick="manageServer('{{ server.pelican_server_id }}', 'suspend')"><i class="fas fa-pause"></i></button></td></tr>
-                        {% endfor %}
-                    </tbody>
+                    <tbody id="panel-servers-body"><tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Loading current inventory…</td></tr></tbody>
                 </table>
             </div>
             <div id="servers-empty-state" class="tab-empty">No servers match the current search.</div>
-            {{ pagination(servers, 'servers_page', active_tab, 'servers-section') }}
+            <div id="panel-servers-pagination"></div>
         </section>
         {% endif %}
 
@@ -1764,6 +1758,63 @@
             setupTabSearch('faqs-search', 'faqs');
             setupTabSearch('coupons-search', 'coupons');
             loadPanelMetadata();
+
+            // FluidPanel can be slow or temporarily unavailable. Load its
+            // inventory after this admin page is interactive instead of
+            // making the entire dashboard wait on one upstream request.
+            const serverBody = document.getElementById('panel-servers-body');
+            if (serverBody) {
+                const summary = document.getElementById('panel-servers-summary');
+                const empty = document.getElementById('servers-empty-state');
+                fetch('/admin/api/panel-servers')
+                    .then(async response => ({ ok: response.ok, payload: await response.json() }))
+                    .then(({ ok, payload }) => {
+                        if (!ok || payload.status !== 'success') throw new Error(payload.message || 'Unavailable');
+                        const servers = payload.servers || [];
+                        summary.textContent = `Showing ${servers.length} of ${payload.total} servers`;
+                        serverBody.replaceChildren();
+                        if (!servers.length) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = '<td colspan="5" style="text-align:center; color:var(--text-muted);">No deployed servers found.</td>';
+                            serverBody.appendChild(row);
+                        }
+                        servers.forEach(server => {
+                            const row = document.createElement('tr');
+                            row.dataset.filterRow = 'servers';
+                            row.dataset.filterText = `${server.identifier} ${server.owner} ${server.plan} ${server.status}`.toLowerCase();
+                            const values = [server.identifier, server.owner, server.plan];
+                            values.forEach((value, index) => {
+                                const cell = document.createElement('td');
+                                if (index === 0) {
+                                    const code = document.createElement('code');
+                                    code.textContent = value || '—';
+                                    cell.appendChild(code);
+                                } else cell.textContent = value || '—';
+                                row.appendChild(cell);
+                            });
+                            const status = document.createElement('td');
+                            const badge = document.createElement('span');
+                            badge.textContent = server.status;
+                            badge.style.color = server.status === 'Active' ? '#10b981' : '#ef4444';
+                            status.appendChild(badge);
+                            row.appendChild(status);
+                            const control = document.createElement('td');
+                            const button = document.createElement('button');
+                            button.className = 'btn-action btn-warning';
+                            button.innerHTML = '<i class="fas fa-pause"></i>';
+                            button.addEventListener('click', () => manageServer(server.id, 'suspend'));
+                            control.appendChild(button);
+                            row.appendChild(control);
+                            serverBody.appendChild(row);
+                        });
+                        if (empty) empty.style.display = 'none';
+                        setupTabSearch('servers-search', 'servers');
+                    })
+                    .catch(() => {
+                        summary.textContent = 'Panel inventory is temporarily unavailable.';
+                        serverBody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">The dashboard is available. Retry when FluidPanel is reachable.</td></tr>';
+                    });
+            }
         });
     </script>
 </body>

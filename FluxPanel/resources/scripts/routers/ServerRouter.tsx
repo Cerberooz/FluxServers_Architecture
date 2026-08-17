@@ -31,8 +31,9 @@ export default () => {
         const server = state.server.data;
         if (!server) return '';
 
-        const version = runtimeMetadata.minecraft_version ? `Minecraft ${runtimeMetadata.minecraft_version}` : 'Minecraft version unavailable';
-        const software = runtimeMetadata.software || server.eggName;
+        const verified = runtimeMetadata.minecraft_version && runtimeMetadata.software;
+        const version = verified ? `Minecraft ${runtimeMetadata.minecraft_version}` : 'Unknown';
+        const software = verified ? runtimeMetadata.software : 'Unknown';
 
         return `${version} \u00b7 ${software}`;
     });

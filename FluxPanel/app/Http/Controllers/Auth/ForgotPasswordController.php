@@ -18,12 +18,18 @@ class ForgotPasswordController extends Controller
      */
     protected function sendResetLinkFailedResponse(Request $request, $response): JsonResponse
     {
-        // As noted in #358 we will return success even if it failed
-        // to avoid pointing out that an account does or does not
-        // exist on the system.
         event(new FailedPasswordReset($request->ip(), $request->input('email')));
 
-        return $this->sendResetLinkResponse($request, Password::RESET_LINK_SENT);
+        // Flux deliberately gives the customer a useful correction here. The
+        // endpoint remains rate-limited and protected by CAPTCHA, while an
+        // unknown address must not pretend that an email was sent.
+        return response()->json([
+            'errors' => [[
+                'code' => 'EmailNotRegistered',
+                'status' => '422',
+                'detail' => 'No account is registered with this email address.',
+            ]],
+        ], 422);
     }
 
     /**

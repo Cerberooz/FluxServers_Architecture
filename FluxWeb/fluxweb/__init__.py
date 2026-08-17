@@ -55,6 +55,10 @@ def create_app(config: Config | None = None) -> Flask:
     csrf.init_app(app)
     limiter.init_app(app)
 
+    from fluxweb.cache import init_runtime_cache
+
+    init_runtime_cache(app)
+
     # Import models so Alembic autogenerate and create_all see them.
     from fluxweb import models  # noqa: F401
     from fluxweb.web import BLUEPRINTS

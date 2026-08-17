@@ -393,17 +393,14 @@ def admin_dashboard():
     if active_tab not in valid_tabs:
         active_tab = "users"
 
-    try:
-        servers, panel_server_total = _panel_servers_page(_page_arg("servers_page"), per_page=20)
-    except (ConfigurationError, PanelError) as exc:
-        # Do not silently substitute billing records: that makes a healthy
-        # Panel look empty and turns stale Postgres state into fake inventory.
-        log.warning("Panel server inventory unavailable: %s", exc)
-        servers = SimpleNamespace(
-            items=[], total=0, page=1, pages=1, has_prev=False, has_next=False,
-            prev_num=1, next_num=1, iter_pages=lambda **_: (),
-        )
-        panel_server_total = None
+    # The application server inventory comes from FluidPanel. Never put that
+    # network request on the initial dashboard render path: the HTML shell and
+    # local billing/admin controls should be usable during a slow Panel call.
+    servers = SimpleNamespace(
+        items=[], total=0, page=1, pages=1, has_prev=False, has_next=False,
+        prev_num=1, next_num=1, iter_pages=lambda **_: (),
+    )
+    panel_server_total = None
 
     # The plans admin view is a hierarchy, so pagination must not happen at the
     # raw plan-row level. Doing that splits one category across multiple pages
@@ -488,6 +485,37 @@ def admin_api_panel_metadata():
             "status": "success",
             "nests": [item for item in (_nest_payload(nest) for nest in nests) if item is not None],
             "locations": [item for item in (_node_payload(node) for node in locations) if item is not None],
+        }
+    )
+
+
+@bp.route("/api/panel-servers")
+@admin_required
+def admin_api_panel_servers():
+    """Load current Panel inventory after the admin dashboard has painted."""
+    page = _page_arg("page")
+    try:
+        servers, total = _panel_servers_page(page, per_page=20)
+    except (ConfigurationError, PanelError) as exc:
+        log.warning("Panel server inventory unavailable: %s", exc)
+        return jsonify({"status": "error", "message": "Fluid API unavailable"}), 502
+
+    return jsonify(
+        {
+            "status": "success",
+            "total": total,
+            "page": servers.page,
+            "pages": servers.pages,
+            "servers": [
+                {
+                    "id": item.pelican_server_id,
+                    "identifier": item.pelican_server_identifier,
+                    "owner": item.owner.username,
+                    "plan": item.plan_name,
+                    "status": item.status,
+                }
+                for item in servers.items
+            ],
         }
     )
 

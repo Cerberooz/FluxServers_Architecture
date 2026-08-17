@@ -76,6 +76,8 @@ Route::group([
     Route::get('/resources', Client\Servers\ResourceUtilizationController::class)->name('api:client:server.resources');
     Route::get('/runtime-metadata', Client\Servers\RuntimeMetadataController::class)->name('api:client:server.runtime-metadata');
     Route::get('/node-uptime', Client\Servers\NodeUptimeController::class)->name('api:client:server.node-uptime');
+    Route::get('/version-changer', [Client\Servers\VersionChangerController::class, 'index']);
+    Route::middleware('throttle:3,5')->post('/version-changer/install', [Client\Servers\VersionChangerController::class, 'install']);
     Route::get('/activity', Client\Servers\ActivityLogController::class)->name('api:client:server.activity');
     Route::get('/subdomains', [Client\Servers\SubdomainController::class, 'index']);
     Route::get('/subdomains/domains', [Client\Servers\SubdomainController::class, 'domains']);

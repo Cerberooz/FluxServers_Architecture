@@ -106,7 +106,7 @@
                             </p>
                         </div>
                         {% elif user.pelican_user_id %}
-                        <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">Fluid Panel account linked</p>
+                        <p id="panel-profile-summary" style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">Fluid Panel account linked</p>
                         {% endif %}
                     </div>
                 </div>
@@ -490,5 +490,18 @@
     // Live stats require a per-user Fluid credential. The website deliberately
     // does not use one shared client API key for all customers; users can open
     // their linked Fluid account from the panel button above.
+    const panelProfileSummary = document.getElementById('panel-profile-summary');
+    if (panelProfileSummary) {
+        // Informational only: the account page has already rendered, and a
+        // slow/unavailable Panel must not affect orders or account controls.
+        fetch('/account/panel-profile')
+            .then(response => response.ok ? response.json() : null)
+            .then(data => {
+                const profile = data && data.profile;
+                if (!profile) return;
+                panelProfileSummary.textContent = `Fluid Panel account: ${profile.username || profile.email || 'linked'}`;
+            })
+            .catch(() => {});
+    }
 </script>
 {% endblock %}

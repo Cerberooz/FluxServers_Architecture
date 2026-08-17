@@ -238,6 +238,13 @@ class ModrinthPluginService
 
     private function runtimeSoftware(string $log): ?string
     {
+        // Velocity is deliberately detected for status handling only. It is not
+        // presented as a Minecraft server implementation or used for plugin
+        // compatibility because it is a proxy, not a Bukkit-family server.
+        if (preg_match('/\bVelocity(?:\s+Proxy)?\b/i', $log)) {
+            return 'Velocity';
+        }
+
         if (preg_match('/(?:Loading|Running)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i', $log, $match)) {
             return ucfirst(Str::lower($match[1]));
         }

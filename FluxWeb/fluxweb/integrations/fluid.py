@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+from hashlib import sha256
 from dataclasses import dataclass
 from typing import Any, TypeAlias
 
@@ -121,11 +122,23 @@ class FluidPanelClient:
         json_body: dict[str, Any] | None = None,
         timeout: RequestTimeout | None = None,
         expected: tuple[int, ...] = (200, 201, 204),
+        cache_ttl: int = 0,
     ) -> Any:
         if not self.configured:
             raise ConfigurationError("Fluid Panel is not configured")
 
         url = f"{self.base_url}{path}"
+        cache = None
+        cache_key = None
+        # Only cache successful, idempotent reads. Writes remain strictly live.
+        if method.upper() in {"GET", "HEAD"} and cache_ttl > 0:
+            from flask import current_app
+
+            cache = current_app.extensions.get("runtime_cache")
+            cache_key = "fluxweb:panel-read:v1:" + sha256(url.encode()).hexdigest()
+            cached = cache.get_json(cache_key) if cache else None
+            if cached is not None:
+                return cached
         try:
             response = self.session.request(
                 method,
@@ -146,9 +159,12 @@ class FluidPanelClient:
         if response.status_code == 204 or not response.content:
             return None
         try:
-            return response.json()
+            payload = response.json()
         except ValueError as exc:
             raise PanelError(f"{method} {path}: response was not JSON") from exc
+        if cache is not None and cache_key is not None:
+            cache.set_json(cache_key, payload, cache_ttl)
+        return payload
 
     @staticmethod
     def _extract_error(response: requests.Response) -> str:
@@ -171,12 +187,12 @@ class FluidPanelClient:
         Fluid follows Pterodactyl's nested API shape: eggs belong to a nest,
         so there is intentionally no global ``/api/application/eggs`` route.
         """
-        payload = self._request("GET", "/api/application/nests", expected=(200,), timeout=METADATA_TIMEOUT)
+        payload = self._request("GET", "/api/application/nests", expected=(200,), timeout=METADATA_TIMEOUT, cache_ttl=30)
         return payload.get("data", []) if payload else []
 
     def eggs_for_nest(self, nest_id: str | int) -> list[dict[str, Any]]:
         payload = self._request(
-            "GET", f"/api/application/nests/{int(nest_id)}/eggs", expected=(200,), timeout=METADATA_TIMEOUT
+            "GET", f"/api/application/nests/{int(nest_id)}/eggs", expected=(200,), timeout=METADATA_TIMEOUT, cache_ttl=30
         )
         return payload.get("data", []) if payload else []
 
@@ -228,13 +244,13 @@ class FluidPanelClient:
     def list_nodes(self) -> list[dict[str, Any]]:
         try:
             payload = self._request(
-                "GET", "/api/application/nodes?include=location", expected=(200,), timeout=METADATA_TIMEOUT
+                "GET", "/api/application/nodes?include=location", expected=(200,), timeout=METADATA_TIMEOUT, cache_ttl=15
             )
         except PanelError as exc:
             if exc.status not in (400, 404):
                 raise
             payload = self._request(
-                "GET", "/api/application/nodes", expected=(200,), timeout=METADATA_TIMEOUT
+                "GET", "/api/application/nodes", expected=(200,), timeout=METADATA_TIMEOUT, cache_ttl=15
             )
         nodes = payload.get("data", []) if payload else []
         for node in nodes:
@@ -347,7 +363,7 @@ class FluidPanelClient:
     # --- users ----------------------------------------------------------
     def get_user(self, panel_user_id: int) -> dict[str, Any] | None:
         try:
-            payload = self._request("GET", f"/api/application/users/{panel_user_id}", expected=(200,))
+            payload = self._request("GET", f"/api/application/users/{panel_user_id}", expected=(200,), cache_ttl=30)
         except PanelError as exc:
             if exc.status == 404:
                 return None
@@ -421,7 +437,7 @@ class FluidPanelClient:
             "GET",
             f"/api/application/servers?include=user&page={page}&per_page={per_page}",
             expected=(200,),
-            timeout=METADATA_TIMEOUT,
+            timeout=METADATA_TIMEOUT, cache_ttl=10,
         )
         return (payload or {}).get("data", []), (payload or {}).get("meta", {}).get("pagination", {})
 
@@ -542,10 +558,18 @@ class FluidPanelClient:
 
 
 def get_fluid_client() -> FluidPanelClient:
-    """Return the request-scoped panel client."""
-    from flask import current_app, g
+    """Return the application-scoped Panel client.
 
-    if "fluid_client" not in g:
+    There is no request-specific authentication state in this application API
+    client, so keeping it in ``app.extensions`` safely preserves its HTTP
+    connection pool across requests. Previously it lived in ``flask.g`` and
+    paid a fresh TCP/TLS setup cost for every page/API request.
+    """
+    from flask import current_app
+
+    client = current_app.extensions.get("fluid_client")
+    if client is None:
         config = current_app.extensions["flux_config"]
-        g.fluid_client = FluidPanelClient(config.panel_url, config.panel_api_key)
-    return g.fluid_client
+        client = FluidPanelClient(config.panel_url, config.panel_api_key)
+        current_app.extensions["fluid_client"] = client
+    return client

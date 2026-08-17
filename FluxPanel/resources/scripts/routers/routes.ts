@@ -18,6 +18,7 @@ import ServerActivityLogContainer from '@/components/server/ServerActivityLogCon
 import SubdomainsContainer from '@/components/server/subdomains/SubdomainsContainer';
 import OptimizerContainer from '@/components/server/optimizer/OptimizerContainer';
 import PluginManagerContainer from '@/components/server/plugins/PluginManagerContainer';
+import VersionChangerContainer from '@/components/server/version-changer/VersionChangerContainer';
 import ServerDashboardContainer from '@/components/server/ServerDashboardContainer';
 
 // Each of the router files is already code split out appropriately — so
@@ -179,6 +180,12 @@ export default {
             permission: 'file.read',
             name: 'Plugins',
             component: PluginManagerContainer,
+        },
+        {
+            path: '/version-changer',
+            permission: 'settings.reinstall',
+            name: 'Version Changer',
+            component: VersionChangerContainer,
         },
     ],
 } as Routes;

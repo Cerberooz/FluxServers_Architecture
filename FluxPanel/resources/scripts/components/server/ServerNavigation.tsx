@@ -19,6 +19,7 @@ import {
     faTerminal,
     faTimes,
     faTools,
+    faSyncAlt,
     faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import { IconDefinition } from '@fortawesome/fontawesome-svg-core';
@@ -52,6 +53,7 @@ const icons: Record<string, IconDefinition> = {
     Subdomains: faNetworkWired,
     Optimizer: faRocket,
     Plugins: faLayerGroup,
+    'Version Changer': faSyncAlt,
     Settings: faCog,
     Activity: faHistory,
 };
@@ -107,13 +109,13 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
     const [collapsed, setCollapsed] = usePersistedState('layout:server-sidebar:collapsed', false);
     const [mobileOpen, setMobileOpen] = useState(false);
     const location = useLocation();
-    const [toolsOpen, setToolsOpen] = useState(() => ['/subdomains', '/optimizer', '/plugins'].some((path) => location.pathname.endsWith(path)));
+    const [toolsOpen, setToolsOpen] = useState(() => ['/subdomains', '/optimizer', '/plugins', '/version-changer'].some((path) => location.pathname.endsWith(path)));
     const navigationRef = useRef<HTMLElement>(null);
     const [activeIndicator, setActiveIndicator] = useState({ top: 0, height: 0, visible: false });
     const [optimizerUnread, setOptimizerUnread] = useState(0);
     const isCollapsed = !!collapsed;
     const to = (path: string) => (path === '/' ? baseUrl : `${baseUrl.replace(/\/*$/, '')}/${path.replace(/^\/+/, '')}`);
-    const toolRoutes = routes.server.filter((route) => ['Subdomains', 'Optimizer', 'Plugins'].includes(route.name || ''));
+    const toolRoutes = routes.server.filter((route) => ['Subdomains', 'Optimizer', 'Plugins', 'Version Changer'].includes(route.name || ''));
     const navigationRoutes = routes.server.filter((route) => !!route.name && !toolRoutes.includes(route));
 
     useEffect(() => {
@@ -124,11 +126,21 @@ export default ({ baseUrl, serverName, serverMeta, serverId, rootAdmin }: Props)
         }
 
         let mounted = true;
-        http.get(`/api/client/servers/${serverUuid}/optimizer/notifications`)
+        const refreshUnread = () => http.get(`/api/client/servers/${serverUuid}/optimizer/notifications`)
             .then(({ data }) => mounted && setOptimizerUnread(data.data?.unread || 0))
             .catch(() => mounted && setOptimizerUnread(0));
+        const onNotificationsUpdated = (event: Event) => {
+            const detail = (event as CustomEvent<{ uuid?: string; unread?: number }>).detail;
+            if (detail?.uuid === serverUuid && typeof detail.unread === 'number') setOptimizerUnread(detail.unread);
+        };
 
-        return () => { mounted = false; };
+        refreshUnread();
+        window.addEventListener('optimizer-notifications-updated', onNotificationsUpdated);
+
+        return () => {
+            mounted = false;
+            window.removeEventListener('optimizer-notifications-updated', onNotificationsUpdated);
+        };
     }, [serverUuid, location.pathname]);
 
     useLayoutEffect(() => {

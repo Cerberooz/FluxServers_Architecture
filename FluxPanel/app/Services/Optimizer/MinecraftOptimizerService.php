@@ -40,7 +40,7 @@ class MinecraftOptimizerService
 
     public function scan(Server $server): ServerOptimizerRun
     {
-        $run = $server->optimizerRuns()->create(['type' => 'configuration_scan', 'status' => 'running', 'started_at' => now()]);
+        $run = $this->createRun($server, ['type' => 'configuration_scan', 'status' => 'running', 'started_at' => now()]);
         try {
             $implementation = $server->egg->name . ' (' . $server->nest->name . ')';
             $configs = [];
@@ -126,7 +126,7 @@ class MinecraftOptimizerService
         if ($active) throw new DisplayException('A performance analysis is already running for this server.');
         $details = $this->servers->setServer($server)->getDetails();
         if (($details['state'] ?? null) !== 'running') throw new DisplayException('The server must be online before starting performance analysis.');
-        $run = $server->optimizerRuns()->create([
+        $run = $this->createRun($server, [
             'type' => "spark_{$mode}",
             'status' => 'running',
             'automatic' => $automatic,
@@ -311,7 +311,7 @@ class MinecraftOptimizerService
             return $this->startProfile($server, 'lag_spikes', true, $trigger);
         }
 
-        $run = $server->optimizerRuns()->create([
+        $run = $this->createRun($server, [
             'type' => 'automatic_resource_alert',
             'status' => 'completed',
             'automatic' => true,
@@ -357,7 +357,7 @@ class MinecraftOptimizerService
         $reportId = $this->reportId($reportUrl);
         $run = $existingRun && $existingRun->server_id === $server->id
             ? $existingRun
-            : $server->optimizerRuns()->create(['type' => 'spark_import', 'status' => 'running', 'started_at' => now()]);
+            : $this->createRun($server, ['type' => 'spark_import', 'status' => 'running', 'started_at' => now()]);
         try {
             // This is Spark's documented parsed representation of its raw Protobuf report.
             // The host and report identifier are deliberately pinned to prevent SSRF.
@@ -386,6 +386,47 @@ class MinecraftOptimizerService
             throw $exception;
         }
         return $run->fresh('findings');
+    }
+
+    /**
+     * Persist a new optimizer run and retain only useful history.
+     *
+     * Spark JSON-derived summaries, network samples, and findings can grow
+     * quickly. Keep the ten newest performance reports per server; related
+     * findings are removed by their database cascade. Configuration scans are
+     * represented separately in the UI, so only its newest result is kept.
+     */
+    private function createRun(Server $server, array $attributes): ServerOptimizerRun
+    {
+        $run = $server->optimizerRuns()->create($attributes);
+
+        $this->pruneHistory($server);
+
+        return $run;
+    }
+
+    /** Delete reports beyond the retained history for one server. */
+    public function pruneHistory(Server $server): void
+    {
+
+        $oldPerformanceRunIds = $server->optimizerRuns()
+            ->where('type', '!=', 'configuration_scan')
+            ->latest('id')
+            ->skip(10)
+            ->pluck('id');
+        if ($oldPerformanceRunIds->isNotEmpty()) {
+            ServerOptimizerRun::query()->whereIn('id', $oldPerformanceRunIds)->delete();
+        }
+
+        $oldConfigurationRunIds = $server->optimizerRuns()
+            ->where('type', 'configuration_scan')
+            ->latest('id')
+            ->skip(1)
+            ->pluck('id');
+        if ($oldConfigurationRunIds->isNotEmpty()) {
+            ServerOptimizerRun::query()->whereIn('id', $oldConfigurationRunIds)->delete();
+        }
+
     }
 
     private function rules(Server $server, ?string $version, array $configs): array
@@ -674,22 +715,84 @@ class MinecraftOptimizerService
 
     private function hotspots(array $report): array
     {
-        $thread = collect($report['threads'] ?? [])->first(fn (array $item) => Str::contains(Str::lower($item['name'] ?? ''), 'server thread'));
-        if (!$thread) return [];
-        $total = (float) ($thread['time'] ?? array_sum($thread['times'] ?? []));
-        if ($total <= 0) return [];
+        // Spark's raw report maps sampled classes/methods to source IDs, but
+        // the exact JSON representation has varied between viewer versions.
+        // Attribute only a frame's self time: summing every parent frame would
+        // otherwise count the same work many times and produce misleading
+        // plugin percentages.
+        $threads = collect($report['threads'] ?? [])->filter(fn (array $item) => Str::contains(Str::lower($item['name'] ?? ''), ['server thread', 'main thread']));
+        if ($threads->isEmpty()) return [];
+
         $sources = data_get($report, 'metadata.sources', []);
-        $classSources = $report['classSources'] ?? [];
-        $items = [];
-        $walk = function (array $node, array $path) use (&$walk, &$items, $sources, $classSources, $total): void {
-            $time = (float) ($node['time'] ?? array_sum($node['times'] ?? []));
-            $class = $node['className'] ?? '';
-            $sourceId = $classSources[$class] ?? null;
-            if ($sourceId && isset($sources[$sourceId]['name']) && $time / $total >= .05) $items[] = ['source' => $sources[$sourceId]['name'], 'percent' => 100 * $time / $total, 'title' => 'Profiler hotspot: ' . $sources[$sourceId]['name'], 'hot_path' => implode(' → ', [...$path, trim($class . '::' . ($node['methodName'] ?? ''))])];
-            foreach ($node['children'] ?? [] as $child) $walk($child, [...$path, trim($class . '::' . ($node['methodName'] ?? ''))]);
+        $classSources = is_array($report['classSources'] ?? null) ? $report['classSources'] : [];
+        $methodSources = is_array($report['methodSources'] ?? null) ? $report['methodSources'] : [];
+        $totals = [];
+        $total = 0.0;
+
+        $walk = function (array $node) use (&$walk, &$totals, &$total, $sources, $classSources, $methodSources): void {
+            $time = $this->nodeTime($node);
+            $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+            $childrenTime = array_sum(array_map(fn (array $child) => $this->nodeTime($child), $children));
+            $selfTime = max(0, $time - $childrenTime);
+            $source = $this->sparkSourceForNode($node, $sources, $classSources, $methodSources);
+
+            if ($source && $selfTime > 0) $totals[$source] = ($totals[$source] ?? 0) + $selfTime;
+            foreach ($children as $child) if (is_array($child)) $walk($child);
         };
-        foreach ($thread['children'] ?? [] as $child) $walk($child, []);
-        return collect($items)->sortByDesc('percent')->unique('source')->take(5)->values()->all();
+
+        foreach ($threads as $thread) {
+            $total += $this->nodeTime($thread);
+            foreach ((array) ($thread['children'] ?? []) as $child) if (is_array($child)) $walk($child);
+        }
+        if ($total <= 0) return [];
+
+        return collect($totals)
+            ->map(fn (float $time, string $source) => [
+                'source' => $source,
+                'percent' => round(100 * $time / $total, 2),
+                'title' => 'Profiler hotspot: ' . $source,
+            ])
+            ->filter(fn (array $item) => $item['percent'] >= .5)
+            ->sortByDesc('percent')
+            ->take(5)
+            ->values()
+            ->all();
+    }
+
+    private function nodeTime(array $node): float
+    {
+        return (float) ($node['time'] ?? array_sum((array) ($node['times'] ?? [])));
+    }
+
+    private function sparkSourceForNode(array $node, array $sources, array $classSources, array $methodSources): ?string
+    {
+        $class = trim((string) ($node['className'] ?? $node['class'] ?? ''));
+        if ($class === '') return null;
+
+        $method = trim((string) ($node['methodName'] ?? $node['method'] ?? ''));
+        $classes = array_unique([$class, str_replace('.', '/', $class), str_replace('/', '.', $class)]);
+        $sourceId = null;
+        foreach ($classes as $candidate) {
+            foreach ([$candidate . '#' . $method, $candidate . '::' . $method, $candidate] as $key) {
+                if ($method !== '' && isset($methodSources[$key])) {
+                    $sourceId = $methodSources[$key];
+                    break 2;
+                }
+                if (isset($classSources[$key])) {
+                    $sourceId = $classSources[$key];
+                    break 2;
+                }
+            }
+        }
+        if (!is_string($sourceId) || $sourceId === '') return null;
+
+        $metadata = $sources[$sourceId] ?? null;
+        if (is_array($metadata) && Str::contains(Str::lower((string) ($metadata['type'] ?? $metadata['kind'] ?? 'plugin')), 'mod')) return null;
+        $name = is_array($metadata)
+            ? ($metadata['name'] ?? $metadata['displayName'] ?? $metadata['id'] ?? $sourceId)
+            : (is_string($metadata) && $metadata !== '' ? $metadata : $sourceId);
+
+        return is_string($name) && $name !== '' ? $name : null;
     }
 
     private function reportFinding(string $severity, string $title, string $explanation, array $evidence, string $recommendation): array

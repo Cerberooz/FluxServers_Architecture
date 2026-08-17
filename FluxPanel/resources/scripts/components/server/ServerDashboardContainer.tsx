@@ -10,6 +10,8 @@ import getServerNodeUptime from '@/api/server/getServerNodeUptime';
 import { useActivityLogs } from '@/api/server/activity';
 import { bytesToString, ip, mbToBytes } from '@/lib/formatters';
 import UptimeDuration from '@/components/server/UptimeDuration';
+import useSWR from 'swr';
+import getRuntimeMetadata from '@/api/server/getRuntimeMetadata';
 
 type Timer = ReturnType<typeof setInterval>;
 
@@ -33,6 +35,7 @@ const ServerDashboard = ({ server }: { server: Server }) => {
     const status = ServerContext.useStoreState((state) => state.status.value);
     const [stats, setStats] = useState<ServerStats | null>(null);
     const [nodeUptime, setNodeUptime] = useState<number | null>(null);
+    const { data: runtime } = useSWR(['server-runtime-metadata', server.uuid], () => getRuntimeMetadata(server.uuid));
     const interval = useRef<Timer>(null) as React.MutableRefObject<Timer>;
     const { data: activity, isValidating: isActivityLoading } = useActivityLogs(
         { page: 1, perPage: 3, sorts: { timestamp: -1 } },
@@ -56,10 +59,12 @@ const ServerDashboard = ({ server }: { server: Server }) => {
         return primary ? `${primary.alias || ip(primary.ip)}:${primary.port}` : 'Not assigned';
     }, [server.allocations]);
     const state = stats?.status || status || 'offline';
-    const online = state === 'running';
-    const stateLabel = state.charAt(0).toUpperCase() + state.slice(1);
-    const softwareVersion = server.variables.find((item) => item.envVariable === 'MINECRAFT_VERSION')?.serverValue;
-    const software = `${server.eggName}${softwareVersion && softwareVersion !== 'latest' ? ` ${softwareVersion}` : ''}`;
+    // Wings leaves Velocity processes in "starting". A detected Velocity
+    // process is online, but is intentionally not shown as Minecraft/Paper.
+    const displayedState = runtime?.software === 'Velocity' && state === 'starting' ? 'running' : state;
+    const online = displayedState === 'running';
+    const stateLabel = displayedState.charAt(0).toUpperCase() + displayedState.slice(1);
+    const software = runtime?.minecraftVersion && runtime.software ? `Minecraft ${runtime.minecraftVersion} · ${runtime.software}` : 'Unknown';
     const memoryLimit = mbToBytes(server.limits.memory);
     const diskLimit = mbToBytes(server.limits.disk);
     const memoryPercent = stats && memoryLimit ? (stats.memoryUsageInBytes / memoryLimit) * 100 : 0;

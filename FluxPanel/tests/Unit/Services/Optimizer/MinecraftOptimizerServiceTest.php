@@ -85,6 +85,36 @@ class MinecraftOptimizerServiceTest extends TestCase
         $this->assertCount(2, $summary['network']['samples']);
     }
 
+    public function testItRanksPluginSourcesFromRawSparkFramesWithoutCountingNestedFramesTwice(): void
+    {
+        $service = new MinecraftOptimizerService(
+            \Mockery::mock(DaemonFileRepository::class),
+            \Mockery::mock(DaemonCommandRepository::class),
+            \Mockery::mock(DaemonServerRepository::class),
+        );
+        $method = new \ReflectionMethod($service, 'hotspots');
+        $hotspots = $method->invoke($service, [
+            'metadata' => ['sources' => [
+                'plugin-a' => ['name' => 'Plugin A', 'type' => 'PLUGIN'],
+                'mod-b' => ['name' => 'Mod B', 'type' => 'MOD'],
+            ]],
+            'classSources' => ['com.example.PluginA' => 'plugin-a', 'com.example.ModB' => 'mod-b'],
+            'threads' => [[
+                'name' => 'Server thread', 'time' => 100,
+                'children' => [
+                    ['className' => 'com.example.PluginA', 'time' => 70, 'children' => [
+                        ['className' => 'net.minecraft.Server', 'time' => 20],
+                    ]],
+                    ['className' => 'com.example.ModB', 'time' => 30],
+                ],
+            ]],
+        ]);
+
+        $this->assertSame('Plugin A', $hotspots[0]['source']);
+        $this->assertSame(50.0, $hotspots[0]['percent']);
+        $this->assertCount(1, $hotspots);
+    }
+
     public function testItScansCommonConfigurationFilesAndOffersWhitelistedProfiles(): void
     {
         $service = new MinecraftOptimizerService(
