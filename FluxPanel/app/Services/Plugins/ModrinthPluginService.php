@@ -17,9 +17,9 @@ class ModrinthPluginService
     public function context(Server $server): array
     {
         $name = Str::lower($server->egg->name . ' ' . $server->nest->name);
-        $platform = Str::contains($name, 'folia') ? 'folia' : (Str::contains($name, 'purpur') ? 'purpur' : (Str::contains($name, 'paper') ? 'paper' : (Str::contains($name, 'spigot') ? 'spigot' : (Str::contains($name, 'bukkit') ? 'bukkit' : null))));
+        $platform = Str::contains($name, 'folia') ? 'folia' : (Str::contains($name, 'purpur') ? 'purpur' : (Str::contains($name, 'leaf') ? 'leaf' : (Str::contains($name, 'paper') ? 'paper' : (Str::contains($name, 'spigot') ? 'spigot' : (Str::contains($name, 'bukkit') ? 'bukkit' : null)))));
         $version = $this->minecraftVersion($server);
-        return ['supported' => (bool) $platform, 'platform' => $platform, 'loaders' => match ($platform) { 'paper' => ['paper', 'spigot', 'bukkit'], 'purpur' => ['purpur', 'paper', 'spigot', 'bukkit'], 'folia' => ['folia', 'paper'], 'spigot' => ['spigot', 'bukkit'], 'bukkit' => ['bukkit'], default => [] }, 'version' => $version, 'directory' => self::DIRECTORY];
+        return ['supported' => (bool) $platform, 'platform' => $platform, 'loaders' => match ($platform) { 'paper', 'leaf' => ['paper', 'spigot', 'bukkit'], 'purpur' => ['purpur', 'paper', 'spigot', 'bukkit'], 'folia' => ['folia', 'paper'], 'spigot' => ['spigot', 'bukkit'], 'bukkit' => ['bukkit'], default => [] }, 'version' => $version, 'directory' => self::DIRECTORY];
     }
 
     /**
@@ -221,7 +221,10 @@ class ModrinthPluginService
         $patterns = [
             '/\bfor\s+Minecraft\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
             '/\bMinecraft(?:\s+Server)?\s+version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
-            '/\b(?:Paper|Purpur|Pufferfish|Folia|Spigot)\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)(?:[-\s]|$)/i',
+            // Paper and its forks commonly log: "running Paper version
+            // 1.21.11-..." rather than "for Minecraft 1.21.11".
+            '/\b(?:Leaf|Paper|Purpur|Pufferfish|Folia|Spigot)\s+version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
+            '/\b(?:Leaf|Paper|Purpur|Pufferfish|Folia|Spigot)\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)(?:[-\s]|$)/i',
         ];
 
         foreach ($patterns as $pattern) {
@@ -235,7 +238,7 @@ class ModrinthPluginService
 
     private function runtimeSoftware(string $log): ?string
     {
-        if (preg_match('/(?:Loading|Running)\s+(Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i', $log, $match)) {
+        if (preg_match('/(?:Loading|Running)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i', $log, $match)) {
             return ucfirst(Str::lower($match[1]));
         }
 

@@ -391,7 +391,7 @@ class MinecraftOptimizerService
     private function rules(Server $server, ?string $version, array $configs): array
     {
         $name = Str::lower($server->egg->name . ' ' . $server->nest->name);
-        $paper = Str::contains($name, ['paper', 'pufferfish', 'purpur']);
+        $paper = Str::contains($name, ['paper', 'pufferfish', 'purpur', 'leaf']);
         $bukkit = $paper || Str::contains($name, ['spigot', 'bukkit', 'craftbukkit']);
         $rules = [];
         $properties = $configs['server.properties'] ?? '';
@@ -722,7 +722,7 @@ class MinecraftOptimizerService
         return preg_match('/([0-9]+\.[0-9]+(?:\.[0-9]+)?)/', $server->egg->name, $match) ? $match[1] : null;
     }
     private function detectJava(string $image): ?string { return preg_match('/java[^0-9]*([0-9]+)/i', $image, $match) ? $match[1] : null; }
-    private function sparkState(Server $server, array $plugins, array $mods, ?string $version): array { $builtIn = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), 'paper') && (!$version || version_compare($version, '1.21.0', '>=')); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
+    private function sparkState(Server $server, array $plugins, array $mods, ?string $version): array { $builtIn = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), ['paper', 'leaf']) && (!$version || version_compare($version, '1.21.0', '>=')); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
     private function replaceValue(string $content, string $key, string $value): string
     {
         if (str_contains($key, '.')) return $this->replaceYamlValue($content, $key, $value);
