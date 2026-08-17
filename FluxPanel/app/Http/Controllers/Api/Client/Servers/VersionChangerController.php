@@ -12,7 +12,7 @@ use Pterodactyl\Services\Servers\MinecraftVersionChangeService;
 
 class VersionChangerController extends ClientApiController
 {
-    private function authorize(Request $request, Server $server): void
+    private function authorizeVersionChange(Request $request, Server $server): void
     {
         abort_unless(
             $request->user()->can(Permission::ACTION_SETTINGS_REINSTALL, $server)
@@ -23,14 +23,14 @@ class VersionChangerController extends ClientApiController
 
     public function index(Request $request, Server $server, MinecraftVersionChangeService $service): array
     {
-        $this->authorize($request, $server);
+        $this->authorizeVersionChange($request, $server);
 
         return ['attributes' => $service->options($server)];
     }
 
     public function install(Request $request, Server $server, MinecraftVersionChangeService $service): JsonResponse
     {
-        $this->authorize($request, $server);
+        $this->authorizeVersionChange($request, $server);
         $data = $request->validate([
             'egg_id' => ['required', 'integer', 'exists:eggs,id'],
             'version' => ['nullable', 'string', 'max:64'],

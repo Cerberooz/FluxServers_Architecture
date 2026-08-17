@@ -47,7 +47,7 @@
                     {{ user.username[0]|upper }}
                 </div>
                 <div>
-                    <h3 style="margin: 0; font-size: 24px; font-family: 'Stack Sans Headline', sans-serif;">{{ user.username }}</h3>
+                    <h3 style="margin: 0; font-size: 24px; font-family: 'Inter', sans-serif;">{{ user.username }}</h3>
                     <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;">
                         <p style="margin: 0; font-size: 14px; color: var(--text-muted);">
                             <i class="fas fa-envelope" style="font-size: 12px; width: 16px; color: var(--primary);"></i> {{ user.email }}
@@ -129,7 +129,7 @@
 
         <!-- Password Change Form (Hidden by default) -->
         <div id="password-form" class="glass-card" style="display: none; padding: 30px; margin-bottom: 40px; border-radius: 24px; border: 1px solid var(--border); background: var(--surface);">
-            <h3 style="margin-top: 0; margin-bottom: 20px; font-family: 'Stack Sans Headline', sans-serif;">Change Account <span class="highlight">Password</span></h3>
+            <h3 style="margin-top: 0; margin-bottom: 20px; font-family: 'Inter', sans-serif;">Change Account <span class="highlight">Password</span></h3>
 
             {% if not user.can_change_password %}
             {# Signed in through an external provider: there is no password
@@ -170,7 +170,7 @@
 
         <!-- My Servers Section -->
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;">
-            <h2 style="font-size: 28px; font-family: 'Stack Sans Headline', sans-serif; display: flex; align-items: center; gap: 12px; margin: 0;">
+            <h2 style="font-size: 28px; font-family: 'Inter', sans-serif; display: flex; align-items: center; gap: 12px; margin: 0;">
                 <i class="fas fa-server" style="color: var(--primary);"></i> My <span class="highlight">Servers</span>
             </h2>
             <div style="display: flex; align-items: center; gap: 12px;">
@@ -201,7 +201,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
                         <div>
                             <span style="font-size: 10px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1.5px; display: block; margin-bottom: 4px;">{{ server.plan_name }}</span>
-                            <h3 style="font-size: 20px; margin: 0; font-family: 'Stack Sans Headline', sans-serif;">{{ server.pelican_server_identifier }}</h3>
+                            <h3 style="font-size: 20px; margin: 0; font-family: 'Inter', sans-serif;">{{ server.pelican_server_identifier }}</h3>
                         </div>
                         <span class="status-badge" data-id="{{ server.pelican_server_identifier }}" style="padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; 
                             {% if server.status == 'Active' %}background: rgba(16, 185, 129, 0.1); color: #10b981;
@@ -281,7 +281,7 @@
             <div style="width: 80px; height: 80px; background: var(--bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; color: var(--text-muted);">
                 <i class="fas fa-server" style="font-size: 32px; opacity: 0.5;"></i>
             </div>
-            <h3 style="font-size: 22px; margin-bottom: 12px; font-family: 'Stack Sans Headline', sans-serif;">No Servers Found</h3>
+            <h3 style="font-size: 22px; margin-bottom: 12px; font-family: 'Inter', sans-serif;">No Servers Found</h3>
             <p style="color: var(--text-muted); font-size: 15px; max-width: 400px; margin: 0 auto 30px;">
                 Your account is ready, but you haven't deployed any servers yet. Choose a plan to get started!
             </p>

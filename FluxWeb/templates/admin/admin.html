@@ -55,7 +55,7 @@
     <title>Admin Dashboard - Flux Servers</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@200..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -84,9 +84,9 @@
             --pill-bg: rgba(37, 99, 235, 0.14);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Stack Sans Headline', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
         .admin-topbar { background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border-bottom: 1px solid var(--glass-border); padding: 0 32px; height: 64px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-        .admin-topbar .brand { display: flex; align-items: center; gap: 12px; font-family: 'Stack Sans Headline', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+        .admin-topbar .brand { display: flex; align-items: center; gap: 12px; font-family: 'Inter', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
         .admin-topbar .brand i { color: var(--primary); }
         .admin-topbar .brand .badge { background: linear-gradient(135deg, var(--primary), var(--accent)); color: white; font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 700; }
         .admin-topbar .actions { display: flex; align-items: center; gap: 16px; }
@@ -94,7 +94,7 @@
         .admin-topbar .actions a:hover { color: var(--text); background: var(--surface-hover); }
         .admin-topbar .actions .btn-logout { background: rgba(255, 59, 48, 0.1); color: var(--danger); border: 1px solid rgba(255, 59, 48, 0.2); }
         .admin-main { max-width: 1400px; margin: 0 auto; padding: 32px; }
-        .admin-title { font-family: 'Stack Sans Headline', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -1px; }
+        .admin-title { font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 800; margin-bottom: 8px; letter-spacing: -1px; }
         .admin-subtitle { color: var(--text-muted); font-size: 15px; margin-bottom: 32px; }
         .tabs-bar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
         .tab-link { background: var(--surface); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); color: var(--text-muted); text-decoration: none; border-radius: 14px; padding: 12px 16px; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
@@ -107,11 +107,11 @@
         .stat-icon.blue { background: rgba(0, 122, 255, 0.1); color: var(--primary); }
         .stat-icon.purple { background: rgba(88, 86, 214, 0.1); color: var(--accent); }
         .stat-icon.green { background: rgba(52, 199, 89, 0.1); color: var(--success); }
-        .stat-info h3 { font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Stack Sans Headline', sans-serif; }
+        .stat-info h3 { font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Inter', sans-serif; }
         .stat-info p { font-size: 13px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .admin-section { background: var(--surface); backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur)); border: 1px solid var(--glass-border); border-radius: 24px; margin-bottom: 32px; overflow: hidden; }
         .section-header { padding: 24px 32px; border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; }
-        .section-header h2 { font-family: 'Stack Sans Headline', sans-serif; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 12px; color: var(--text); }
+        .section-header h2 { font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 12px; color: var(--text); }
         .section-header h2 i { color: var(--primary); font-size: 18px; }
         .admin-table-container { overflow-x: auto; }
         .admin-table { width: 100%; border-collapse: collapse; }
@@ -124,7 +124,7 @@
         .btn-warning { background: rgba(255, 149, 0, 0.1); color: var(--warning); border: 1px solid rgba(255, 149, 0, 0.2); }
         .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(15px); z-index: 1000; align-items: center; justify-content: center; }
         .modal-content { background: var(--modal-bg); border: 1px solid var(--glass-border); border-radius: 28px; width: 450px; padding: 40px; box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28); }
-        .modal-content h2 { margin-bottom: 20px; font-family: 'Stack Sans Headline', sans-serif; font-size: 24px; font-weight: 800; }
+        .modal-content h2 { margin-bottom: 20px; font-family: 'Inter', sans-serif; font-size: 24px; font-weight: 800; }
         .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 14px; margin-bottom: 15px; border-radius: 14px; border: 1px solid var(--field-border); background: var(--field-bg); color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s, background 0.2s; }
         .modal-content textarea { min-height: 96px; resize: vertical; font-family: inherit; }
         .modal-content input:focus, .modal-content select:focus, .modal-content textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-glow); background: var(--field-bg-focus); }
