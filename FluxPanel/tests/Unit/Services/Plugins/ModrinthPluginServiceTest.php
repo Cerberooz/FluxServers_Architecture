@@ -77,6 +77,21 @@ class ModrinthPluginServiceTest extends TestCase
         $this->assertSame('Paper', $method->invoke($this->service(), $log));
     }
 
+    public function testItRecognisesModernPaperAndFoliaBootstrapLogLines(): void
+    {
+        $service = $this->service();
+        $software = new \ReflectionMethod($service, 'runtimeSoftware');
+        $version = new \ReflectionMethod($service, 'runtimeMinecraftVersion');
+
+        $paper = '[ServerMain/INFO]: Loading Minecraft 1.21.8 with Paper';
+        $folia = '[ServerMain/INFO]: Loading Minecraft 1.21.4 with Folia';
+
+        $this->assertSame('Paper', $software->invoke($service, $paper));
+        $this->assertSame('1.21.8', $version->invoke($service, $paper));
+        $this->assertSame('Folia', $software->invoke($service, $folia));
+        $this->assertSame('1.21.4', $version->invoke($service, $folia));
+    }
+
     public function testItRecognisesVelocityOnlyFromAnActualStartupSignature(): void
     {
         $method = new \ReflectionMethod($this->service(), 'runtimeSoftware');

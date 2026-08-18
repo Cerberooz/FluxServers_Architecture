@@ -237,6 +237,9 @@ class ModrinthPluginService
         $patterns = [
             '/\bfor\s+Minecraft\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
             '/\bMinecraft(?:\s+Server)?\s+version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
+            // Modern Paper and Folia commonly log "Loading Minecraft 1.21.x
+            // with Paper/Folia" instead of a separate "server version" line.
+            '/\bLoading\s+Minecraft\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)(?:\s+with\s+(?:Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit))?\b/i',
             // Paper and its forks commonly log: "running Paper version
             // 1.21.11-..." rather than "for Minecraft 1.21.11".
             '/\b(?:Leaf|Paper|Purpur|Pufferfish|Folia|Spigot)\s+version\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/i',
@@ -259,6 +262,10 @@ class ModrinthPluginService
         // can occur in plugin names, stack traces, or old log entries on a Paper
         // server and used to mislabel Paper installations as Velocity.
         $patterns = [
+            // Paper/Folia 1.20.5+ emits this during bootstrap. It is a startup
+            // signature, not a broad word search, so plugin names cannot cause
+            // the server to be misidentified.
+            '/\bLoading\s+Minecraft\s+[0-9]+\.[0-9]+(?:\.[0-9]+)?\s+with\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i',
             '/\bThis\s+server\s+is\s+running\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\s+version\b/i',
             '/\[(?:bootstrap|servermain)\][^\n]*\b(?:loading|starting)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\b/i',
             '/\b(?:loading|running)\s+(Leaf|Paper|Purpur|Pufferfish|Folia|Spigot|CraftBukkit|Bukkit)\s+(?:version|[0-9])/i',
