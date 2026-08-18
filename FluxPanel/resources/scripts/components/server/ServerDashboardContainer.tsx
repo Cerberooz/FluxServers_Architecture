@@ -38,7 +38,7 @@ const ServerDashboard = ({ server }: { server: Server }) => {
     const { data: runtime } = useSWR(['server-runtime-metadata', server.uuid], () => getRuntimeMetadata(server.uuid));
     const interval = useRef<Timer>(null) as React.MutableRefObject<Timer>;
     const { data: activity, isValidating: isActivityLoading } = useActivityLogs(
-        { page: 1, perPage: 3, sorts: { timestamp: -1 } },
+        { page: 1, sorts: { timestamp: -1 } },
         { revalidateOnMount: true, revalidateOnFocus: false }
     );
 

@@ -50,6 +50,74 @@ class DaemonFileRepository extends DaemonRepository
     }
 
     /**
+     * Read only the beginning of a file without first downloading the complete
+     * file into PHP. This is intended for metadata stored in startup logs.
+     */
+    public function getContentPrefix(string $path, int $bytes = 1048576): string
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+        Assert::greaterThan($bytes, 0);
+
+        try {
+            $response = $this->getHttpClient()->get(
+                sprintf('/api/servers/%s/files/contents', $this->server->uuid),
+                [
+                    'query' => ['file' => $path],
+                    'stream' => true,
+                ]
+            );
+        } catch (ClientException|TransferException $exception) {
+            throw new DaemonConnectionException($exception);
+        }
+
+        $body = $response->getBody();
+        try {
+            return $body->read($bytes);
+        } finally {
+            $body->close();
+        }
+    }
+
+    /**
+     * Read a file as a stream while retaining only its final bytes in memory.
+     * Wings does not expose a tail/range API, so this keeps large runtime logs
+     * from exhausting Panel memory while still finding recent console output.
+     */
+    public function getContentTail(string $path, int $bytes = 1048576): string
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+        Assert::greaterThan($bytes, 0);
+
+        try {
+            $response = $this->getHttpClient()->get(
+                sprintf('/api/servers/%s/files/contents', $this->server->uuid),
+                [
+                    'query' => ['file' => $path],
+                    'stream' => true,
+                ]
+            );
+        } catch (ClientException|TransferException $exception) {
+            throw new DaemonConnectionException($exception);
+        }
+
+        $body = $response->getBody();
+        $tail = '';
+        try {
+            while (!$body->eof()) {
+                $chunk = $body->read(65536);
+                if ($chunk === '') {
+                    break;
+                }
+                $tail = substr($tail . $chunk, -$bytes);
+            }
+        } finally {
+            $body->close();
+        }
+
+        return $tail;
+    }
+
+    /**
      * Save new contents to a given file. This works for both creating and updating
      * a file.
      *

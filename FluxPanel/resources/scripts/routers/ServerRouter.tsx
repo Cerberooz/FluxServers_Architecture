@@ -79,7 +79,7 @@ export default () => {
 
     return (
         <div key={'server-router'} className={'min-h-screen bg-neutral-900 lg:flex'}>
-            <ServerNavigation baseUrl={match.url} serverName={serverName} serverMeta={serverMeta} serverId={serverId || 0} rootAdmin={rootAdmin} />
+            <ServerNavigation baseUrl={match.url} serverName={serverName} serverMeta={serverMeta} serverId={Number(serverId || 0)} rootAdmin={rootAdmin} />
             <div className={'min-w-0 flex-1 pt-16 lg:pt-0 lg:min-h-screen'}>
                 {!uuid || !id ? (
                     error ? (

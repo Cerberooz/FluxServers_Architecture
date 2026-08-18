@@ -15,6 +15,7 @@ use Pterodactyl\Models\ServerOptimizerSnapshot;
 use Pterodactyl\Repositories\Wings\DaemonCommandRepository;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
+use Pterodactyl\Services\Plugins\ModrinthPluginService;
 
 class MinecraftOptimizerService
 {
@@ -36,21 +37,27 @@ class MinecraftOptimizerService
         'pufferfish.yml',
     ];
 
-    public function __construct(private DaemonFileRepository $files, private DaemonCommandRepository $commands, private DaemonServerRepository $servers) {}
+    public function __construct(
+        private DaemonFileRepository $files,
+        private DaemonCommandRepository $commands,
+        private DaemonServerRepository $servers,
+        private ModrinthPluginService $metadata,
+    ) {}
 
     public function scan(Server $server): ServerOptimizerRun
     {
         $run = $this->createRun($server, ['type' => 'configuration_scan', 'status' => 'running', 'started_at' => now()]);
         try {
-            $implementation = $server->egg->name . ' (' . $server->nest->name . ')';
+            $runtime = $this->metadata->runtimeMetadata($server);
+            $implementation = $runtime['software'] ?? ($server->egg->name . ' (' . $server->nest->name . ')');
             $configs = [];
             foreach (self::FILES as $path) {
                 try { $configs[$path] = $this->files->setServer($server)->getContent($path, 524288); } catch (\Throwable) { }
             }
             $plugins = $this->listDirectory($server, '/plugins');
             $mods = $this->listDirectory($server, '/mods');
-            $version = $this->detectVersion($configs['server.properties'] ?? '', $server);
-            $rules = $this->rules($server, $version, $configs);
+            $version = $runtime['minecraft_version'] ?? $this->detectVersion($configs['server.properties'] ?? '', $server);
+            $rules = $this->rules($server, $version, $configs, $runtime['software'] ?? null);
             $actionable = collect($rules)->filter(fn (array $finding) => in_array($finding['severity'] ?? '', ['medium', 'high', 'critical'], true))->count();
             $reviews = collect($rules)->filter(fn (array $finding) => ($finding['severity'] ?? 'informational') !== 'informational')->count();
             $summary = [
@@ -62,7 +69,7 @@ class MinecraftOptimizerService
                 'plugins' => $plugins,
                 'mods' => $mods,
                 'files_scanned' => array_keys($configs),
-                'spark' => $this->sparkState($server, $plugins, $mods, $version),
+                'spark' => $this->sparkState($server, $plugins, $mods, $version, $runtime['software'] ?? null),
                 'server_health' => $this->configurationHealth($actionable),
                 'analysis' => $reviews
                     ? ['normal' => false, 'conclusion' => $actionable ? 'Caution' : 'Healthy', 'message' => "Configuration scan found {$reviews} optimization setting(s) worth reviewing. Apply only recommendations that suit this server's gameplay."]
@@ -156,7 +163,7 @@ class MinecraftOptimizerService
         ]);
         $command = match ($mode) {
             'lag_spikes' => 'spark profiler start --only-ticks-over 50 --timeout 120',
-            'memory' => 'spark healthreport',
+            'memory' => 'spark health --upload --memory',
             default => 'spark profiler start --timeout 60',
         };
         try {
@@ -351,7 +358,9 @@ class MinecraftOptimizerService
         $run->refresh();
 
         try {
-            $log = $this->files->setServer($server)->getContent('logs/latest.log', 524288);
+            // The report URL is recent output near the end of the log. Stream
+            // the file and retain a bounded tail so large logs remain usable.
+            $log = $this->files->setServer($server)->getContentTail('logs/latest.log', 1048576);
         } catch (\Throwable) {
             return false;
         }
@@ -443,9 +452,9 @@ class MinecraftOptimizerService
 
     }
 
-    private function rules(Server $server, ?string $version, array $configs): array
+    private function rules(Server $server, ?string $version, array $configs, ?string $runtimeSoftware = null): array
     {
-        $name = Str::lower($server->egg->name . ' ' . $server->nest->name);
+        $name = Str::lower(($runtimeSoftware ?? '') . ' ' . $server->egg->name . ' ' . $server->nest->name);
         $paper = Str::contains($name, ['paper', 'pufferfish', 'purpur', 'leaf']);
         $bukkit = $paper || Str::contains($name, ['spigot', 'bukkit', 'craftbukkit']);
         $rules = [];
@@ -839,7 +848,7 @@ class MinecraftOptimizerService
         return preg_match('/([0-9]+\.[0-9]+(?:\.[0-9]+)?)/', $server->egg->name, $match) ? $match[1] : null;
     }
     private function detectJava(string $image): ?string { return preg_match('/java[^0-9]*([0-9]+)/i', $image, $match) ? $match[1] : null; }
-    private function sparkState(Server $server, array $plugins, array $mods, ?string $version): array { $builtIn = Str::contains(Str::lower($server->egg->name . ' ' . $server->nest->name), ['paper', 'leaf']) && (!$version || version_compare($version, '1.21.0', '>=')); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
+    private function sparkState(Server $server, array $plugins, array $mods, ?string $version, ?string $runtimeSoftware = null): array { $builtIn = Str::contains(Str::lower(($runtimeSoftware ?? '') . ' ' . $server->egg->name . ' ' . $server->nest->name), ['paper', 'leaf']) && (!$version || version_compare($version, '1.21.0', '>=')); return ['available' => $builtIn || collect([...$plugins, ...$mods])->contains(fn ($name) => Str::contains(Str::lower($name), 'spark')), 'built_in' => $builtIn, 'install_supported' => !$builtIn]; }
     private function replaceValue(string $content, string $key, string $value): string
     {
         if (str_contains($key, '.')) return $this->replaceYamlValue($content, $key, $value);

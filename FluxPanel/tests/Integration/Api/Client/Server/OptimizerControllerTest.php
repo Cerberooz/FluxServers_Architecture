@@ -64,4 +64,30 @@ class OptimizerControllerTest extends ClientApiIntegrationTestCase
 
         $this->assertNotNull($run->fresh()->read_at);
     }
+
+    public function testOwnerCanIgnoreAConfigurationFindingBoundThroughItsRun(): void
+    {
+        [$user, $server] = $this->generateTestAccount();
+        $run = $server->optimizerRuns()->create([
+            'type' => 'configuration_scan',
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
+        ]);
+        $finding = $run->findings()->create([
+            'rule_id' => 'view-distance',
+            'severity' => 'medium',
+            'title' => 'High view distance',
+            'explanation' => 'Test finding.',
+            'gameplay_change' => true,
+            'restart_required' => true,
+            'evidence' => ['observed' => '16'],
+            'recommendation' => ['file' => 'server.properties', 'key' => 'view-distance', 'value' => 8],
+        ]);
+
+        $this->actingAs($user)->postJson($this->link($server, "/optimizer/findings/{$finding->id}/ignore"))
+            ->assertNoContent();
+
+        $this->assertTrue($finding->fresh()->ignored);
+    }
 }

@@ -7,6 +7,7 @@ use Pterodactyl\Repositories\Wings\DaemonCommandRepository;
 use Pterodactyl\Repositories\Wings\DaemonFileRepository;
 use Pterodactyl\Repositories\Wings\DaemonServerRepository;
 use Pterodactyl\Services\Optimizer\MinecraftOptimizerService;
+use Pterodactyl\Services\Plugins\ModrinthPluginService;
 use Pterodactyl\Tests\TestCase;
 
 class MinecraftOptimizerServiceTest extends TestCase
@@ -17,6 +18,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'reportId');
 
@@ -31,6 +33,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'summarizeReport');
         $summary = $method->invoke($service, [
@@ -56,6 +59,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'summarizeReport');
         $summary = $method->invoke($service, ['type' => 'health', 'metadata' => []], 'abc123', [
@@ -71,6 +75,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'summarizeReport');
         $summary = $method->invoke($service, ['type' => 'health', 'metadata' => []], 'abc123', [], [
@@ -91,6 +96,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'hotspots');
         $hotspots = $method->invoke($service, [
@@ -121,6 +127,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $server = new \Pterodactyl\Models\Server();
         $server->setRelation('egg', new \Pterodactyl\Models\Egg(['name' => 'Paper']));
@@ -148,6 +155,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'replaceValue');
 
@@ -162,6 +170,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $method = new \ReflectionMethod($service, 'replaceValue');
 
@@ -176,6 +185,7 @@ class MinecraftOptimizerServiceTest extends TestCase
             \Mockery::mock(DaemonFileRepository::class),
             \Mockery::mock(DaemonCommandRepository::class),
             \Mockery::mock(DaemonServerRepository::class),
+            \Mockery::mock(ModrinthPluginService::class),
         );
         $server = new \Pterodactyl\Models\Server();
         $server->setRelation('egg', new \Pterodactyl\Models\Egg(['name' => 'Paper']));

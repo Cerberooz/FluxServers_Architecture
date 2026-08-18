@@ -23,7 +23,7 @@ class ModrinthPluginService
         $platform = $runtime['software']
             ? $this->pluginPlatformForSoftware($runtime['software'])
             : (Str::contains($name, 'folia') ? 'folia' : (Str::contains($name, 'purpur') ? 'purpur' : (Str::contains($name, 'leaf') ? 'leaf' : (Str::contains($name, 'paper') ? 'paper' : (Str::contains($name, 'spigot') ? 'spigot' : (Str::contains($name, 'bukkit') ? 'bukkit' : null))))));
-        $version = $this->minecraftVersion($server);
+        $version = $runtime['minecraft_version'] ?? null;
         return ['supported' => (bool) $platform, 'platform' => $platform, 'loaders' => match ($platform) { 'paper', 'leaf' => ['paper', 'spigot', 'bukkit'], 'purpur' => ['purpur', 'paper', 'spigot', 'bukkit'], 'folia' => ['folia', 'paper'], 'spigot' => ['spigot', 'bukkit'], 'bukkit' => ['bukkit'], default => [] }, 'version' => $version, 'directory' => self::DIRECTORY];
     }
 
@@ -36,8 +36,8 @@ class ModrinthPluginService
     {
         // Bump this key whenever parsing rules change so a previous, incorrect
         // classification cannot remain visible for the old cache lifetime.
-        $cacheKey = "server-runtime-metadata:v2:{$server->id}";
-        $cached = Cache::get($cacheKey);
+        $cacheKey = "server-runtime-metadata:v3:{$server->id}";
+        $cached = $server->getKey() ? Cache::get($cacheKey) : null;
         if (is_array($cached) && !empty($cached['minecraft_version'])) {
             return $cached;
         }
@@ -47,7 +47,9 @@ class ModrinthPluginService
         // slash, while some installations kept the historic leading slash.
         foreach (['logs/latest.log', '/logs/latest.log'] as $path) {
             try {
-                $log = $this->files->setServer($server)->getContent($path, 524288);
+                // Startup metadata is near the beginning of latest.log. Stream
+                // only that prefix so logs larger than 512 KiB still work.
+                $log = $this->files->setServer($server)->getContentPrefix($path, 1048576);
                 if ($log !== '') {
                     break;
                 }
@@ -56,14 +58,17 @@ class ModrinthPluginService
             }
         }
 
+        $runtimeVersion = $this->runtimeMinecraftVersion($log);
+        $runtimeSoftware = $this->runtimeSoftware($log);
         $metadata = [
-            'minecraft_version' => $this->runtimeMinecraftVersion($log),
-            'software' => $this->runtimeSoftware($log),
+            'minecraft_version' => $runtimeVersion ?? $this->configuredMinecraftVersion($server),
+            'software' => $runtimeSoftware ?? $this->configuredSoftware($server),
+            'source' => $runtimeVersion || $runtimeSoftware ? 'runtime_log' : 'configuration',
         ];
 
         // Do not cache a failed read: a starting server writes this information
         // moments later and the next request should immediately see it.
-        if ($metadata['minecraft_version']) {
+        if ($server->getKey() && $runtimeVersion && $runtimeSoftware) {
             Cache::put($cacheKey, $metadata, now()->addMinutes(5));
         }
 
@@ -80,7 +85,7 @@ class ModrinthPluginService
         // can still find Bukkit and Spigot plugins where appropriate.
         $facets = json_encode([
             ['project_type:plugin'],
-            ['server_side:required'],
+            ['server_side:required', 'server_side:optional'],
             ["versions:{$context['version']}"],
             array_map(fn (string $loader) => "categories:{$loader}", $context['loaders']),
         ]);
@@ -213,20 +218,31 @@ class ModrinthPluginService
     public function downloadUrl(Server $server, string $projectId): string { $release = $this->resolveCompatibleVersion($this->projectId($projectId), $this->context($server), false) ?? throw new DisplayException('No downloadable release was found.'); return $this->primaryFile($release)['url']; }
     public function dependenciesFor(Server $server, string $projectId): array { $release = $this->resolveCompatibleVersion($this->projectId($projectId), $this->context($server)) ?? throw new DisplayException('No compatible release is available.'); return $this->dependencies($release, $this->context($server)); }
 
-    private function resolveCompatibleVersion(string $projectId, array $context, bool $compatible = true): ?array { $query = $compatible ? ['loaders' => json_encode($context['loaders']), 'game_versions' => json_encode([$context['version']]), 'featured' => 'true', 'include_changelog' => 'false'] : ['include_changelog' => 'false']; $versions = $this->api("project/{$projectId}/version", $query); return collect($versions)->first(fn ($version) => !empty($version['files'])); }
-    private function minecraftVersion(Server $server): ?string
+    private function resolveCompatibleVersion(string $projectId, array $context, bool $compatible = true): ?array { $query = $compatible ? ['loaders' => json_encode($context['loaders']), 'game_versions' => json_encode([$context['version']]), 'include_changelog' => 'false'] : ['include_changelog' => 'false']; $versions = $this->api("project/{$projectId}/version", $query); return collect($versions)->first(fn ($version) => !empty($version['files'])); }
+    private function configuredMinecraftVersion(Server $server): ?string
     {
-        $runtime = $this->runtimeMetadata($server);
-        if ($runtime['minecraft_version']) return $runtime['minecraft_version'];
 
         // EggVariable is joined directly onto Server::variables. Check its
         // human label *and* environment key because community eggs use names
         // such as VERSION, MC_VERSION, or MINECRAFT_VERSION interchangeably.
         foreach ($server->variables as $variable) {
-            $label = implode(' ', [$variable->name ?? '', $variable->env_variable ?? '', $variable->description ?? '']);
             $value = $variable->server_value ?? $variable->default_value ?? '';
-            if (preg_match('/(?:minecraft|mc)[\s_-]*version|^version$/i', $label)
-                && preg_match('/(\d+\.\d+(?:\.\d+)?)/', $value, $match)) return $match[1];
+            $labels = [$variable->name ?? '', $variable->env_variable ?? ''];
+            $isVersion = collect($labels)->contains(fn (string $label) => (bool) preg_match('/^(?:version|(?:minecraft|mc|server|paper|purpur|folia)[\s_-]*version)$/i', trim($label)));
+            if ($isVersion && preg_match('/(\d+\.\d+(?:\.\d+)?)/', $value, $match)) return $match[1];
+        }
+
+        return preg_match('/(\d+\.\d+(?:\.\d+)?)/', $server->egg->name ?? '', $match) ? $match[1] : null;
+    }
+
+    private function configuredSoftware(Server $server): ?string
+    {
+        $name = Str::lower(($server->egg->name ?? '') . ' ' . ($server->nest->name ?? ''));
+
+        foreach (['Folia', 'Purpur', 'Pufferfish', 'Leaf', 'Paper', 'Spigot', 'CraftBukkit', 'Bukkit', 'Velocity', 'Waterfall', 'BungeeCord'] as $software) {
+            if (Str::contains($name, Str::lower($software))) {
+                return $software;
+            }
         }
 
         return null;

@@ -11,6 +11,9 @@ use Pterodactyl\Models\Subuser;
 use Pterodactyl\Models\Database;
 use Pterodactyl\Models\Schedule;
 use Pterodactyl\Models\Allocation;
+use Pterodactyl\Models\ServerOptimizerRun;
+use Pterodactyl\Models\ServerOptimizerFinding;
+use Pterodactyl\Models\ServerOptimizerSnapshot;
 use Illuminate\Database\Eloquent\Model;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -51,7 +54,14 @@ class ResourceBelongsToServer
                 case Database::class:
                 case Schedule::class:
                 case Subuser::class:
+                case ServerOptimizerRun::class:
+                case ServerOptimizerSnapshot::class:
                     if ($model->server_id !== $server->id) {
+                        throw $exception;
+                    }
+                    break;
+                case ServerOptimizerFinding::class:
+                    if (!$model->run()->where('server_id', $server->id)->exists()) {
                         throw $exception;
                     }
                     break;

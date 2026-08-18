@@ -45,6 +45,7 @@ type Run = {
     flagged_at?: string;
     read_at?: string;
     created_at?: string;
+    updated_at?: string;
     completed_at?: string;
     error?: string;
     summary?: Summary;

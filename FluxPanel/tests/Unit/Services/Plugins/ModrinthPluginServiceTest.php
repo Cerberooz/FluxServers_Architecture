@@ -3,6 +3,7 @@
 namespace Pterodactyl\Tests\Unit\Services\Plugins;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
 use Pterodactyl\Exceptions\DisplayException;
 use Pterodactyl\Models\Egg;
 use Pterodactyl\Models\EggVariable;
@@ -90,6 +91,67 @@ class ModrinthPluginServiceTest extends TestCase
         $this->assertSame('1.21.8', $version->invoke($service, $paper));
         $this->assertSame('Folia', $software->invoke($service, $folia));
         $this->assertSame('1.21.4', $version->invoke($service, $folia));
+    }
+
+    public function testRuntimeMetadataStreamsTheStartupLogPrefix(): void
+    {
+        $files = \Mockery::mock(DaemonFileRepository::class);
+        $files->expects('setServer')->andReturnSelf();
+        $files->expects('getContentPrefix')
+            ->with('logs/latest.log', 1048576)
+            ->andReturn('[ServerMain/INFO]: Loading Minecraft 1.21.8 with Paper');
+        $service = new ModrinthPluginService($files);
+        $server = new Server();
+        $server->forceFill(['id' => 987654]);
+        $server->setRelation('egg', new Egg(['name' => 'Minecraft Java']));
+        $server->setRelation('nest', new Nest(['name' => 'Minecraft']));
+        $server->setRelation('variables', new Collection());
+
+        $metadata = $service->runtimeMetadata($server);
+
+        $this->assertSame('1.21.8', $metadata['minecraft_version']);
+        $this->assertSame('Paper', $metadata['software']);
+        $this->assertSame('runtime_log', $metadata['source']);
+    }
+
+    public function testRuntimeMetadataFallsBackToConcreteEggConfiguration(): void
+    {
+        $files = \Mockery::mock(DaemonFileRepository::class);
+        $files->allows('setServer')->andReturnSelf();
+        $files->allows('getContentPrefix')->andThrow(new \RuntimeException('latest.log unavailable'));
+        $service = new ModrinthPluginService($files);
+        $server = new Server();
+        $server->setRelation('egg', new Egg(['name' => 'Purpur 1.21.4']));
+        $server->setRelation('nest', new Nest(['name' => 'Minecraft']));
+        $server->setRelation('variables', new Collection());
+
+        $metadata = $service->runtimeMetadata($server);
+
+        $this->assertSame('1.21.4', $metadata['minecraft_version']);
+        $this->assertSame('Purpur', $metadata['software']);
+        $this->assertSame('configuration', $metadata['source']);
+    }
+
+    public function testCompatibleReleaseDoesNotHaveToBeFeatured(): void
+    {
+        Http::fake([
+            'api.modrinth.com/*' => Http::response([[
+                'id' => 'version-id',
+                'project_id' => 'project-id',
+                'featured' => false,
+                'files' => [['filename' => 'plugin.jar']],
+            ]]),
+        ]);
+        $service = $this->service();
+        $method = new \ReflectionMethod($service, 'resolveCompatibleVersion');
+
+        $release = $method->invoke($service, 'project-id', [
+            'loaders' => ['paper', 'spigot', 'bukkit'],
+            'version' => '1.21.4',
+        ]);
+
+        $this->assertSame('version-id', $release['id']);
+        Http::assertSent(fn ($request) => !str_contains($request->url(), 'featured='));
     }
 
     public function testItRecognisesVelocityOnlyFromAnActualStartupSignature(): void

@@ -112,7 +112,7 @@ const RegisterContainer = () => {
                 nameLast: string().required('A last name must be provided.'),
                 password: string().min(8, 'Password must be at least 8 characters.').required('A password is required.'),
                 passwordConfirmation: string()
-                    .oneOf([yupRef('password'), null], 'Passwords do not match.')
+                    .oneOf([yupRef('password')], 'Passwords do not match.')
                     .required('Please confirm your password.'),
             })}
         >

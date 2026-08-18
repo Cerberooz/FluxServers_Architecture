@@ -152,6 +152,6 @@ const InstallModal = ({ selection, onDismiss, onInstall }: { selection: Selectio
             <input type={'checkbox'} checked={wipe} onChange={(event) => setWipe(event.target.checked)} css={tw`mt-1`} />
             <span><span css={tw`block text-sm font-medium text-neutral-100`}>Wipe server files before installing</span><span css={tw`mt-1 block text-xs text-neutral-400`}>Deletes existing server files before installation. This cannot be undone.</span></span>
         </label>
-        <div css={tw`mt-6 flex justify-end gap-3`}><Button color={'grey'} onClick={onDismiss}>Cancel</Button><Button color={'primary'} isLoading={submitting} disabled={submitting || (candidate.version_variable && !version.trim())} onClick={install}>Install</Button></div>
+        <div css={tw`mt-6 flex justify-end gap-3`}><Button color={'grey'} onClick={onDismiss}>Cancel</Button><Button color={'primary'} isLoading={submitting} disabled={submitting || Boolean(candidate.version_variable && !version.trim())} onClick={install}>Install</Button></div>
     </Modal>;
 };
