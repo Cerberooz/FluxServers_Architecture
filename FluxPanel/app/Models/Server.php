@@ -285,6 +285,36 @@ class Server extends Model implements Identifiable
         return $this->hasMany(ServerOptimizerRun::class);
     }
 
+    /**
+     * Route-binding aliases for Optimizer resources nested below a server.
+     *
+     * Laravel resolves `{finding}`, `{run}`, and `{snapshot}` as scoped child
+     * bindings when they appear after `{server}` in the client API. Keep these
+     * relations in addition to the descriptive optimizerRuns() relation so
+     * only resources belonging to the requested server can be resolved.
+     */
+    public function findings(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            ServerOptimizerFinding::class,
+            ServerOptimizerRun::class,
+            'server_id',
+            'run_id',
+            'id',
+            'id',
+        );
+    }
+
+    public function runs(): HasMany
+    {
+        return $this->hasMany(ServerOptimizerRun::class);
+    }
+
+    public function snapshots(): HasMany
+    {
+        return $this->hasMany(ServerOptimizerSnapshot::class);
+    }
+
     public function managedPlugins(): HasMany
     {
         return $this->hasMany(ServerManagedPlugin::class);
