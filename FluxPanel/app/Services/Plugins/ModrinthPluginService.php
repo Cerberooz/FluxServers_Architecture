@@ -75,15 +75,25 @@ class ModrinthPluginService
         return $metadata;
     }
 
-    public function search(Server $server, string $query): array
+    public function search(Server $server, string $query, int $page = 1): array
     {
         $context = $this->context($server);
-        if (!$context['supported'] || !$context['version']) return ['context' => $context, 'projects' => []];
+        $page = max(1, $page);
+        $perPage = 12;
+        if (!$context['supported'] || !$context['version']) return ['context' => $context, 'projects' => [], 'pagination' => ['current_page' => $page, 'total_pages' => 1, 'total' => 0, 'per_page' => $perPage]];
         // The search index can filter plugins by their Bukkit-family loader. This
         // keeps Fabric/Forge/NeoForge mods out of the Plugin Manager entirely.
         // Loader facets in the same group are ORed by Modrinth, so a Paper server
         // can still find Bukkit and Spigot plugins where appropriate.
-        $facets = json_encode([
+        $serverEnvironments = [
+            'environment:server_only',
+            'environment:server_only_client_optional',
+            'environment:dedicated_server_only',
+            'environment:client_and_server',
+            'environment:client_or_server',
+            'environment:client_or_server_prefers_both',
+        ];
+        $strictFacets = json_encode([
             // Modrinth's search `project_type` represents a project's primary
             // type and does not accept `plugin`. `all_project_types` is the
             // documented facet that includes Bukkit/Paper plugins.
@@ -91,11 +101,13 @@ class ModrinthPluginService
             // `server_side` is deprecated by Modrinth. Use the current
             // environment facet so dedicated and optional-server plugins are
             // discoverable without accidentally returning client-only mods.
-            ['environment:server_only', 'environment:server_only_client_optional', 'environment:dedicated_server_only', 'environment:client_and_server', 'environment:client_or_server', 'environment:client_or_server_prefers_both'],
+            $serverEnvironments,
             ["versions:{$context['version']}"],
             array_map(fn (string $loader) => "categories:{$loader}", $context['loaders']),
         ]);
-        $parameters = ['facets' => $facets, 'limit' => 12];
+        // Fetch enough candidates for a compact, panel-side page while keeping
+        // the number of Modrinth calls fixed at one or two per search.
+        $parameters = ['facets' => $strictFacets, 'limit' => 60];
         $query = trim($query);
         if ($query === '') {
             // The Discover tab opens with the most-downloaded compatible plugins,
@@ -104,20 +116,49 @@ class ModrinthPluginService
         } else {
             $parameters['query'] = $query;
         }
-        $data = $this->api('search', $parameters);
+        $strict = $this->api('search', $parameters);
+
+        // Metadata on older, still-usable Bukkit releases is often incomplete:
+        // authors may omit a loader, an environment, or the exact patch release.
+        // Fall back to a wider *plugin-only* search so those projects remain
+        // discoverable. Installation still resolves and verifies a release for
+        // this server's exact version before any JAR is written.
+        $hits = collect($strict['hits'] ?? []);
+        if ($hits->count() < 12) {
+            $fallbackParameters = ['facets' => json_encode([
+                ['all_project_types:plugin'],
+                $serverEnvironments,
+            ]), 'limit' => 60];
+            if ($query === '') {
+                $fallbackParameters['index'] = 'downloads';
+            } else {
+                $fallbackParameters['query'] = $query;
+            }
+            $hits = $hits->concat($this->api('search', $fallbackParameters)['hits'] ?? []);
+        }
 
         // Do not resolve a release for every hit here. That used to add one
         // sequential HTTP request per result and made typing a search feel slow.
         // Install/download still resolve the exact release server-side, so this
         // remains safe if Modrinth's search index is briefly stale.
-        $projects = collect($data['hits'] ?? [])
+        $projects = $hits
+            ->unique('project_id')
             ->filter(fn (array $project) => in_array('plugin', $project['all_project_types'] ?? [], true))
             ->filter(function (array $project) use ($context) {
                 $categories = array_map('strtolower', $project['categories'] ?? []);
+                // Projects carrying only a mod-loader tag are not Bukkit
+                // plugins, even when a project happens to contain mixed
+                // releases. Keep the installer focused on plugin JARs.
+                $modLoaders = ['fabric', 'forge', 'neoforge', 'quilt', 'rift', 'liteloader'];
 
-                return !empty(array_intersect($context['loaders'], $categories));
+                return empty(array_intersect($modLoaders, $categories))
+                    || !empty(array_intersect($context['loaders'], $categories));
             })
-            ->map(fn (array $project) => [
+            ->map(function (array $project) use ($context) {
+                $categories = array_map('strtolower', $project['categories'] ?? []);
+                $labelledForPlatform = !empty(array_intersect($context['loaders'], $categories));
+
+                return [
                 'id' => $project['project_id'],
                 'name' => $project['title'],
                 'author' => $project['author'],
@@ -126,13 +167,31 @@ class ModrinthPluginService
                 'downloads' => $project['downloads'] ?? 0,
                 'versions' => $project['versions'] ?? [],
                 'platforms' => $project['categories'] ?? [],
+                // An unlabelled Bukkit plugin is still worth showing. The
+                // exact Modrinth release endpoint is authoritative at install
+                // time and rejects incompatible files before download.
                 'compatible' => true,
-                'reason' => null,
+                'reason' => $labelledForPlatform ? null : 'Compatibility will be verified before installation.',
                 'version' => null,
-            ])
+                ];
+            })
             ->values()
-            ->all();
-        return compact('context', 'projects');
+            ;
+
+        $total = $projects->count();
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        $page = min($page, $totalPages);
+
+        return [
+            'context' => $context,
+            'projects' => $projects->forPage($page, $perPage)->values()->all(),
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total' => $total,
+                'per_page' => $perPage,
+            ],
+        ];
     }
 
     public function installed(Server $server): array

@@ -11,6 +11,7 @@ type Version = { id: string; version_number: string };
 type Project = { id: string; name: string; author: string; description: string; icon?: string; downloads: number; platforms: string[]; compatible: boolean; reason?: string; version?: Version };
 type Installed = { filename: string; name: string; status: string; disabled: boolean; project_id?: string; version_id?: string; latest?: Version; update_available: boolean };
 type Dependency = { type: string; project_id?: string; version_id?: string; resolved?: Version };
+type Pagination = { current_page: number; total_pages: number; total: number; per_page: number };
 
 export default () => {
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
@@ -21,6 +22,7 @@ export default () => {
     const [tab, setTab] = useState<'discover' | 'installed'>('installed');
     const [query, setQuery] = useState('');
     const [projects, setProjects] = useState<Project[]>([]);
+    const [pagination, setPagination] = useState<Pagination>();
     const [searching, setSearching] = useState(false);
     const [installed, setInstalled] = useState<Installed[]>();
     const [context, setContext] = useState<{ supported: boolean; platform?: string; version?: string }>();
@@ -29,15 +31,16 @@ export default () => {
     const searchRequest = useRef(0);
     const flashError = useRef(clearAndAddHttpError);
     flashError.current = clearAndAddHttpError;
-    const discover = useCallback((term: string) => {
+    const discover = useCallback((term: string, page = 1) => {
         const request = ++searchRequest.current;
         setSearching(true);
 
-        return http.get(`/api/client/servers/${uuid}/plugins/search`, { params: { query: term } })
+        return http.get(`/api/client/servers/${uuid}/plugins/search`, { params: { query: term, page } })
             .then(({ data }) => {
                 if (request !== searchRequest.current) return;
                 setProjects(data.projects);
                 setContext(data.context);
+                setPagination(data.pagination);
             })
             .catch((error) => {
                 if (request === searchRequest.current) flashError.current(error);
@@ -50,7 +53,7 @@ export default () => {
     useEffect(() => { scanInstalled(); }, []);
     useEffect(() => {
         const term = query.trim();
-        const timeout = window.setTimeout(() => discover(term), 350);
+        const timeout = window.setTimeout(() => discover(term, 1), 350);
 
         return () => window.clearTimeout(timeout);
     }, [query, discover]);
@@ -63,8 +66,8 @@ export default () => {
         <p css={tw`mb-5 text-sm text-neutral-300`}>Discover Modrinth plugins and manage the actual JAR files in this server&apos;s plugins directory. Changes require a server restart.</p>
         <div css={tw`mb-6 flex gap-3 border-b border-neutral-700`}><button className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === 'discover' ? 'border-blue-500 text-neutral-100' : 'border-transparent text-neutral-400'}`} onClick={() => setTab('discover')}>Discover</button><button className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === 'installed' ? 'border-blue-500 text-neutral-100' : 'border-transparent text-neutral-400'}`} onClick={() => setTab('installed')}>Installed</button></div>
         {!context ? <Spinner size={'large'} centered /> : !context.supported ? <div css={tw`rounded border border-yellow-700 bg-neutral-800 p-4 text-sm text-yellow-200`}>Plugin Manager currently supports Bukkit-family servers only (Paper, Purpur, Spigot, Bukkit, and Folia).</div> : !context.version ? <div css={tw`rounded border border-yellow-700 bg-neutral-800 p-4 text-sm text-yellow-200`}>Fluid could not determine this server&apos;s Minecraft version from its runtime log, so it cannot safely install a plugin.</div> : tab === 'discover' ? <>
-            <div css={tw`mb-6 flex flex-col gap-3 sm:flex-row`}><input css={tw`flex-1 rounded border border-neutral-600 bg-neutral-900 px-3 py-2 text-neutral-100`} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && discover(query.trim())} placeholder={'Search Bukkit, Paper, Purpur, Spigot, or Folia plugins'} /><Button color={'primary'} onClick={() => discover(query.trim())}>Search</Button></div>
-            {searching ? <Spinner size={'large'} centered /> : <div css={tw`space-y-3`}>{projects.map((project) => <div key={project.id} css={tw`flex flex-col gap-4 rounded-lg border border-neutral-700 bg-neutral-800 p-4 sm:flex-row`}><div css={tw`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-neutral-700 text-lg font-bold text-neutral-300`}>{project.icon ? <img src={project.icon} alt={''} css={tw`h-12 w-12 rounded object-cover`} /> : project.name.slice(0, 1)}</div><div css={tw`min-w-0 flex-1`}><p css={tw`font-semibold text-neutral-100`}>{project.name} <span css={tw`text-xs font-normal text-neutral-400`}>by {project.author}</span></p><p css={tw`mt-1 text-sm text-neutral-300`}>{project.description}</p><p css={tw`mt-2 text-xs text-neutral-400`}>{project.compatible ? `Compatible with ${context.platform} ${context.version}${project.version ? ` - ${project.version.version_number}` : ''}` : project.reason}</p></div><div css={tw`flex flex-shrink-0 items-center gap-2 self-start sm:self-center`}><a css={tw`inline-flex h-9 items-center rounded border border-neutral-600 bg-neutral-700 px-3 text-xs font-semibold text-neutral-50 no-underline transition-colors hover:bg-neutral-600`} href={`/api/client/servers/${uuid}/plugins/projects/${project.id}/download`} target={'_blank'} rel={'noreferrer'}>Download</a><Button size={'xsmall'} color={'primary'} disabled={!project.compatible} onClick={() => installPrompt(project)}>Install</Button></div></div>)}{!projects.length && <p css={tw`py-8 text-center text-sm text-neutral-400`}>{query.trim() ? 'No compatible server plugins found.' : 'No compatible plugins are currently available from Modrinth.'}</p>}</div>}
+            <div css={tw`mb-6 flex flex-col gap-3 sm:flex-row`}><input css={tw`flex-1 rounded border border-neutral-600 bg-neutral-900 px-3 py-2 text-neutral-100`} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && discover(query.trim(), 1)} placeholder={'Search Bukkit, Paper, Purpur, Spigot, or Folia plugins'} /><Button color={'primary'} onClick={() => discover(query.trim(), 1)}>Search</Button></div>
+            {searching ? <Spinner size={'large'} centered /> : <div css={tw`space-y-3`}>{projects.map((project) => <div key={project.id} css={tw`flex flex-col gap-4 rounded-lg border border-neutral-700 bg-neutral-800 p-4 sm:flex-row`}><div css={tw`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded bg-neutral-700 text-lg font-bold text-neutral-300`}>{project.icon ? <img src={project.icon} alt={''} css={tw`h-12 w-12 rounded object-cover`} /> : project.name.slice(0, 1)}</div><div css={tw`min-w-0 flex-1`}><p css={tw`font-semibold text-neutral-100`}>{project.name} <span css={tw`text-xs font-normal text-neutral-400`}>by {project.author}</span></p><p css={tw`mt-1 text-sm text-neutral-300`}>{project.description}</p><p css={tw`mt-2 text-xs text-neutral-400`}>{project.compatible ? `Compatible with ${context.platform} ${context.version}${project.version ? ` - ${project.version.version_number}` : ''}` : project.reason}</p></div><div css={tw`flex flex-shrink-0 items-center gap-2 self-start sm:self-center`}><a css={tw`inline-flex h-9 items-center rounded border border-neutral-600 bg-neutral-700 px-3 text-xs font-semibold text-neutral-50 no-underline transition-colors hover:bg-neutral-600`} href={`/api/client/servers/${uuid}/plugins/projects/${project.id}/download`} target={'_blank'} rel={'noreferrer'}>Download</a><Button size={'xsmall'} color={'primary'} disabled={!project.compatible} onClick={() => installPrompt(project)}>Install</Button></div></div>)}{!projects.length && <p css={tw`py-8 text-center text-sm text-neutral-400`}>{query.trim() ? 'No compatible server plugins found.' : 'No compatible plugins are currently available from Modrinth.'}</p>}{pagination && pagination.total_pages > 1 && <div css={tw`flex items-center justify-end gap-3 pt-2 text-sm text-neutral-400`}><Button size={'xsmall'} color={'grey'} disabled={pagination.current_page <= 1} onClick={() => discover(query.trim(), pagination.current_page - 1)}>Previous</Button><span>Page {pagination.current_page} of {pagination.total_pages}</span><Button size={'xsmall'} color={'grey'} disabled={pagination.current_page >= pagination.total_pages} onClick={() => discover(query.trim(), pagination.current_page + 1)}>Next</Button></div>}</div>}
         </> : <>
             {!installed ? <Spinner size={'large'} centered /> : <div css={tw`space-y-3`}>{installed.map((plugin) => <div key={plugin.filename} className={`flex flex-col justify-between gap-3 rounded-lg border border-neutral-700 bg-neutral-800 p-4 sm:flex-row sm:items-center ${plugin.disabled ? 'opacity-55' : ''}`}><div><p css={tw`font-semibold text-neutral-100`}>{plugin.name}</p><p css={tw`mt-1 text-xs text-neutral-400`}>{plugin.filename} - {plugin.status}{plugin.update_available ? ' - update available' : ''}</p></div><div css={tw`flex flex-wrap gap-2`}><Button size={'xsmall'} color={'grey'} onClick={() => toggle(plugin)}>{plugin.disabled ? 'Enable' : 'Disable'}</Button>{plugin.update_available && plugin.project_id && <Button size={'xsmall'} color={'primary'} onClick={() => installPrompt({ id: plugin.project_id!, name: plugin.name, author: '', description: '', downloads: 0, platforms: [], compatible: true }, plugin.filename)}>Update</Button>}<Button size={'xsmall'} color={'red'} onClick={() => remove(plugin)}>Remove</Button></div></div>)}{!installed.length && <p css={tw`text-sm text-neutral-400`}>No plugin JAR files were found in /plugins.</p>}</div>}
         </>}

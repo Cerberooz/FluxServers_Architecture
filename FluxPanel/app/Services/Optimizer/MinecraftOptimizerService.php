@@ -60,7 +60,7 @@ class MinecraftOptimizerService
             $rules = $this->rules($server, $version, $configs, $runtime['software'] ?? null);
             $actionable = collect($rules)->filter(fn (array $finding) => in_array($finding['severity'] ?? '', ['medium', 'high', 'critical'], true))->count();
             $reviews = collect($rules)->filter(fn (array $finding) => ($finding['severity'] ?? 'informational') !== 'informational')->count();
-            $summary = [
+            $summary = $this->jsonSafe([
                 'implementation' => $implementation,
                 'minecraft_version' => $version,
                 'java' => $this->detectJava($server->image),
@@ -74,11 +74,25 @@ class MinecraftOptimizerService
                 'analysis' => $reviews
                     ? ['normal' => false, 'conclusion' => $actionable ? 'Caution' : 'Healthy', 'message' => "Configuration scan found {$reviews} optimization setting(s) worth reviewing. Apply only recommendations that suit this server's gameplay."]
                     : ['normal' => true, 'conclusion' => 'Very Healthy', 'message' => 'Configuration scan completed normally. No performance-impacting settings were found in the checked files.'],
-            ];
-            $run->update(['status' => 'completed', 'summary' => $summary, 'completed_at' => now()]);
+            ]);
+            // Use a freshly-loaded model here. If a database JSON write fails,
+            // Eloquent keeps the failed attributes marked as dirty on $run and
+            // would otherwise also prevent the error state from being saved.
+            ServerOptimizerRun::findOrFail($run->id)->update([
+                'status' => 'completed',
+                'summary' => $summary,
+                'completed_at' => now(),
+            ]);
             foreach ($rules as $finding) $run->findings()->create($finding);
         } catch (\Throwable $exception) {
-            $run->update(['status' => 'failed', 'error' => $exception->getMessage(), 'completed_at' => now()]);
+            // Do not reuse $run: it can contain an invalid JSON summary from a
+            // failed completion write. A direct query makes every failed scan
+            // terminal and leaves its actual cause available to administrators.
+            ServerOptimizerRun::query()->whereKey($run->id)->update([
+                'status' => 'failed',
+                'error' => Str::limit($exception->getMessage() ?: $exception::class, 65535, ''),
+                'completed_at' => now(),
+            ]);
             throw $exception;
         }
         return $run->fresh('findings');
@@ -426,6 +440,17 @@ class MinecraftOptimizerService
         $this->pruneHistory($server);
 
         return $run;
+    }
+
+    /** Ensure values returned by Wings can always be stored in a MySQL JSON column. */
+    private function jsonSafe(array $value): array
+    {
+        return json_decode(
+            json_encode($value, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
     }
 
     /** Delete reports beyond the retained history for one server. */
