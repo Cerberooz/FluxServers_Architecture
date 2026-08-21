@@ -363,6 +363,10 @@ const ReportModal = ({ run, onClose }: { run: Run; onClose: () => void }) => {
         ],
     }), [samples]);
     const networkChartOptions = useMemo(() => getOptions({
+        // The report modal owns the chart height. Without this Chart.js keeps
+        // its canvas aspect ratio, which lets the rendered graph extend below
+        // the fixed-height plot area and overlap the report footer.
+        maintainAspectRatio: false,
         plugins: {
             tooltip: {
                 enabled: true,
@@ -407,7 +411,7 @@ const ReportModal = ({ run, onClose }: { run: Run; onClose: () => void }) => {
                         </div>
                     </section>
                     <section><div css={tw`flex items-end justify-between gap-3`}><div><h3 css={tw`text-base font-semibold text-neutral-100`}>Network activity</h3><p css={tw`mt-1 text-sm text-neutral-400`}>Ingress and egress captured while this report was generated.</p></div><span css={tw`text-xs text-neutral-500`}>Ingress <i css={tw`mx-1 inline-block h-2 w-2 bg-blue-500`} /> Egress <i css={tw`mx-1 inline-block h-2 w-2 bg-neutral-100`} /></span></div>
-                        <div css={tw`mt-3 h-40 border border-neutral-700 bg-neutral-900 p-3`}>
+                        <div css={tw`relative mt-3 h-40 overflow-hidden border border-neutral-700 bg-neutral-900 p-3`}>
                             {samples.length > 1 ? <Line data={networkChart} options={networkChartOptions} /> : <p css={tw`flex h-full items-center justify-center text-sm text-neutral-500`}>No network samples are available for this report.</p>}
                         </div>
                     </section>
