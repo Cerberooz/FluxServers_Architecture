@@ -194,7 +194,10 @@ class MinecraftOptimizerService
                 'general' => 60,
                 default => 120,
             };
-            foreach (range(15, $duration, 15) as $seconds) {
+            // range(15, 25, 15) throws on supported PHP versions because the
+            // step exceeds the remaining span. A bounded loop works for both
+            // the short memory profile and longer profiler runs.
+            for ($seconds = 15; $seconds <= $duration; $seconds += 15) {
                 CaptureOptimizerNetworkSampleJob::dispatch($server->id, $run->id)->delay(now()->addSeconds($seconds));
             }
             CollectSparkReportJob::dispatch($server->id, $run->id)->delay(now()->addSeconds($duration + 10));
@@ -299,15 +302,18 @@ class MinecraftOptimizerService
         }
 
         $networkRate = max($metrics['network']['ingress_bytes_per_second'] ?? 0, $metrics['network']['egress_bytes_per_second'] ?? 0);
+        // This sampler runs every minute. Automatic analysis should identify
+        // a real sustained degradation, not normal short-lived load while a
+        // server starts, saves a world, or generates chunks.
         $signals = [
-            'cpu' => ($metrics['cpu_percent'] ?? 0) >= 85,
-            'memory' => ($metrics['memory_percent'] ?? 0) >= 90,
-            'network' => $networkRate >= 20 * 1024 * 1024,
+            'cpu' => ($metrics['cpu_percent'] ?? 0) >= 92,
+            'memory' => ($metrics['memory_percent'] ?? 0) >= 95,
+            'network' => $networkRate >= 50 * 1024 * 1024,
         ];
         $extreme = [
-            'cpu' => ($metrics['cpu_percent'] ?? 0) >= 98,
+            'cpu' => ($metrics['cpu_percent'] ?? 0) >= 99,
             'memory' => ($metrics['memory_percent'] ?? 0) >= 99,
-            'network' => $networkRate >= 100 * 1024 * 1024,
+            'network' => $networkRate >= 150 * 1024 * 1024,
         ];
         $streaks = [];
         foreach ($signals as $signal => $concerning) {
@@ -317,25 +323,20 @@ class MinecraftOptimizerService
         Cache::put($cacheKey, $metrics, now()->addMinutes(10));
 
         $reasons = [];
-        if ($extreme['cpu']) $reasons[] = 'CPU usage exceeded the emergency threshold of 98%.';
-        elseif ($streaks['cpu'] >= 3) $reasons[] = 'CPU usage remained at or above 85% for three consecutive samples.';
+        if ($extreme['cpu']) $reasons[] = 'CPU usage exceeded the emergency threshold of 99%.';
+        elseif ($streaks['cpu'] >= 5) $reasons[] = 'CPU usage remained at or above 92% for five consecutive one-minute samples.';
         if ($extreme['memory']) $reasons[] = 'Memory usage exceeded the emergency threshold of 99% of the server limit.';
-        elseif ($streaks['memory'] >= 3) $reasons[] = 'Memory usage remained at or above 90% of the server limit for three consecutive samples.';
-        if ($extreme['network']) $reasons[] = 'Network traffic exceeded the emergency threshold of 100 MiB/s.';
-        elseif ($streaks['network'] >= 3) $reasons[] = 'Network traffic remained at or above 20 MiB/s for three consecutive samples.';
+        elseif ($streaks['memory'] >= 5) $reasons[] = 'Memory usage remained at or above 95% for five consecutive one-minute samples.';
+        if ($extreme['network']) $reasons[] = 'Network traffic exceeded the emergency threshold of 150 MiB/s.';
+        elseif ($streaks['network'] >= 5) $reasons[] = 'Network traffic remained at or above 50 MiB/s for five consecutive one-minute samples.';
         if (!$reasons) {
-            if (!Cache::add("optimizer:health-cooldown:{$server->id}", true, now()->addMinutes(15))) return null;
-            $plugins = $this->listDirectory($server, '/plugins');
-            $mods = $this->listDirectory($server, '/mods');
-            $version = $this->detectVersion('', $server);
-            if (($this->sparkState($server, $plugins, $mods, $version)['available'] ?? false)) {
-                return $this->startProfile($server, 'memory', true, ['reasons' => ['Routine health sample'], 'metrics' => $metrics, 'network' => $metrics['network']], false);
-            }
-
+            // A healthy server should never receive a routine automatic Spark
+            // scan. Profiles are reserved for sustained degradation or an
+            // emergency spike, while customers can still run one manually.
             return null;
         }
 
-        if (!Cache::add("optimizer:auto-cooldown:{$server->id}", true, now()->addMinutes(20))) return null;
+        if (!Cache::add("optimizer:auto-cooldown:{$server->id}", true, now()->addMinutes(60))) return null;
 
         $trigger = ['reasons' => $reasons, 'metrics' => $metrics, 'network' => $metrics['network'], 'streaks' => $streaks, 'extreme' => $extreme];
         $plugins = $this->listDirectory($server, '/plugins');
