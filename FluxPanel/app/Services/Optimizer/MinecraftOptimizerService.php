@@ -437,7 +437,14 @@ class MinecraftOptimizerService
     {
         $run = $server->optimizerRuns()->create($attributes);
 
-        $this->pruneHistory($server);
+        // History retention is housekeeping. It must never prevent a customer
+        // from starting a scan just because an older MariaDB/Laravel pairing
+        // cannot execute a cleanup query.
+        try {
+            $this->pruneHistory($server);
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
 
         return $run;
     }
@@ -461,6 +468,10 @@ class MinecraftOptimizerService
             ->where('type', '!=', 'configuration_scan')
             ->latest('id')
             ->skip(10)
+            // MariaDB does not allow a bare OFFSET. Laravel otherwise emits
+            // `... OFFSET 10`, which fails before an optimizer run can begin.
+            // The explicit upper limit is comfortably above retained history.
+            ->take(1000000)
             ->pluck('id');
         if ($oldPerformanceRunIds->isNotEmpty()) {
             ServerOptimizerRun::query()->whereIn('id', $oldPerformanceRunIds)->delete();
@@ -470,6 +481,7 @@ class MinecraftOptimizerService
             ->where('type', 'configuration_scan')
             ->latest('id')
             ->skip(1)
+            ->take(1000000)
             ->pluck('id');
         if ($oldConfigurationRunIds->isNotEmpty()) {
             ServerOptimizerRun::query()->whereIn('id', $oldConfigurationRunIds)->delete();
