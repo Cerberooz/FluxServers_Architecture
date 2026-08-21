@@ -84,8 +84,14 @@ class ModrinthPluginService
         // Loader facets in the same group are ORed by Modrinth, so a Paper server
         // can still find Bukkit and Spigot plugins where appropriate.
         $facets = json_encode([
-            ['project_type:plugin'],
-            ['server_side:required', 'server_side:optional'],
+            // Modrinth's search `project_type` represents a project's primary
+            // type and does not accept `plugin`. `all_project_types` is the
+            // documented facet that includes Bukkit/Paper plugins.
+            ['all_project_types:plugin'],
+            // `server_side` is deprecated by Modrinth. Use the current
+            // environment facet so dedicated and optional-server plugins are
+            // discoverable without accidentally returning client-only mods.
+            ['environment:server_only', 'environment:server_only_client_optional', 'environment:dedicated_server_only', 'environment:client_and_server', 'environment:client_or_server', 'environment:client_or_server_prefers_both'],
             ["versions:{$context['version']}"],
             array_map(fn (string $loader) => "categories:{$loader}", $context['loaders']),
         ]);
@@ -105,7 +111,7 @@ class ModrinthPluginService
         // Install/download still resolve the exact release server-side, so this
         // remains safe if Modrinth's search index is briefly stale.
         $projects = collect($data['hits'] ?? [])
-            ->filter(fn (array $project) => ($project['project_type'] ?? null) === 'plugin')
+            ->filter(fn (array $project) => in_array('plugin', $project['all_project_types'] ?? [], true))
             ->filter(function (array $project) use ($context) {
                 $categories = array_map('strtolower', $project['categories'] ?? []);
 

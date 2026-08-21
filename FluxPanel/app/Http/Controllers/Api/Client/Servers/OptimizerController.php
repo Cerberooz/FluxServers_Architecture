@@ -70,8 +70,41 @@ class OptimizerController extends ClientApiController
             'meta' => ['unread' => $server->optimizerRuns()->where('automatic', true)->whereNotNull('flagged_at')->whereNull('read_at')->count()],
         ]);
     }
-    public function scan(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); $run = $service->scan($server); Activity::event('server:optimizer.scan')->subject($server)->log(); return new JsonResponse(['attributes' => $run], 201); }
-    public function profile(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse { $this->mayRead($request, $server); abort_unless($request->user()->can(Permission::ACTION_CONTROL_CONSOLE, $server), 403); $mode = $request->validate(['mode' => 'required|in:general,lag_spikes,memory'])['mode']; $run = $service->startProfile($server, $mode); Activity::event('server:optimizer.profile')->subject($server)->property('mode', $mode)->log(); return new JsonResponse(['attributes' => $run], 202); }
+    public function scan(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse
+    {
+        $this->mayRead($request, $server);
+        try {
+            $run = $service->scan($server);
+        } catch (DisplayException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw new DisplayException('Fluid could not complete the configuration scan. Ensure Wings is online and the Panel database migrations are current, then try again.');
+        }
+
+        Activity::event('server:optimizer.scan')->subject($server)->log();
+
+        return new JsonResponse(['attributes' => $run], 201);
+    }
+
+    public function profile(Request $request, Server $server, MinecraftOptimizerService $service): JsonResponse
+    {
+        $this->mayRead($request, $server);
+        abort_unless($request->user()->can(Permission::ACTION_CONTROL_CONSOLE, $server), 403);
+        $mode = $request->validate(['mode' => 'required|in:general,lag_spikes,memory'])['mode'];
+        try {
+            $run = $service->startProfile($server, $mode);
+        } catch (DisplayException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            report($exception);
+            throw new DisplayException('Fluid could not start the Spark analysis. Ensure Wings is online and Spark is available, then try again.');
+        }
+
+        Activity::event('server:optimizer.profile')->subject($server)->property('mode', $mode)->log();
+
+        return new JsonResponse(['attributes' => $run], 202);
+    }
     public function updateSettings(Request $request, Server $server): JsonResponse
     {
         $this->mayRead($request, $server);
