@@ -127,7 +127,6 @@ class ModrinthPluginService
         if ($hits->count() < 12) {
             $fallbackParameters = ['facets' => json_encode([
                 ['all_project_types:plugin'],
-                $serverEnvironments,
             ]), 'limit' => 60];
             if ($query === '') {
                 $fallbackParameters['index'] = 'downloads';
