@@ -86,14 +86,17 @@ Route::group([
     Route::middleware('throttle:10,1')->delete('/subdomains/{subdomain}', [Client\Servers\SubdomainController::class, 'destroy']);
     Route::get('/optimizer', [Client\Servers\OptimizerController::class, 'index']);
     Route::get('/optimizer/notifications', [Client\Servers\OptimizerController::class, 'notifications']);
-    Route::post('/optimizer/runs/{run}/read', [Client\Servers\OptimizerController::class, 'read']);
+    // Optimizer records use numeric primary keys, while Fluid's base models
+    // normally bind routes by UUID. Explicitly bind these nested resources by
+    // id so Laravel does not try to query a nonexistent `uuid` column.
+    Route::post('/optimizer/runs/{run:id}/read', [Client\Servers\OptimizerController::class, 'read']);
     Route::middleware('throttle:5,1')->post('/optimizer/scan', [Client\Servers\OptimizerController::class, 'scan']);
     Route::middleware('throttle:3,5')->post('/optimizer/profile', [Client\Servers\OptimizerController::class, 'profile']);
     Route::post('/optimizer/settings', [Client\Servers\OptimizerController::class, 'updateSettings']);
     Route::middleware('throttle:5,10')->post('/optimizer/import', [Client\Servers\OptimizerController::class, 'import']);
-    Route::post('/optimizer/findings/{finding}/apply', [Client\Servers\OptimizerController::class, 'apply']);
-    Route::post('/optimizer/findings/{finding}/ignore', [Client\Servers\OptimizerController::class, 'ignore']);
-    Route::post('/optimizer/snapshots/{snapshot}/rollback', [Client\Servers\OptimizerController::class, 'rollback']);
+    Route::post('/optimizer/findings/{finding:id}/apply', [Client\Servers\OptimizerController::class, 'apply']);
+    Route::post('/optimizer/findings/{finding:id}/ignore', [Client\Servers\OptimizerController::class, 'ignore']);
+    Route::post('/optimizer/snapshots/{snapshot:id}/rollback', [Client\Servers\OptimizerController::class, 'rollback']);
     Route::get('/plugins/search', [Client\Servers\PluginManagerController::class, 'search']);
     Route::get('/plugins/installed', [Client\Servers\PluginManagerController::class, 'installed']);
     Route::get('/plugins/projects/{project}/dependencies', [Client\Servers\PluginManagerController::class, 'dependencies']);
