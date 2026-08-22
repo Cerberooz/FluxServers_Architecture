@@ -998,7 +998,7 @@
             <form action="/admin/add-referral" method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="text" name="code" placeholder="Code (e.g. test)" required>
-                <input type="text" name="target_url" placeholder="Target URL (e.g. /minecraft)" required>
+                <input type="text" name="target_url" placeholder="Target URL (e.g. /minecraft or https://example.com)" required>
                 <button type="submit" class="btn-action btn-primary-admin" style="width: 100%;">Create Referral</button>
                 <button type="button" class="btn-action btn-danger" style="width: 100%; margin-top: 10px;" onclick="closeModal('add-referral-modal')">Cancel</button>
             </form>

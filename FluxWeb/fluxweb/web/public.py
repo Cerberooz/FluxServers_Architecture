@@ -8,6 +8,7 @@ from flask import Blueprint, redirect, render_template, url_for
 
 from fluxweb.extensions import db, limiter
 from fluxweb.models import FAQ, GamePlan, MaintenanceUpdate, PlanCategory, ReferralCode, ServiceStatus
+from fluxweb.web.helpers import safe_redirect_target
 
 bp = Blueprint("public", __name__)
 
@@ -136,4 +137,4 @@ def referral_redirect(code: str):
     parsed = urlparse(ref.target_url or "")
     if parsed.scheme in {"http", "https"} and parsed.netloc:
         return redirect(ref.target_url)
-    return redirect(url_for("public.index"))
+    return redirect(safe_redirect_target(ref.target_url))

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import pytest
 
+from fluxweb.models import ReferralCode
+
 # Every path the pre-refactor application served.
 LEGACY_PATHS = [
     "/",
@@ -126,6 +128,41 @@ class TestAccessControl:
     def test_checker_is_no_longer_public(self, client):
         """H-17: this used to be an unauthenticated upload endpoint."""
         assert client.get("/checker").status_code == 302
+
+
+class TestReferrals:
+    def _make_admin(self, db, user):
+        user.is_admin = True
+        db.session.commit()
+
+    def test_admin_can_create_a_local_referral_link(self, client, db, user, login):
+        self._make_admin(db, user)
+        login(user)
+
+        response = client.post("/admin/add-referral", data={"code": "minecraft", "target_url": "/minecraft"})
+
+        assert response.status_code == 302
+        referral = ReferralCode.query.filter_by(code="minecraft").one()
+        assert referral.target_url == "/minecraft"
+
+        redirect_response = client.get("/r/minecraft")
+        assert redirect_response.status_code == 302
+        assert redirect_response.headers["Location"].endswith("/minecraft")
+        assert ReferralCode.query.filter_by(code="minecraft").one().clicks == 1
+
+    def test_admin_gets_a_clear_error_for_duplicate_referral_codes(self, client, db, user, login):
+        self._make_admin(db, user)
+        login(user)
+        db.session.add(ReferralCode(code="existing", target_url="/minecraft"))
+        db.session.commit()
+
+        response = client.post(
+            "/admin/add-referral",
+            data={"code": "existing", "target_url": "/hytale"},
+            follow_redirects=True,
+        )
+
+        assert b"That referral code already exists." in response.data
 
 
 class TestSupabaseEmailRoutes:

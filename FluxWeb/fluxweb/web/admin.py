@@ -14,6 +14,7 @@ import math
 import os
 import re
 from types import SimpleNamespace
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -27,6 +28,8 @@ from flask import (
 )
 
 from fluxweb.errors import ConfigurationError, PanelError
+from sqlalchemy.exc import IntegrityError
+
 from fluxweb.extensions import db
 from fluxweb.integrations.fluid import get_fluid_client
 from fluxweb.models import (
@@ -1604,21 +1607,40 @@ def admin_delete_server(server_id: int):
 @bp.route("/add-referral", methods=["POST"])
 @admin_required
 def admin_add_referral():
-    from urllib.parse import urlparse
-
     code = (request.form.get("code") or "").strip()
     target = (request.form.get("target_url") or "").strip()
     parsed = urlparse(target)
 
     if not code or not target:
         flash("Both a code and a target URL are required.", "error")
-    elif parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        flash("Target URL must be an absolute http(s) address.", "error")
+    elif not re.fullmatch(r"[A-Za-z0-9_-]{1,50}", code):
+        flash("Code may only contain letters, numbers, hyphens, and underscores.", "error")
+    elif target.startswith("//") or "\\" in target or any(ch in target for ch in "\r\n\t"):
+        flash("Target URL is not valid.", "error")
+    elif parsed.scheme or parsed.netloc:
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            flash("Target URL must be a local path such as /minecraft or an absolute http(s) URL.", "error")
+        else:
+            try:
+                db.session.add(ReferralCode(code=code, target_url=target))
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash("That referral code already exists.", "error")
+            else:
+                flash("Referral code added!", "success")
+    elif not target.startswith("/"):
+        flash("Target URL must be a local path such as /minecraft or an absolute http(s) URL.", "error")
     else:
-        db.session.add(ReferralCode(code=code, target_url=target))
-        db.session.commit()
-        flash("Referral code added!", "success")
-    return redirect(url_for("admin.admin_dashboard"))
+        try:
+            db.session.add(ReferralCode(code=code, target_url=target))
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            flash("That referral code already exists.", "error")
+        else:
+            flash("Referral code added!", "success")
+    return redirect(url_for("admin.admin_dashboard", tab="referrals"))
 
 
 @bp.route("/delete-referral/<int:ref_id>", methods=["POST"])
@@ -1629,4 +1651,4 @@ def admin_delete_referral(ref_id: int):
         db.session.delete(ref)
         db.session.commit()
         flash("Referral code deleted!", "success")
-    return redirect(url_for("admin.admin_dashboard"))
+    return redirect(url_for("admin.admin_dashboard", tab="referrals"))
