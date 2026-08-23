@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Pterodactyl\Models\Allocation;
 use Illuminate\Support\Facades\Log;
 use Pterodactyl\Models\ServerTransfer;
+use Pterodactyl\Jobs\Servers\CreatePostTransferBackupJob;
 use Illuminate\Database\ConnectionInterface;
 use Pterodactyl\Http\Controllers\Controller;
 use Pterodactyl\Exceptions\Http\HttpForbiddenException;
@@ -103,8 +104,12 @@ class ServerTransferController extends Controller
                 ->setNode($transfer->oldNode)
                 ->delete();
         } catch (DaemonConnectionException $exception) {
-            Log::warning($exception, ['transfer_id' => $server->transfer->id]);
+            Log::warning($exception, ['transfer_id' => $transfer->id]);
         }
+
+        // The transfer is complete at this point. Create a separate archive on
+        // the destination node without touching any source-node backups.
+        CreatePostTransferBackupJob::dispatch($server->id, $transfer->id);
 
         return new JsonResponse([], Response::HTTP_NO_CONTENT);
     }

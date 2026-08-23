@@ -2,10 +2,12 @@
 
 namespace Pterodactyl\Tests\Integration\Api\Remote;
 
+use Illuminate\Support\Facades\Queue;
 use Pterodactyl\Models\Node;
 use Pterodactyl\Models\Location;
 use Pterodactyl\Models\Allocation;
 use Pterodactyl\Models\ServerTransfer;
+use Pterodactyl\Jobs\Servers\CreatePostTransferBackupJob;
 use Pterodactyl\Tests\Integration\IntegrationTestCase;
 
 class ServerTransferControllerTest extends IntegrationTestCase
@@ -33,6 +35,8 @@ class ServerTransferControllerTest extends IntegrationTestCase
 
     public function testSuccessStatusUpdateCanBeSentFromNewNode(): void
     {
+        Queue::fake();
+
         $server = $this->transfer->server;
         $newNode = $this->transfer->newNode;
 
@@ -42,6 +46,9 @@ class ServerTransferControllerTest extends IntegrationTestCase
             ->assertNoContent();
 
         $this->assertTrue($this->transfer->refresh()->successful);
+        Queue::assertPushed(CreatePostTransferBackupJob::class, function (CreatePostTransferBackupJob $job) use ($server) {
+            return $job->serverId === $server->id && $job->transferId === $this->transfer->id;
+        });
     }
 
     public function testFailureStatusUpdateCanBeSentFromOldNode(): void
