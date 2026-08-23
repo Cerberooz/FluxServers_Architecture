@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 /**
  * @property int $id
  * @property int $server_id
+ * @property int|null $node_id
  * @property string $uuid
  * @property bool $is_successful
  * @property bool $is_locked
@@ -46,6 +47,7 @@ class Backup extends Model implements Identifiable
 
     protected $casts = [
         'id' => 'int',
+        'node_id' => 'int',
         'is_successful' => 'bool',
         'is_locked' => 'bool',
         'ignored_files' => 'array',
@@ -65,6 +67,7 @@ class Backup extends Model implements Identifiable
 
     public static array $validationRules = [
         'server_id' => 'bail|required|numeric|exists:servers,id',
+        'node_id' => 'nullable|numeric|exists:nodes,id',
         'uuid' => 'required|uuid',
         'is_successful' => 'boolean',
         'is_locked' => 'boolean',
@@ -82,5 +85,37 @@ class Backup extends Model implements Identifiable
     public function server(): BelongsTo
     {
         return $this->belongsTo(Server::class);
+    }
+
+    /**
+     * Wings backups live on the node that created them. Unlike S3 backups, Wings
+     * cannot restore or download an archive after the server has moved to another
+     * node. A missing node id is treated as unavailable so legacy records cannot
+     * accidentally trigger a destructive restore on a different node.
+     */
+    public function availabilityReasonForNode(?int $nodeId): ?string
+    {
+        if ($this->disk === self::ADAPTER_AWS_S3) {
+            return null;
+        }
+
+        if ($this->disk !== self::ADAPTER_WINGS) {
+            return 'This backup uses an unsupported storage adapter and cannot be restored safely.';
+        }
+
+        if (is_null($this->node_id)) {
+            return 'This node-local backup was created before its source node was recorded and cannot be restored safely.';
+        }
+
+        if (is_null($nodeId) || $this->node_id !== $nodeId) {
+            return 'This node-local backup is stored on a different node and cannot be restored or downloaded from this server.';
+        }
+
+        return null;
+    }
+
+    public function isAvailableOnNode(?int $nodeId): bool
+    {
+        return is_null($this->availabilityReasonForNode($nodeId));
     }
 }

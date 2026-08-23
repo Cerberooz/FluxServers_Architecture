@@ -174,18 +174,26 @@ export default ({ backup }: Props) => {
                     )}
                 >
                     <div css={tw`text-sm`}>
-                        <Can action={'backup.download'}>
-                            <DropdownButtonRow onClick={doDownload}>
-                                <FontAwesomeIcon fixedWidth icon={faCloudDownloadAlt} css={tw`text-xs`} />
-                                <span css={tw`ml-2`}>Download</span>
-                            </DropdownButtonRow>
-                        </Can>
-                        <Can action={'backup.restore'}>
-                            <DropdownButtonRow onClick={() => setModal('restore')}>
-                                <FontAwesomeIcon fixedWidth icon={faBoxOpen} css={tw`text-xs`} />
-                                <span css={tw`ml-2`}>Restore</span>
-                            </DropdownButtonRow>
-                        </Can>
+                        {backup.isAvailableOnCurrentNode ? (
+                            <>
+                                <Can action={'backup.download'}>
+                                    <DropdownButtonRow onClick={doDownload}>
+                                        <FontAwesomeIcon fixedWidth icon={faCloudDownloadAlt} css={tw`text-xs`} />
+                                        <span css={tw`ml-2`}>Download</span>
+                                    </DropdownButtonRow>
+                                </Can>
+                                <Can action={'backup.restore'}>
+                                    <DropdownButtonRow onClick={() => setModal('restore')}>
+                                        <FontAwesomeIcon fixedWidth icon={faBoxOpen} css={tw`text-xs`} />
+                                        <span css={tw`ml-2`}>Restore</span>
+                                    </DropdownButtonRow>
+                                </Can>
+                            </>
+                        ) : (
+                            <p css={tw`px-3 py-2 text-xs text-yellow-500 leading-relaxed`}>
+                                {backup.availabilityReason}
+                            </p>
+                        )}
                         <Can action={'backup.delete'}>
                             <>
                                 <DropdownButtonRow onClick={onLockToggle}>

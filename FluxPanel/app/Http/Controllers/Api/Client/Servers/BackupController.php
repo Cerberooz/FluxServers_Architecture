@@ -174,6 +174,10 @@ class BackupController extends ClientApiController
             throw new BadRequestHttpException('The backup requested references an unknown disk driver type and cannot be downloaded.');
         }
 
+        if (!$backup->isAvailableOnNode($server->node_id)) {
+            throw new BadRequestHttpException($backup->availabilityReasonForNode($server->node_id));
+        }
+
         $url = $this->downloadLinkService->handle($backup, $request->user());
 
         Activity::event('server:backup.download')->subject($backup)->property('name', $backup->name)->log();
@@ -205,6 +209,12 @@ class BackupController extends ClientApiController
 
         if (!$backup->is_successful || is_null($backup->completed_at)) {
             throw new BadRequestHttpException('This backup cannot be restored at this time: not completed or failed.');
+        }
+
+        // Do this before changing the server state or asking Wings to truncate files.
+        // Wings-local archives cannot follow a server to a different node.
+        if (!$backup->isAvailableOnNode($server->node_id)) {
+            throw new BadRequestHttpException($backup->availabilityReasonForNode($server->node_id));
         }
 
         $log = Activity::event('server:backup.restore')

@@ -90,6 +90,10 @@ class ServerTransferController extends Controller
 
         $this->alert->success(trans('admin/server.alerts.transfer_started'))->flash();
 
+        if ($server->backups()->where('disk', \Pterodactyl\Models\Backup::ADAPTER_WINGS)->exists()) {
+            $this->alert->warning('Wings-local backups are not copied during a node transfer. They will be preserved as records but cannot be restored on the destination node. Use shared S3-compatible backup storage for portable backups.')->flash();
+        }
+
         return redirect()->route('admin.servers.view.manage', $server->id);
     }
 

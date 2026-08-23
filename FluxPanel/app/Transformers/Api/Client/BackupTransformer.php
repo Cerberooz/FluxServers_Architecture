@@ -13,6 +13,9 @@ class BackupTransformer extends BaseClientTransformer
 
     public function transform(Backup $backup): array
     {
+        $nodeId = $backup->server?->node_id;
+        $availabilityReason = $backup->availabilityReasonForNode($nodeId);
+
         return [
             'uuid' => $backup->uuid,
             'is_successful' => $backup->is_successful,
@@ -23,6 +26,8 @@ class BackupTransformer extends BaseClientTransformer
             'bytes' => $backup->bytes,
             'created_at' => $backup->created_at->toAtomString(),
             'completed_at' => $backup->completed_at ? $backup->completed_at->toAtomString() : null,
+            'is_available_on_current_node' => is_null($availabilityReason),
+            'availability_reason' => $availabilityReason,
         ];
     }
 }

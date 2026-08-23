@@ -65,6 +65,8 @@ export const rawDataToServerBackup = ({ attributes }: FractalResponseData): Serv
     bytes: attributes.bytes,
     createdAt: new Date(attributes.created_at),
     completedAt: attributes.completed_at ? new Date(attributes.completed_at) : null,
+    isAvailableOnCurrentNode: attributes.is_available_on_current_node,
+    availabilityReason: attributes.availability_reason,
 });
 
 export const rawDataToServerEggVariable = ({ attributes }: FractalResponseData): ServerEggVariable => ({

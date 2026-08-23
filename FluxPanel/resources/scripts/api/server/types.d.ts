@@ -16,6 +16,8 @@ export interface ServerBackup {
     bytes: number;
     createdAt: Date;
     completedAt: Date | null;
+    isAvailableOnCurrentNode: boolean;
+    availabilityReason: string | null;
 }
 
 export interface ServerEggVariable {

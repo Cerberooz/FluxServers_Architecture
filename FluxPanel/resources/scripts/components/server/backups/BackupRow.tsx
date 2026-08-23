@@ -78,6 +78,11 @@ export default ({ backup, className }: Props) => {
                         )}
                     </div>
                     <p css={tw`mt-1 md:mt-0 text-xs text-neutral-400 font-mono truncate`}>{backup.checksum}</p>
+                    {!backup.isAvailableOnCurrentNode && backup.isSuccessful && (
+                        <p css={tw`mt-1 text-xs text-yellow-500`}>
+                            Unavailable on this node — no files will be deleted.
+                        </p>
+                    )}
                 </div>
             </div>
             <div css={tw`flex-1 md:flex-none md:w-48 mt-4 md:mt-0 md:ml-8 md:text-center`}>
